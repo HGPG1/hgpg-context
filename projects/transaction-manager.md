@@ -1,0 +1,26 @@
+# Transaction Manager
+
+- **URL:** closings.homegrownpropertygroup.com
+- **Repo:** HGPG1/hgpg-transaction-manager
+- **Supabase ID + PIN:** in memory (Supabase shared with TC Concierge)
+- **Stack:** Next.js + Supabase + Tailwind
+- **Local path:** `~/Projects/hgpg-transaction-manager`
+- **Claude Code launch:** `cd ~/Projects && claude --dangerously-skip-permissions`
+
+## Architecture
+
+- Architecture doc has full ListedKit data model + ReZEN SC buyer & NC seller checklists.
+- **TC Concierge = intake; Transaction Manager = lifecycle.**
+
+## Open items (from April sessions)
+
+- Verify closing date fix
+- **Resolve Sherlock 403** (likely API key scope issue)
+- **NC office routing:** Swap to NC office ID (in memory) when `txn.state === 'NC'`
+- Flip `transaction-pdfs` bucket to **signed URLs**
+- Lamington duplicate cleanup
+
+## ReZEN APIs
+
+- **Arrakis:** `arrakis.therealbrokerage.com/api/v1` - uses `X-API-KEY` header
+- **Sherlock:** Returning 403 (open issue)
