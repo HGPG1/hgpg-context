@@ -1,3 +1,17 @@
+## 2026-05-05 — Outstanding list cleanup: Twilio A2P killed, MLS Grid token in hand
+
+Two parked items resolved as no-longer-relevant or unblocked:
+
+### Twilio A2P 10DLC — DEAD, do not resurrect
+Twilio is fully deprecated for HGPG (memory line: "Twilio/A2P fully deprecated and removed from HGPG stack 2026-04. iMessage via LoopMessage is the only TM messaging path."). The TCR-rejected campaign that was blocked on adding SMS consent checkboxes is no longer relevant — there is no Twilio-based SMS path to resubmit to. Stop tracking. Future "do we need SMS for X" decisions are independent.
+
+### MLS Grid token — RECEIVED, CMA tool unblocked
+Canopy MLS Grid token from Bridgett Bouvier is in hand. The MLS Grid → Supabase replication built 2026-04-29 (HGPG1/hgpg-cma-tool, branch mls-grid-sync, 9 tables in wdheejgmrqzqxvgjvfee, cron */15) is no longer blocked on the API token. CMA Engine searchComps() in lib/mls/compSearch.ts can now run against live MLS data.
+
+Open subitem: confirm token is wired into the right Vercel env var on hgpg-cma-tool project. Also worth confirming the cron is firing successfully now that auth is live (next session).
+
+---
+
 ## 2026-05-05 — Sellers Guide FUB API key swapped from placeholder to real
 
 charlotte-sellers-guide-vercel had FUB_API_KEY env var set to fka_PLACEHOLDER. Code at api/fub-lead.js and api/assessment/submit-ratings.js reads process.env.FUB_API_KEY and posts to api.followupboss.com/v1/events when set.
