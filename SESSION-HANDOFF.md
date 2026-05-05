@@ -1,3 +1,26 @@
+## 2026-05-05 — Team Tools auth restored
+
+Team Tools (tools.homegrownpropertygroup.com) was bricked since 2026-05-04 when Supabase project nfwjgsanvmwmrginhklz was deleted during Suna teardown. The dead URL was hardcoded in src/lib/supabase.ts.
+
+Fix shipped today (commit d93befe on HGPG1/hgpg-team-tools2):
+- Refactored src/lib/supabase.ts to read VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY from env vars
+- Pointed at primary Supabase ioypqogunwsoucgsnmla
+- Created agent_profiles table with RLS policies
+- Created Google Cloud project HGPG Team Tools (project number 429376800551)
+- Set OAuth consent screen to Internal (Workspace-only enforcement)
+- Created OAuth Web Client, wired into Supabase Google provider
+- Set Site URL and Redirect URLs in Supabase auth config
+- Added VITE_* env vars to Vercel project hgpg-team-tools2
+- Forced no-cache rebuild to bust stale build cache (initial redeploy served old hardcoded URL)
+
+Auth verified end-to-end with @homegrownpropertygroup.com Workspace account. Personal Gmail correctly rejected at Google layer.
+
+Repo was archived during the Suna cleanup; unarchived as part of this fix.
+
+See projects/team-tools.md for the canonical reference.
+
+---
+
 # SESSION-HANDOFF
 
 **Last session:** 2026-05-05 (afternoon)
