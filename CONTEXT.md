@@ -34,6 +34,8 @@ See `team.md` for full roster.
 - Buyers guide migration from Manus to React + Vite
 - Sellers guide rebrand to brand colors
 - FUB AI Agent + Texting Integration on Manus decommissioned. Specs preserved at `archive/fub-agent-handoff.md` for the planned rebuild at `leads.homegrownpropertygroup.com`
+- Railway fully decommissioned — Suna and FUB AI Agent both deleted, plan cancelled, recurring charge eliminated
+- GitHub repo `HGPG1/fub-ai-agent` archived (read-only)
 
 ## Known blockers / pending
 
