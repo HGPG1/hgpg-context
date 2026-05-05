@@ -33,6 +33,7 @@ See `team.md` for full roster.
 - Main site SEO push (mobile PageSpeed 96/100)
 - Buyers guide migration from Manus to React + Vite
 - Sellers guide rebrand to brand colors
+- FUB AI Agent + Texting Integration on Manus decommissioned. Specs preserved at `archive/fub-agent-handoff.md` for the planned rebuild at `leads.homegrownpropertygroup.com`
 
 ## Known blockers / pending
 
@@ -42,6 +43,8 @@ See `SESSION-HANDOFF.md` for current scratchpad.
 - .net Google Workspace migration to .com (do not proactively remind)
 - `charlotte-sellers-guide-vercel` vs `charlotte-sellers-guide-2026` — pick canonical, archive the other
 - Cruft Vercel projects to clean up: `adoring-wilbur`, `project-lisqf`, `listing-report-deploy`
+- `tools.homegrownpropertygroup.com` (Team Tools) — auth broken after Suna Supabase deletion. Source in private repo `HGPG1/hgpg-team-tools2`. Needs migration to primary Supabase (`ioypqogunwsoucgsnmla`) + Google OAuth setup
+- FUB lead automation rebuild — planned at `leads.homegrownpropertygroup.com`. Spec in `archive/fub-agent-handoff.md`
 
 ## Where to look next
 
@@ -54,3 +57,4 @@ See `SESSION-HANDOFF.md` for current scratchpad.
 | Meta Ads, lead re-engagement | `marketing.md` |
 | Session protocol, formatting, iMessage | `operations.md` |
 | Specific project state | `projects/<name>.md` |
+| Decommissioned project specs | `archive/<name>.md` |
