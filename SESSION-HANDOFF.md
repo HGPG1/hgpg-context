@@ -1,3 +1,37 @@
+## 2026-05-05 — hgpg-transaction-monitor cleanup PARKED. Read before resuming.
+
+Attempted teardown of remaining hgpg-transaction-monitor remnants today. Aborted before completion after a near-miss on tc-concierge (the LIVE system Don uses).
+
+What happened:
+- Brain notes said hgpg-transaction-monitor was decommissioned 2026-04-29 with cleanup pending on Vercel project + Apps Script + DNS
+- During DNS cleanup, accidentally deleted both transactions.homegrownpropertygroup.com AND tc.homegrownpropertygroup.com records at GoDaddy
+- tc.homegrownpropertygroup.com is the LLM proxy that the hourly tc-concierge Apps Script (in closings@ Google account) hits to send PDFs through Claude Haiku — ~44 emails/day, 100% extraction success
+- Re-added tc DNS record immediately, verified via Cloudflare resolver. Production pipeline restored.
+- Local Mac DNS cache stayed stale for an extended window (negative-cache stubborn), but Google DNS resolved fine the whole time, so Apps Script production was unaffected
+- transactions.homegrownpropertygroup.com left without DNS for a brief window then re-added (decision pending whether to keep or kill)
+
+Critical lesson:
+- Brain notes about decommissioned services may be stale or wrong. Closing Concierge was supposedly "503/down" per brain — turned out to be serving a live landing page. hgpg-transaction-monitor may have similar surprises.
+- Before doing ANY DNS deletion at GoDaddy, double-check the subdomain you are targeting. Adjacent records in alphabetical order can be confused (tc and transactions sit close enough to slip).
+
+Status of hgpg-transaction-monitor remnants:
+- GitHub repo HGPG1/hgpg-transaction-monitor: archived (already done 2026-04-29)
+- Supabase data: archived in-place as _archived_transaction_emails_2026_04_29 in wdheejgmrqzqxvgjvfee (already done 2026-04-29)
+- Vercel project: STILL LIVE, NOT TOUCHED
+- Apps Script in closings@: STILL LIVE, NOT TOUCHED
+- DNS for transactions.homegrownpropertygroup.com: re-added, still resolving to Vercel
+
+Next-session checklist before resuming this teardown:
+1. Confirm Vercel project name matches (likely `hgpg-transaction-monitor`) — do NOT assume
+2. Click into that Vercel project's domains list and confirm it lists transactions.homegrownpropertygroup.com (not anything else live)
+3. Pull build logs to confirm no recent deploys / no recent traffic
+4. Check the closings@ Apps Script trigger list — confirm there's nothing the closings inbox needs from that script
+5. ONLY THEN: delete Vercel project, delete Apps Script, delete DNS
+
+Estimated cost of leaving it as-is: ~$0/month (idle Vercel project, idle Apps Script). Cleanup is cosmetic, not financial. Low priority.
+
+---
+
 ## 2026-05-05 — Closing Concierge standalone fully decommissioned
 
 Closing Concierge standalone (concierge.homegrownpropertygroup.com) torn down. Superseded by TM-integrated concierge auto-trigger (commit 1fd2d02 from 2026-04-25).
