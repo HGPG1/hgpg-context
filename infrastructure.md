@@ -34,7 +34,7 @@ Project IDs in memory and Tech & Builds project instructions.
 | cma.homegrownpropertygroup.com | CMA Engine | hgpg-cma-tool |
 | closings.homegrownpropertygroup.com | Transaction Manager | hgpg-transaction-manager |
 | tc.homegrownpropertygroup.com | TC Concierge | tc-concierge |
-| reports.homegrownpropertygroup.com | Listing Report Portal | listing-report-deploy |
+| reports.homegrownpropertygroup.com | Listing Report Portal | hgpg-listing-report (Vercel project named `listing-report-deploy`) |
 | marketinganalyzer.homegrownpropertygroup.com | Property Marketing Analyzer | hgpg-property-analyzer |
 | calls.homegrownpropertygroup.com | Call script tool | hgpg-call-script |
 | buyersguide.homegrownpropertygroup.com | Buyers Guide (React + Vite) | charlotte-buyers-guide |
