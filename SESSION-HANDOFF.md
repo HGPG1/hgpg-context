@@ -1,3 +1,24 @@
+## 2026-05-05 — Closing Concierge standalone fully decommissioned
+
+Closing Concierge standalone (concierge.homegrownpropertygroup.com) torn down. Superseded by TM-integrated concierge auto-trigger (commit 1fd2d02 from 2026-04-25).
+
+Pre-teardown verification:
+- Supabase API logs: zero hits in last 24hr
+- Supabase postgres logs: only Supabase mgmt-api connections, zero application connections
+- TM grep: no references to the standalone domain or repo
+- Only data was 1 test row (123 main st, Brian as agent, dated April 1)
+
+Teardown completed:
+- Schema archived to docs/closing-concierge-schema-archive.md (commit 5f4020d) before deletion
+- DNS for concierge.homegrownpropertygroup.com removed (Brian, GoDaddy)
+- Supabase project mvhyurdomejzdfigmyuk deleted (Brian, dashboard)
+- GitHub repo HGPG1/closing-concierge archived (gh CLI)
+- Vercel project deleted (Brian, dashboard)
+
+If TM concierge ever needs richer device/utility/move-in detail capture, the schema reference at docs/closing-concierge-schema-archive.md has the jsonb shapes (smart_devices, keypad_locks, utilities, garage_access, mail_forwarding) that worked.
+
+---
+
 ## 2026-05-05 — GitHub PAT cleanup
 
 Old PAT (ghp_y2iuUY...) had been embedded in origin URLs of three local repos:
