@@ -1,3 +1,24 @@
+## 2026-05-05 — Sellers Guide FUB API key swapped from placeholder to real
+
+charlotte-sellers-guide-vercel had FUB_API_KEY env var set to fka_PLACEHOLDER. Code at api/fub-lead.js and api/assessment/submit-ratings.js reads process.env.FUB_API_KEY and posts to api.followupboss.com/v1/events when set.
+
+Action taken:
+- Generated new FUB API key in app.followupboss.com/2/api named "Sellers Guide - 2026-05"
+- Updated FUB_API_KEY env var in Vercel project charlotte-sellers-guide-vercel (Production, Preview, Development)
+- Redeployed
+- Verified end-to-end: completed full sellers guide assessment flow, lead landed in FUB
+
+Operational note for future debugging:
+- /api/verification/send-code and /api/assessment/create do NOT call FUB
+- Only /api/assessment/submit-ratings (the final step in the flow) posts to FUB
+- A submit that stops mid-flow will NOT show in FUB even if everything else is configured correctly
+
+Per-project FUB key strategy: each Vercel project gets its own scoped FUB API key for cleaner audit/rotation. Currently:
+- charlotte-new-construction-nextjs: rotated 2026-05-05 to its own key
+- charlotte-sellers-guide-vercel: new key 2026-05-05 (this commit)
+
+---
+
 ## 2026-05-05 — hgpg-transaction-monitor cleanup PARKED. Read before resuming.
 
 Attempted teardown of remaining hgpg-transaction-monitor remnants today. Aborted before completion after a near-miss on tc-concierge (the LIVE system Don uses).
