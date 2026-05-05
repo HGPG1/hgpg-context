@@ -1,3 +1,19 @@
+## 2026-05-05 — Correction: MLS Grid replication is fully live, not just unblocked
+
+Earlier today I logged the MLS Grid token as "in hand, CMA tool unblocked" and queued wiring + cron verification for next session. That was wrong — the system is already live and has been running.
+
+Current verified state of MLS Grid replication on Supabase wdheejgmrqzqxvgjvfee:
+- mls_property: 2,573,569 rows
+- mls_sync_state: cron */15 firing successfully on Property, Member, Office, OpenHouse (all status=success, last_run_at within 15 min of check)
+- Media: status=never_run, gated separately or not yet triggered (worth checking next session if media is needed for CMA packets)
+
+The token, the env vars, and the cron are all wired and operational. CMA Engine searchComps() in lib/mls/compSearch.ts can be exercised against live data right now.
+
+Open follow-up only:
+- Verify Media resource is intentionally not running, or kick it off if it should be
+
+---
+
 ## 2026-05-05 — Outstanding list cleanup: Twilio A2P killed, MLS Grid token in hand
 
 Two parked items resolved as no-longer-relevant or unblocked:
