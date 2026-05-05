@@ -1,3 +1,26 @@
+## 2026-05-05 — GitHub PAT cleanup
+
+Old PAT (ghp_y2iuUY...) had been embedded in origin URLs of three local repos:
+- charlotte-sellers-guide-vercel
+- hgpg-cma-tool
+- nyc-to-charlotte-relocation
+
+Audited all local repos for PAT references. Confirmed:
+- No tracked code files reference any GitHub PAT
+- The three repos above were the only ones with PAT-in-URL
+- gh CLI keyring auth (Keychain) is doing all the actual work
+
+Action taken:
+- Stripped PAT from origin URLs of those three repos using `git remote set-url`
+- Verified fetches work via gh CLI keyring without prompting
+- Confirmed old PAT was already revoked at github.com/settings/tokens (was orphaned, no longer existed)
+
+Result: no PATs in use anywhere. gh CLI on Mac Mini + iMac handles all GitHub auth via macOS Keychain.
+
+Project instructions in Claude still list the revoked PAT — Brian to update manually in project settings.
+
+---
+
 ## 2026-05-05 — Team Tools auth restored
 
 Team Tools (tools.homegrownpropertygroup.com) was bricked since 2026-05-04 when Supabase project nfwjgsanvmwmrginhklz was deleted during Suna teardown. The dead URL was hardcoded in src/lib/supabase.ts.
