@@ -1,104 +1,53 @@
-# SESSION HANDOFF — Next TM Session
+<!-- Last Updated: 2026-05-06 -->
 
-_Last updated: 2026-04-24 after Chunk 5 ship day_
+# Session Handoff
 
-## Next session objective
+## Last session: 2026-05-06 — Brain App MVP shipped 🟢
 
-Knock out three items in one Claude Code session on the home iMac:
+### What got built
+- New Vercel project: `brain-app` on team `team_FietQPKCmnyioG2n0FdteQCV`
+- New repo: `HGPG1/brain-app` (private)
+- Live at: `https://brain.homegrownpropertygroup.com`
+- Stack: Next.js 16.2.4, Tailwind v4, CodeMirror 6, Supabase Auth (magic link)
+- Single-user lock: `BRIAN_EMAIL=brian@homegrownpropertygroup.com` allow-list
+- GitHub auth: fine-grained PAT scoped to `HGPG1/hgpg-context`, contents:write only
+- Round-trip verified: edit file in browser → commit lands on `main` with author `brian@homegrownpropertygroup.com`
 
-1. **Nag cron** — detect transactions `under_contract` for 24h+ with missing `loop_group_id` or `loop_client_group_id`, ping Brian+Don via iMessage
-2. **Notification copy tuning** — split every milestone template into `clientCopy` vs `proCopy`; client group hears celebrations + status, pro group hears logistics + handoffs
-3. **Email-to-transaction promote UI** — button on staged email list that pre-fills `/transactions/new` from the selected `transaction_emails` row
+### Infra changes that affect other apps
+- Resend custom SMTP wired into `HGPG Core` Supabase (project `ioypqogunwsoucgsnmla`)
+  - Sender: `noreply@homegrownpropertygroup.com`, name: HGPG
+  - API key stored under "Supabase HGPG Core" in Resend
+  - Rate limit went from 2/hr (Supabase default) to 30/hr (Resend default), can be raised
+  - This affects ALL apps using this Supabase: TM, CMA, TC Concierge, brain-app
+- Supabase project renames for hygiene:
+  - `ioypqogunwsoucgsnmla` → "HGPG Core"
+  - `ngdrliyjtqcwhhfrbxao` → "HGPG FUB Integration" (verify)
+  - `wdheejgmrqzqxvgjvfee` → "HGPG Listing Reports + MLS" (verify)
+  - `fkxgdqfnowskflgbuxhm` → "HGPG Signature + Relocation" (verify)
+- Supabase `HGPG Core` redirect URLs added:
+  - `https://brain.homegrownpropertygroup.com/**`
+  - `http://localhost:3000/**`
+  - (Existing tools.hgpg entries left intact)
 
-Estimated total: 2-3 hours. Work in the order above (smallest → largest surface area).
+### Bugs found and fixed mid-session
+- Magic link redirected to `tools.homegrownpropertygroup.com` (Supabase Site URL fallback) — fixed by adding `/auth/callback` route handler that was missing from initial scaffold + pointing `emailRedirectTo` at it
+- Supabase free SMTP rate limit (2/hr) hit during testing — fixed permanently by switching to Resend custom SMTP
 
-## Prereqs — run these BEFORE starting Claude Code
+### Project status updates
+- `projects/brain-app.md` — status now 🟢 SHIPPED (was 🟡)
+- `projects/hgpg-team-tools2.md` — Site URL in Supabase still points here for the broken app's eventual fix
+- `projects/transaction-manager.md` — no changes today, but TM benefits from Resend SMTP upgrade
 
-```bash
-# 1) Sync local main
-cd ~/Developer/hgpg-transaction-manager
-git checkout main
-git pull
+### Deferred / Phase 2 for brain-app
+- iPhone smoke test (CodeMirror + iOS soft keyboard scroll behavior)
+- Cooper Hewitt self-hosted (currently falling back to system sans)
+- File rename and delete
+- Diff view before save
+- Cross-file search
 
-# 2) Refresh env vars in case anything drifted
-vercel env pull .env.local
-
-# 3) Verify build is clean before touching anything
-npm run build
-```
-
-If `npm run build` fails, stop and diagnose before letting Code loose — don't start a build-loop session on a broken base.
-
-## Test data (already live, use these)
-
-- **Test Harbor** — `cf299082-52a3-42ce-8b8f-41bad5993be9` — under_contract, both groups attached
-- **Magnolia** — `15d83bd2-3c22-44d2-a427-18368713beb3` — fell_through (still useful for edge case tests)
-- **Apps Script staging** — `transaction_emails` table has real rows from the MIME walker rescues; good fodder for promote UI testing
-
-## Claude Code mode recommendation
-
-- **#1 nag cron** + **#2 copy tuning**: `claude --dangerously-skip-permissions` is fine — bounded scope, pure file edits
-- **#3 promote UI**: stay in approval mode — touches intake form + new API route + staged email view, more places to go sideways
-
-## Work order detail
-
-### #1 — Nag cron (~20 min)
-
-- New file: `app/api/cron/group-setup-nag/route.ts` (or wherever crons live in this repo)
-- Query: transactions where `status = 'under_contract'` AND `created_at < now() - interval '24 hours'` AND (`loop_group_id IS NULL` OR `loop_client_group_id IS NULL`)
-- For each match, send a single iMessage to Brian + Don saying "[Address] — client/pro group still not set up, milestones can't route yet"
-- One send per transaction per day — add a `group_setup_nag_sent_at` column or check `audit_log` to avoid spam
-- Register in `vercel.json` crons, 9am ET daily (13:00 UTC in EDT, 14:00 UTC in EST — ET = EDT right now through November)
-- Verify with a manual POST to the route, then wait a cycle
-
-### #2 — Notification copy tuning (~45 min)
-
-- Target file: wherever milestone template bodies live (likely `lib/notifications/templates.ts` or similar — Code should grep for the current earnest_money copy to find it)
-- Every milestone gets two bodies:
-  - `clientCopy`: celebration tone, plain language, tracker link, no internal logistics
-  - `proCopy`: logistics, next action, deadline, owner
-- Reference examples that shipped today:
-  - Client earnest_money: "Your earnest money is safely in escrow — a real commitment locked in on [address]. Track: [tracker_url]"
-  - That was the RIGHT client tone. Use it as the model. Most existing copy is too transactional.
-- Test: mark a milestone complete on Test Harbor, verify both groups receive the correct flavor
-- Pay attention to the leading-whitespace quirk in LoopMessage group names — webhook handles it but double check
-
-### #3 — Email-to-transaction promote UI (~60-90 min)
-
-- New route: `app/api/transaction-emails/[id]/promote/route.ts` — reads row, returns prefill payload
-- Staged email list view: add "Promote to transaction" button
-- Intake form (`/transactions/new`): accept prefill via query string or form state, auto-fill address/parties/dates
-- Don't auto-create the transaction — open the form with fields filled, let user verify before submit
-- Mark the `transaction_emails` row as promoted (add column or use status field) when the new transaction is saved, so same email can't be re-promoted
-
-## Not in scope this session
-
-- 24h cron beyond group setup (no other nag categories yet)
-- Retiring `client_notified_at` column (waits until ~2026-05-08, 2-week window from Chunk 5 ship)
-- middleware.ts → proxy.ts rename (mechanical, do in a gap)
-- Any Google Calendar / MLS Grid / IDX Broker work — external blockers
-
-## Session close checklist
-
-When all three ship clean:
-
-- [ ] Three commits on main, each with Co-Authored-By Claude Code
-- [ ] Vercel deploy READY on latest commit
-- [ ] Test Harbor verified for #2 (trigger a milestone, confirm dual-group copy)
-- [ ] Cron dry-run verified via manual POST
-- [ ] Promote flow walked through on a real staged email
-- [ ] Memory updated via web Claude (tell me "done with tier 1" and I'll update line 10/11)
-- [ ] This SESSION-HANDOFF.md rewritten for the next session
-
-## Reference
-
-- Repo: `HGPG1/hgpg-transaction-manager` branch `main`
-- Production: `closings.homegrownpropertygroup.com`
-- Supabase: `ioypqogunwsoucgsnmla`
-- Vercel project: `prj_oLWVcE4J1UKzJtmggoQCOW35LUhy`
-- Today's ship commits: `cd5aece`, `2d40e6c`, `2351b63`, `ccdaa63`, `123fd9b`
-- Twilio is DEAD — iMessage only
-
----
-
-_Previous session summary (2026-04-24 ship day): Chunk 5 dual iMessage groups shipped + E2E verified on Test Harbor. GroupSetupHelper UI shipped on 123fd9b after two sandbox build failures, resurrected via Claude Code on home iMac. Apps Script MIME walker deployed to both closings@ and brian@. All tier-1 ship goals verified live via Chrome MCP test with client-group-null-then-restore flow._
+### Pickup notes for next session
+- Brain-app is live and working — use it for any future updates to `hgpg-context`
+- Resend API key is in 1Password ("Supabase HGPG Core SMTP")
+- Brain-app local dev: `cd ~/brain-app && npm run dev` on Mac mini (work machine)
+- Brain-app local on iMac: same setup, repo at `~/Developer/brain-app` if rebuilt, otherwise needs fresh `gh repo clone HGPG1/brain-app` + `npm install` + `cp env.example .env.local`
+- The `package-lock.json` may differ between iMac and Mac mini — push from whichever machine you most recently ran `npm install` on
