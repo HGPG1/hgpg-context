@@ -99,4 +99,4 @@ Added to FUB Action Plan notes to trigger automation:
 2.  **Edge Functions**: Move the Timing Tag Parser to an Edge Function for low-latency SMS scheduling.
 3.  **Database Queue**: Use Supabase's built-in scheduling or a table-based queue to avoid the overhead of Redis.
 4.  **Native FUB Custom Fields**: Store the A/B/C classification in a native FUB custom field so it can be used for filtering/smart lists within FUB.
-5.  **Audit Dashboard**: The Next.js app should have a "Live Feed" of AI decisions so agents can see the "brain" working in real-time.
+5.  **Audit Dashboard**: The Next.js app should have a "Live Feed" of AI decisions so agents can see the "brain" working in real-time. 
