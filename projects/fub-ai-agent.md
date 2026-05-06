@@ -1,12 +1,12 @@
 # FUB AI Agent
 
-Last updated: 2026-05-06 (session 1 in progress)
+Last updated: 2026-05-06 (session 1 complete)
 
 ## What this is
 
 An AI-augmented lead nurture layer for HGPG. Scores Brian's eligible FUB leads using a hybrid rules + LLM intent engine, drafts personalized messages, and uses FUB Automations 2.0 (with Sendblue for iMessage) to do the actual sending. The agent does the *thinking* (who, what, when). FUB does the *sending*.
 
-**Status:** Session 1 in progress. Schema, sync, and scoring are live in TM. Read-only dashboard at `closings.homegrownpropertygroup.com/agent` (Brian-only). No outbound messaging yet — kill switch `agent_enabled = false` in `fub_agent_config`.
+**Status:** Session 1 shipped. Schema, sync, scoring, and read-only dashboard live in TM. 1,023 of 5,363 eligible leads scored. No outbound messaging yet — kill switch `agent_enabled = false`.
 
 ## Architecture (v1)
 
@@ -33,7 +33,7 @@ An AI-augmented lead nurture layer for HGPG. Scores Brian's eligible FUB leads u
 | `fub_agent_config` | KV thresholds + master kill switch |
 | `fub_agent_log` | Full audit trail |
 
-## Pilot scope (locked)
+## Pilot scope
 
 **Brian-only v1.** Other agents come in v2. Buyer-only v1. Sellers in v2.
 
@@ -44,7 +44,7 @@ Lead universe pulled from FUB:
 - Pond 14 — NYC Relocation (0)
 - Pond 16 — IDX Broker Legacy Re-engagement (1,434)
 
-## Eligibility rules (calibrated 2026-05-06 from real FUB tag inventory)
+## Eligibility rules (calibrated 2026-05-06 from real FUB data)
 
 **Hard exclusions (`fub_agent_lead_exclusions`):**
 - Pond 9 — Brian Excluded Contacts (2,834)
@@ -53,6 +53,7 @@ Lead universe pulled from FUB:
 - Tags: `Sphere`, `Brian's Contacts`
 - Tags: `Do Not Contact`, `DO_NOT_CALL`, `Unsubscribed`, `Bounced`, `WRONG_NUMBER`
 - Tags: `Cash Offers`, `Cash Buyer Pool`
+- Stages: `Past Client`, `Active Client`, `Sphere`, `Closed`, `Do Not Contact`
 
 **Marked seller, skipped from buyer-v1 (`lead_type = 'seller'`):**
 - Stage matches `expired|withdrawn|fsbo|listing|seller`
@@ -67,6 +68,7 @@ eligible = (assignedUserId = 1 OR pondId IN [10, 13, 14, 16])
        AND pondId NOT IN [9, 11, 5, 15]
        AND no exclusion tag
        AND source != 'SPHERE'
+       AND stage not in exclusion stages
        AND lead_type IN ('buyer', 'unknown')
        AND id NOT IN lead_optouts
        AND has phone OR email
@@ -77,9 +79,11 @@ eligible = (assignedUserId = 1 OR pondId IN [10, 13, 14, 16])
 | Metric | Count |
 |---|---|
 | Total leads synced | 10,865 |
-| **Buyer prospects (eligible)** | **5,423** |
+| **Buyer prospects (eligible)** | **5,363** |
 | Sellers (v2 holding) | 1,631 |
-| Hard exclusions | 3,912 |
+| Hard exclusions | 3,972 |
+
+Note: `C - Cold 6+ Months` stage (6 leads) is NOT excluded — those leads are valid re-engagement targets, the whole point of the project.
 
 ## Scoring engine
 
@@ -89,15 +93,15 @@ eligible = (assignedUserId = 1 OR pondId IN [10, 13, 14, 16])
 - `combined = rules + (llm_score × confidence if confidence ≥ floor)`
 
 **Tiering (calibrated 2026-05-06 to stale-pool reality):**
-- `hot` ≥ 40 (was 85 — too high for stale pool)
-- `warm` ≥ 30 (was 60)
+- `hot` ≥ 40 (locked at this value — see "decisions" below)
+- `warm` ≥ 30 (was 60, lowered for stale pool)
 - `cold` < 30
 - `llm_confidence_floor` = 0.4 (was 0.6 — too strict for sparse-history leads)
 
 **Performance:**
 - ~1.4-1.5s per lead with `concurrency: 5`
-- 200 leads scored in ~5 minutes
-- ~$0.003 per lead in Haiku tokens (~$15-18 to score full eligible pool)
+- 200 leads scored per ~5min batch
+- ~$0.0028 per lead in Haiku tokens
 
 ## v1 Files (committed to TM main)
 
@@ -108,7 +112,7 @@ lib/agent/
   fubClient.ts          paginated FUB API (Basic auth, retry/429), notes/emails/texts
   anthropicClient.ts    Anthropic Messages API wrapper, JSON-parse helper
   sync.ts               exclusion seeding, eligibility eval, per-source sync
-  scoring.ts            rules + LLM intent, concurrent batched scoring
+  scoring.ts            rules + LLM intent, concurrent batched scoring with DB-level filtering
 
 app/api/agent/
   cron/route.ts         GET — Vercel cron entry (sync + score), respects kill switch
@@ -132,6 +136,7 @@ components/MobileNav.tsx Agent nav link in mobile (Brian-only)
 - `8068fcc` — per-source sync to fit Vercel 300s timeout
 - `ad947b3` — scoring perf: bulk query already-scored IDs, concurrent batches
 - `112497a` — manual routes use CRON_SECRET (middleware compatibility)
+- `7720324` — filter recently-scored at DB level (was getting stuck on top-by-activity slice)
 
 ## Decisions locked
 
@@ -142,46 +147,68 @@ components/MobileNav.tsx Agent nav link in mobile (Brian-only)
 - **Compliance: own opt-outs in `fub_agent_lead_optouts` not FUB tags** (FUB tags unreliable)
 - **Surface lives in TM** (not subdomain) — re-evaluate for v2 if multi-agent expansion warrants extraction to `agent.homegrownpropertygroup.com`
 - **One voice file (`brian-voice.md`) for v1**; swap to neutral HGPG team voice in v2
+- **Hot threshold stays at 40 even though no leads have crossed it.** Real hot leads come from new inflows (calls, fresh inquiries, contact form submits), not stale data. Don't paper over reality with threshold tuning. Revisit only after weeks of operational data.
+
+## Session 1 Results
+
+### Final scoring snapshot (1,023 of 5,363 leads, 19% sample)
+
+| Metric | Value |
+|---|---|
+| Total scored | 1,023 |
+| Hot (≥40) | 0 |
+| Warm (30-39) | 41 (4%) |
+| Cold (<30) | 982 (96%) |
+| Avg combined score | 22.0 |
+| Avg rules score | 21.5 |
+| Avg LLM raw score | 7.5 |
+| Avg LLM confidence | 0.32 |
+| LLM credited (conf ≥ 0.4) | 84 (8%) |
+| Score range | 12-39 |
+| P50 / P90 / P95 / P99 | 20 / 25 / 28 / 32 |
+| Estimated Haiku spend | ~$5 |
+
+### Top 10 warm leads found
+
+| Score | Name | Source | LLM-detected friction |
+|---|---|---|---|
+| 39 | John Miller | Direct Website | (none surfaced) |
+| 37 | Gerard Marmo | Qazzoo | (none surfaced) |
+| 37 | Seanna Mackey | Qazzoo | $5-20k cash vs $150k+ budget — financing gap or seller concession need |
+| 35 | Anthony Scott | my +plus leads | Investor/buyer dependency — flipper, not end-user |
+| 35 | Phuong Pham | Ylopo | No direct comm history; unclear sell intent |
+| 35 | Jay Miller | HomeLight | No response to outreach since April |
+| 35 | Tamela Karnazes | Ylopo | Price band mismatch — tagged $995k, browsing $658k |
+| 34 | Jesse Hernandez | Ylopo | Timeline unclear — May 2026 activity, Sept 2024 notes |
+| 34 | Sam Russell | Ylopo | (none surfaced) |
+| 34 | Jason Smith | Lead Import | Contingent — under contract, needs to close before next |
+
+### Earlier batch standout (caught before sphere fix): Cynthia Patterson (35)
+> "Returned to view listings after 269 days of inactivity on 2025-12-29"
+> "Viewed 10513 Orchid Hill Lane 3 times in late January 2026"
+> Real reactivation pattern — exactly what re-engagement should catch
 
 ## Key learnings (session 1)
 
 - **Vercel function timeout is 300s** — full multi-source sync of 13k leads exceeds it. Solution: per-source sync route with optional `source` param.
-- **FUB API is sequential bottleneck** for scoring — each lead needs notes + emails + texts from FUB. Parallelizing with `Promise.all` saves ~30%, but real perf win came from `concurrency: 5` on the lead-scoring loop itself.
-- **Original thresholds were too high for stale-pool reality.** Hot=85/Warm=60 produced zero non-cold leads. Recalibrated to 40/30 once we saw real distribution.
-- **LLM confidence floor of 0.6 was too strict** for sparse-history leads. Dropped to 0.4 — still rejects hallucinated reads but credits reasonable inferences from thin data.
-- **Tag inventory matters.** First seller filter was a guess; real FUB tag list revealed `Expired`, `PreForeclousre` (typo), `Cash Offers`, `Brian's Contacts`, etc. Calibration cut eligible from 7,891 to 5,423 — 2,468 leads removed that would have wasted scoring spend or been embarrassing to message.
-- **Sphere leakage is a real risk.** Source `SPHERE` and tags `Sphere` / `Brian's Contacts` slipped through the first eligibility filter. Top-scored lead in first batch was an active sphere client (Neal Kelley) — fixed before any messages went out.
-- **Re-classification via SQL is fast** when calibration changes — we updated 1,631 sellers + added 102 sphere exclusions in seconds without re-syncing FUB.
-- **The score is a ranking, not a classification.** Even with the new thresholds, the value is "show me the top 50" not "is this lead hot." Don't over-tune absolute thresholds before seeing the full distribution.
-
-## Current scoring run
-
-Session 1 ramp in progress. Scoring 5,423 eligible leads in batches of 200 (~5 min each).
-
-### Results (fill in after batches complete)
-
-| Metric | Value |
-|---|---|
-| Total scored | TBD |
-| Hot (≥40) | TBD |
-| Warm (30-39) | TBD |
-| Cold (<30) | TBD |
-| Avg combined score | TBD |
-| Avg rules_score | TBD |
-| Avg llm_score (when credited) | TBD |
-| LLM credited rate (conf ≥ 0.4) | TBD |
-| Cost in Haiku tokens | TBD |
-
-### Top hot leads observed (fill in after batches)
-
-TBD
+- **FUB API is sequential bottleneck** for scoring — each lead needs notes + emails + texts. `Promise.all` parallelization + `concurrency: 5` on the lead loop got per-lead time from ~6s to ~1.4s.
+- **Original thresholds (hot=85, warm=60) were way too high for stale-pool reality.** Recalibrated to 40/30 once we saw real distribution. Hot threshold STAYS at 40 — see decisions.
+- **LLM confidence floor of 0.6 was too strict** for sparse-history leads. Dropped to 0.4 — still rejects hallucinated reads but credits reasonable inferences.
+- **Tag inventory matters.** First seller filter was a guess; real FUB tag list revealed `Expired`, `PreForeclousre` (typo), `Cash Offers`, `Brian's Contacts`, etc. Calibration cut eligible from 7,891 to 5,363 — 2,528 leads removed that would have wasted scoring spend or been embarrassing to message.
+- **Sphere leakage was a real risk.** Source `SPHERE` and tags `Sphere` / `Brian's Contacts` slipped through the first eligibility filter. Top-scored lead in first batch was an active sphere client (Neal Kelley) — fixed before any messages went out.
+- **Stage-based exclusions matter too.** `Past Client`, `Active Client`, `Sphere` stage all leaked through tag-only filtering. Added stage-based check.
+- **Re-classification via SQL is fast** when calibration changes — updated 1,631 sellers + added 162 sphere/stage exclusions in seconds without re-syncing FUB.
+- **The score is a ranking, not a classification.** With max=39 and threshold=40, no "hot" leads exist in the stale pool — but the warm queue (41 leads) is sorted by genuine signal. Top of list is more interesting than bottom. That's the actionable output.
+- **DB-level filtering matters for batch processing.** Original code pulled `limit*3` candidates and filtered in memory — got stuck on top-by-activity slice after 2 batches. Switched to `.not('fub_person_id', 'in', recently_scored_ids)` and the loop chewed through the pool correctly.
+- **The LLM intent reads are genuinely useful.** Beyond just scoring, the `specific_friction` field is a brief on each lead — "down payment gap," "investor not end-user," "price band mismatch," "contingent on current closing." That's actionable context for the eventual outreach.
+- **No-history short-circuit saves money.** Leads with zero notes/emails/texts get a synthetic low-confidence response without firing Haiku.
 
 ## Next session priorities
 
 **Session 2 (~3 hr) — Templates + draft generation + approval queue UI:**
 1. Pull approval-queue UI patterns from existing TM milestone tracker
-2. Build template library seed (6-10 v1 templates: cold/warm/hot × buyer × stage)
-3. Draft generator (`lib/agent/draftGenerator.ts`) — picks template, fills slots OR drafts fresh
+2. Build template library seed (6-10 v1 templates: warm × buyer × stage)
+3. Draft generator (`lib/agent/draftGenerator.ts`) — picks template, fills slots OR drafts fresh for hot tier (when hot leads exist)
 4. Voice file: copy `brian-voice.md` from existing AI assistant build
 5. Approval queue UI at `app/agent/queue/page.tsx`
 6. Outbound gate (`lib/agent/outboundGate.ts`) — checks `lead_optouts` + `lead_exclusions`
@@ -196,11 +223,13 @@ TBD
 
 ## Known issues / followups
 
+- **4,340 leads still unscored** — will be scored by daily cron once `agent_enabled = true`, or by ad-hoc batches before then
 - Templates list is empty — session 2
 - Approval queue UI doesn't exist yet — session 2
 - Cron is configured but no-op (kill switch off) — session 3
 - Sandy Leads pond name lookup not displayed in dashboard (shows `pond_10` instead of "Sandy Leads") — cosmetic, fix in session 2
-- ~127 wasted scores from pre-calibration runs (hit Haiku ~$2.50) — acceptable lesson cost
+- ~127 wasted scores from pre-calibration runs (~$2.50 in Haiku) — acceptable lesson cost
+- Dashboard top 50 currently includes excluded leads from before sphere/stage cleanup — fix queued in `dashboard-eligibility-fix.md`
 
 ## Configuration reference
 
@@ -210,7 +239,7 @@ TBD
 |---|---|---|
 | `agent_enabled` | `false` | Master kill switch — cron is no-op while false |
 | `auto_below_threshold` | `false` | Approval-only mode during build |
-| `hot_threshold` | `40` | Score ≥ this requires human approval |
+| `hot_threshold` | `40` | Score ≥ this requires human approval — locked, see decisions |
 | `warm_threshold` | `30` | Score ≥ this is eligible to send |
 | `llm_confidence_floor` | `0.4` | LLM intent score not credited below this |
 | `daily_send_cap` | `50` | Max messages queued in 24h window |
