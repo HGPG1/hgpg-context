@@ -56,4 +56,4 @@ Raw IDX search URLs are too long for Safari. Options for sharing with buyers:
 2. Use a URL shortener
 3. Use IDX "Email this Search" feature from lead profile
 
-Potential build: lightweight URL shortener on `hgpg.link` subdomain (Vercel + Supabase, with click tracking).
+Potential build: lightweight URL shortener on `hgpg.link` subdomain (Vercel + Supabase, with click tracking). 
