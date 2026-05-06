@@ -1,144 +1,89 @@
-# Brain App — Project Spec
+<!-- Last Updated: 2026-05-06 -->
 
-> Web-based editor for the `hgpg-context` (HGPG brain) repo, accessible from any device. Solves the "did I push from the right Mac?" friction and future-proofs for AI-driven updates.
+# Brain App
 
-## Status
+**Status:** 🟢 SHIPPED (MVP, 2026-05-06)
+**Live at:** https://brain.homegrownpropertygroup.com
+**Repo:** HGPG1/brain-app (private)
+**Vercel project:** brain-app on team `team_FietQPKCmnyioG2n0FdteQCV`
 
-🟡 **Not started** — spec drafted May 5, 2026. Queue for a focused 60-90 min Claude Code session when ready.
+## Purpose
 
-## Why
-
-Right now updating the brain requires:
-- Be at a Mac with gh CLI configured
-- Be in the `~/Documents/hgpg-context` folder
-- Run the `brain` shell function (which copies from Downloads, commits, pushes)
-
-That's better than where we started, but still:
-- Mac-only (no iPhone/iPad updates on the go)
-- File-based (have to drop into Downloads first)
-- Manual commits
-
-A web app at `brain.homegrownpropertygroup.com` makes the brain editable from anywhere, including future scenarios where Claude or another AI agent updates it via API.
-
-## Subdomain
-
-`brain.homegrownpropertygroup.com`
+Web-based editor for the `HGPG1/hgpg-context` brain repo. Lets Brian edit context files (CONTEXT.md, SESSION-HANDOFF.md, project specs) from any device with auth, instead of being tied to a Mac with `gh` CLI configured. Commits land directly on `main` with proper author attribution.
 
 ## Stack
 
-Next.js App Router + Supabase Auth + Vercel. Standard HGPG pattern.
+- Next.js 16.2.4 (App Router, TypeScript)
+- Tailwind v4 (brand tokens in `app/globals.css` `@theme`)
+- CodeMirror 6 (markdown lang, custom HGPG light theme)
+- Supabase Auth — magic link only, shared with HGPG Core project (`ioypqogunwsoucgsnmla`)
+- @octokit/rest for GitHub API
+- marked + DOMPurify for live markdown preview
+- Resend custom SMTP for magic link delivery (`noreply@homegrownpropertygroup.com`)
 
-**Starter pattern:** Clone `hgpg-listing-report` admin page — same Next.js + Supabase + magic link auth shape, just swap the data source from Supabase tables to GitHub API.
+## Auth model
 
-## Features (MVP)
+- Single-user MVP: `BRIAN_EMAIL` env var allow-lists `brian@homegrownpropertygroup.com`
+- Magic link login via Supabase, callback handler at `/auth/callback`
+- All write API routes check session email against `BRIAN_EMAIL` — 401 if mismatch
+- GitHub PAT is server-side only, never exposed to client
+- Read flow: dashboard fetches file tree via `/api/files`, requires server-side auth check
 
-### Auth
-- Supabase magic link auth gated to `brian@homegrownpropertygroup.com` only
-- Use existing primary Supabase project (`ioypqogunwsoucgsnmla`)
-- Google OAuth as secondary login option
+## Infrastructure
 
-### File listing
-- Fetch repo contents via GitHub API
-- Display tree: top-level files + `projects/` folder + `archive/` folder
-- Show last modified timestamp on each file
+**GitHub PAT:** fine-grained, scoped to `HGPG1/hgpg-context` only, Contents read+write + Metadata read-only, 1-year expiry. Stored in Vercel as `GITHUB_PAT`.
 
-### File editor
-- Click a file → opens in editor
-- Monaco editor (VS Code's editor) for syntax highlighting
-- Live markdown preview pane (split view, toggle on/off)
-- Save button writes via GitHub API
-- Auto-commit message: "Update {filename} via brain app" (with optional override)
+**Env vars (8 total):**
+- `GITHUB_PAT`
+- `GITHUB_OWNER=HGPG1`
+- `GITHUB_REPO=hgpg-context`
+- `GITHUB_BRANCH=main`
+- `NEXT_PUBLIC_SUPABASE_URL=https://ioypqogunwsoucgsnmla.supabase.co`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `BRIAN_EMAIL=brian@homegrownpropertygroup.com`
 
-### File creation
-- "New file" button at top of file list
-- Pick destination folder (root, projects/, archive/)
-- Filename + initial content
-- Saves and creates commit
+**Supabase redirect URLs added to HGPG Core:**
+- `https://brain.homegrownpropertygroup.com/**`
+- `http://localhost:3000/**`
 
-### Public read endpoint
-- `GET /api/raw/[...path]` → mirrors `raw.githubusercontent.com/HGPG1/hgpg-context/main/{path}` with caching
-- Future: replace `raw.githubusercontent.com` URLs in user prefs / project instructions with this endpoint for faster fetches
+**DNS:** GoDaddy CNAME `brain` → `cname.vercel-dns.com`
 
-## Auth + write flow
+## API surface
 
-- Server-side: stores a fine-grained GitHub PAT in Vercel env var `GITHUB_PAT`
-- PAT scoped only to `HGPG1/hgpg-context` repo, contents:write only
-- Server function uses Octokit to read/write files
-- PAT NEVER exposed to client
-- Brian's session checked on every write request — no auth, no write
+- `GET /api/files` — repo tree (top-level, projects/, archive/)
+- `GET /api/files/[...path]` — single file content + sha
+- `PUT /api/files/[...path]` — update file (auth required)
+- `POST /api/files` — create new file (auth required)
+- `GET /api/raw/[...path]` — public mirror of raw.githubusercontent.com with edge cache (s-maxage=60, swr=300)
 
-## Brand
+## Pages
 
-- Colors: `#2A384C` navy, `#A0B2C2` steel blue, `#D1D9DF` light steel, `#F0F0F0` off-white
-- Fonts: Cooper Hewitt (body), Sansita Regular (display)
-- No green, no Cormorant Garamond
-- Match the look of `reports.homegrownpropertygroup.com` admin page
+- `/login` — magic-link form
+- `/` — dashboard with file tree sidebar + recent files
+- `/edit/[...path]` — split editor/preview, Cmd+S save, dirty-state guard, commit message input
+- `/new` — folder picker + filename + initial content
+- `/auth/callback` — code-for-session exchange handler
 
-## Env vars needed
+## Phase 2 backlog
 
-| Variable | Purpose |
-|---|---|
-| `GITHUB_PAT` | Fine-grained PAT for hgpg-context contents:write |
-| `NEXT_PUBLIC_SUPABASE_URL` | Auth |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Auth |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-side auth checks |
-| `BRIAN_EMAIL` | Hardcoded allow-list for write access |
+- iPhone smoke test + iOS Safari keyboard handling (CodeMirror scroll-jump on soft keyboard appearance)
+- Cooper Hewitt self-hosted (currently falling back to system sans because it's not on Google Fonts)
+- File rename and delete
+- Diff view before save
+- Cross-file search
+- Multi-user allow-list (current `BRIAN_EMAIL` check is single-string but auth helper is structured for easy expansion to array)
+- Audit log (Supabase table tracking who edited what, when)
+- Draft autosave (Supabase table, recovers unsaved work on browser close)
 
-## Phase 2 (after MVP works)
+## Notes for future sessions
 
-- Mobile-friendly editor (Monaco doesn't work great on mobile — consider markdown-it preview only, or a simpler textarea)
-- File rename + delete
-- Diff view between commits (read-only history)
-- Commit message override
-- Optional: AI assist button that uses Anthropic API to clean up / restructure / suggest edits to the current file
+- This app dogfoods itself: future edits to `hgpg-context` should happen via brain-app, not local `gh` workflow, to validate the tool stays working
+- Tailwind v4 means brand colors live in `app/globals.css` `@theme` blocks — `tailwind.config.ts` is a mirror for editor IntelliSense only, doesn't affect builds
+- Build deploys auto on every push to `main`, ~90 sec
+- Local dev: `npm run dev` on port 3000, requires `.env.local` with all 8 env vars
+- Repo lives at `~/brain-app` on Mac mini, `~/Developer/brain-app` on iMac (or fresh clone needed)
 
-## Phase 3 (eventually)
+## Original spec history
 
-- Webhook endpoint so external AI agents (Cowork, custom integrations) can write to the brain via authenticated POST
-- Audit log of all changes (who, when, what)
-- Notion-style block editor (much later)
-
-## Build prompt (paste into Claude Code session)
-
-```
-Build a Next.js App Router web app for editing GitHub repo files. Stack: Next.js 14+, Supabase Auth, Vercel deploy.
-
-Repo: HGPG1/hgpg-context (private). Edit/read via GitHub API using a server-side PAT (env var GITHUB_PAT).
-
-Auth: Supabase magic link, gated to a single email (env var BRIAN_EMAIL). Google OAuth optional.
-
-Pages:
-- /login: Magic link form
-- /: File tree (top-level files + projects/ + archive/)
-- /edit/[...path]: Monaco editor with markdown live preview, save button
-
-API routes:
-- GET /api/files — list repo contents (tree)
-- GET /api/files/[...path] — read file content
-- PUT /api/files/[...path] — write file content (auth required, writes to main branch with auto-commit)
-- POST /api/files — create new file
-- GET /api/raw/[...path] — public read mirror with caching
-
-Use Octokit (@octokit/rest) for GitHub API.
-
-Style: Tailwind, brand colors #2A384C navy / #A0B2C2 steel blue / #D1D9DF light steel / #F0F0F0 off-white. Fonts: Cooper Hewitt body, Sansita Regular display. Match the look of an admin dashboard with a sidebar file tree and main editor pane.
-
-Single repo: HGPG1/brain-app. Subdomain: brain.homegrownpropertygroup.com on Vercel team_FietQPKCmnyioG2n0FdteQCV.
-
-After scaffolding, output a SETUP.md with the env vars I need to add in Vercel and a checklist for first-time deploy.
-```
-
-## Pre-build checklist
-
-Before running the Claude Code session:
-- [ ] Generate fine-grained GitHub PAT scoped to `HGPG1/hgpg-context`, contents:write
-- [ ] Decide auth Supabase project (primary `ioypqogunwsoucgsnmla` recommended)
-- [ ] Reserve `brain.homegrownpropertygroup.com` in GoDaddy DNS (CNAME to `cname.vercel-dns.com`)
-- [ ] Create empty repo `HGPG1/brain-app` on GitHub
-
-## Open questions to resolve before build
-
-1. **Editor library** — Monaco is heavy (~3MB). For an admin tool used by one person, fine. For mobile, consider CodeMirror or a textarea fallback.
-2. **Real-time sync vs. save button** — start with explicit save (safer, fewer surprises). Auto-save can come later.
-3. **Multi-user later?** — currently single-user (just Brian). If team members ever need to edit, add a `users` allow-list in env vars or move to Supabase users table.
-4. **Mobile priority** — true mobile-first or desktop-first? Probably desktop-first since most editing happens on Mac.
+Original brain-app spec called out: single-user lock, mobile editing as primary use case, fail-closed auth, no client-side PAT exposure, edge-cached raw mirror for downstream consumers (project instructions, AI agents). All MVP requirements met. Phase 2 features deliberately scoped out of MVP to ship quickly.
