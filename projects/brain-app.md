@@ -1,89 +1,76 @@
 <!-- Last Updated: 2026-05-06 -->
 
-# Brain App
+# Session Handoff
 
-**Status:** 🟢 SHIPPED (MVP, 2026-05-06)
-**Live at:** https://brain.homegrownpropertygroup.com
-**Repo:** HGPG1/brain-app (private)
-**Vercel project:** brain-app on team `team_FietQPKCmnyioG2n0FdteQCV`
+## Last session: 2026-05-06 — Brain App MVP + Phase 1.5 shipped 🟢
 
-## Purpose
+### What got built
 
-Web-based editor for the `HGPG1/hgpg-context` brain repo. Lets Brian edit context files (CONTEXT.md, SESSION-HANDOFF.md, project specs) from any device with auth, instead of being tied to a Mac with `gh` CLI configured. Commits land directly on `main` with proper author attribution.
+**Brain App MVP**
+- New Vercel project: `brain-app` on team `team_FietQPKCmnyioG2n0FdteQCV`
+- New repo: `HGPG1/brain-app` (private)
+- Live at: `https://brain.homegrownpropertygroup.com`
+- Stack: Next.js 16.2.4, Tailwind v4, CodeMirror 6, Supabase Auth (magic link)
+- Single-user lock: `BRIAN_EMAIL=brian@homegrownpropertygroup.com` allow-list
+- GitHub auth: fine-grained PAT scoped to `HGPG1/hgpg-context`, contents:write only
+- Round-trip verified: edit file in browser → commit lands on `main` with author `brian@homegrownpropertygroup.com`
 
-## Stack
+**Phase 1.5 UX polish (same day)**
+- Dashboard redesigned with Pinned cards (4 hardcoded in `lib/config.ts`), Quick actions, Recently edited (top 5) — replaces duplicate file list
+- Edit page sticky header with back arrow, breadcrumb, save status (30s polling: "Saved Xm ago" / "Unsaved changes" / "Saving...")
+- Mobile hamburger drawer (300px, slides in from left, dimmed overlay, auto-closes on file tap, 200ms ease-out)
+- Sidebar sorted by last-modified date desc within each section (Root, projects/, archive/)
 
-- Next.js 16.2.4 (App Router, TypeScript)
-- Tailwind v4 (brand tokens in `app/globals.css` `@theme`)
-- CodeMirror 6 (markdown lang, custom HGPG light theme)
-- Supabase Auth — magic link only, shared with HGPG Core project (`ioypqogunwsoucgsnmla`)
-- @octokit/rest for GitHub API
-- marked + DOMPurify for live markdown preview
-- Resend custom SMTP for magic link delivery (`noreply@homegrownpropertygroup.com`)
+### Infra changes that affect other apps
 
-## Auth model
+- Resend custom SMTP wired into `HGPG Core` Supabase (project `ioypqogunwsoucgsnmla`)
+  - Sender: `noreply@homegrownpropertygroup.com`, name: HGPG
+  - API key stored in Resend as "Supabase HGPG Core"
+  - Rate limit went from 2/hr (Supabase default) to 30/hr (Resend default), can be raised
+  - This affects ALL apps using this Supabase: TM, CMA, TC Concierge, brain-app
+- Supabase project renames for hygiene:
+  - `ioypqogunwsoucgsnmla` → "HGPG Core"
+  - `ngdrliyjtqcwhhfrbxao` → "HGPG FUB Integration"
+  - `wdheejgmrqzqxvgjvfee` → "HGPG Listing Reports + MLS"
+  - `fkxgdqfnowskflgbuxhm` → "HGPG Signature + Relocation"
+- Supabase `HGPG Core` redirect URLs added:
+  - `https://brain.homegrownpropertygroup.com/**`
+  - `http://localhost:3000/**`
+  - (Existing tools.hgpg entries left intact)
 
-- Single-user MVP: `BRIAN_EMAIL` env var allow-lists `brian@homegrownpropertygroup.com`
-- Magic link login via Supabase, callback handler at `/auth/callback`
-- All write API routes check session email against `BRIAN_EMAIL` — 401 if mismatch
-- GitHub PAT is server-side only, never exposed to client
-- Read flow: dashboard fetches file tree via `/api/files`, requires server-side auth check
+### Bugs found and fixed mid-session
 
-## Infrastructure
+- Magic link redirected to `tools.homegrownpropertygroup.com` (Supabase Site URL fallback) — fixed by adding `/auth/callback` route handler that was missing from initial scaffold + pointing `emailRedirectTo` at it
+- Supabase free SMTP rate limit (2/hr) hit during testing — fixed permanently by switching to Resend custom SMTP
 
-**GitHub PAT:** fine-grained, scoped to `HGPG1/hgpg-context` only, Contents read+write + Metadata read-only, 1-year expiry. Stored in Vercel as `GITHUB_PAT`.
+### Project status updates
 
-**Env vars (8 total):**
-- `GITHUB_PAT`
-- `GITHUB_OWNER=HGPG1`
-- `GITHUB_REPO=hgpg-context`
-- `GITHUB_BRANCH=main`
-- `NEXT_PUBLIC_SUPABASE_URL=https://ioypqogunwsoucgsnmla.supabase.co`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `BRIAN_EMAIL=brian@homegrownpropertygroup.com`
+- `projects/brain-app.md` — status now 🟢 SHIPPED with full Phase 2 backlog documented
+- `projects/hgpg-team-tools2.md` — Site URL in HGPG Core Supabase still points here for the broken app's eventual fix
+- `projects/transaction-manager.md` — no code changes today, but TM benefits from Resend SMTP upgrade
 
-**Supabase redirect URLs added to HGPG Core:**
-- `https://brain.homegrownpropertygroup.com/**`
-- `http://localhost:3000/**`
+### Deferred / Phase 2 for brain-app
 
-**DNS:** GoDaddy CNAME `brain` → `cname.vercel-dns.com`
-
-## API surface
-
-- `GET /api/files` — repo tree (top-level, projects/, archive/)
-- `GET /api/files/[...path]` — single file content + sha
-- `PUT /api/files/[...path]` — update file (auth required)
-- `POST /api/files` — create new file (auth required)
-- `GET /api/raw/[...path]` — public mirror of raw.githubusercontent.com with edge cache (s-maxage=60, swr=300)
-
-## Pages
-
-- `/login` — magic-link form
-- `/` — dashboard with file tree sidebar + recent files
-- `/edit/[...path]` — split editor/preview, Cmd+S save, dirty-state guard, commit message input
-- `/new` — folder picker + filename + initial content
-- `/auth/callback` — code-for-session exchange handler
-
-## Phase 2 backlog
-
-- iPhone smoke test + iOS Safari keyboard handling (CodeMirror scroll-jump on soft keyboard appearance)
-- Cooper Hewitt self-hosted (currently falling back to system sans because it's not on Google Fonts)
+- iPhone smoke test deeper pass (CodeMirror + iOS soft keyboard scroll behavior in real-world editing)
+- Cooper Hewitt self-hosted (currently falling back to system sans, not on Google Fonts)
 - File rename and delete
 - Diff view before save
 - Cross-file search
-- Multi-user allow-list (current `BRIAN_EMAIL` check is single-string but auth helper is structured for easy expansion to array)
+- Multi-user allow-list (current `BRIAN_EMAIL` check is single-string but `lib/auth.ts` is structured for easy expansion)
 - Audit log (Supabase table tracking who edited what, when)
 - Draft autosave (Supabase table, recovers unsaved work on browser close)
+- Drawer Esc-to-close + focus trap (a11y polish)
+- Sticky sidebar on long dashboards (currently scrolls past)
+- Save-status precision tighter than 30s polling
 
-## Notes for future sessions
+### Pickup notes for next session
 
-- This app dogfoods itself: future edits to `hgpg-context` should happen via brain-app, not local `gh` workflow, to validate the tool stays working
-- Tailwind v4 means brand colors live in `app/globals.css` `@theme` blocks — `tailwind.config.ts` is a mirror for editor IntelliSense only, doesn't affect builds
-- Build deploys auto on every push to `main`, ~90 sec
-- Local dev: `npm run dev` on port 3000, requires `.env.local` with all 8 env vars
-- Repo lives at `~/brain-app` on Mac mini, `~/Developer/brain-app` on iMac (or fresh clone needed)
-
-## Original spec history
-
-Original brain-app spec called out: single-user lock, mobile editing as primary use case, fail-closed auth, no client-side PAT exposure, edge-cached raw mirror for downstream consumers (project instructions, AI agents). All MVP requirements met. Phase 2 features deliberately scoped out of MVP to ship quickly.
+- Brain-app is live and working — use it for any future updates to `hgpg-context`
+- Resend API key is in 1Password ("Supabase HGPG Core SMTP") — verify before next rotate
+- Brain-app local dev: `cd ~/brain-app && npm run dev` on Mac mini (work machine)
+- Brain-app on iMac: needs fresh `gh repo clone HGPG1/brain-app` + `npm install` + `cp env.example .env.local`
+- The `package-lock.json` may differ between iMac and Mac mini — push from whichever machine you most recently ran `npm install` on
+- Brain-app Phase 2 backlog lives in `projects/brain-app.md`
+- Pinned files on dashboard configured in `lib/config.ts` — edit that array to change pins
+- Stray bundle in `~/Downloads/fub-agent-tm-files/` is unrelated FUB lead-scoring agent work for `hgpg-transaction-manager`, NOT brain-app — leave alone, separate project for another session
+- Cleanup tip: `rm ~/package-lock.json` to clear the harmless "multiple lockfiles" Next.js warning (leftover from earlier npm misuse in home dir)
