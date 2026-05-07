@@ -25,20 +25,24 @@ Status legend: 🟢 shipped & live · 🟡 active build · 🔵 planned/scoped �
 | TC Concierge | 🟢 live, Don running real deals | `projects/tc-concierge.md` |
 | FUB AI Agent | 🟡 Session 2-3 in flight (approval queue, draft gen) | `projects/fub-ai-agent.md` |
 | Brain App | 🟢 shipped 2026-05-06, Phase 2 backlog | `projects/brain-app.md` |
-| HGPG Team Tools | 🟢 fixed 2026-05-05 (Google OAuth via Supabase) | `projects/hgpg-team-tools2.md` |
-| Sellers Guide Meta Pixel + CAPI | 🟡 shipped, QA + Custom Conversion registration pending | `projects/sellers-guide.md` |
+| HGPG Team Tools | 🟢 fixed 2026-05-05 (Google OAuth via Supabase) | `projects/team-tools.md` |
 | Listing Report Portal | 🟢 GitHub auth resolved | `projects/listing-report-portal.md` |
-| Charlotte New Construction | 🟡 active build, /how-we-work + /incentives shipped | `projects/charlotte-new-construction.md` |
-| South Charlotte Report | 🟢 active content pipeline | `projects/south-charlotte-report.md` |
-| Sellers/Buyers Guides | 🟢 live | `projects/sellers-guide.md`, `projects/buyers-guide.md` |
-| Main HGPG Site | 🟢 SEO push complete, mobile PageSpeed 96/100 | n/a |
+| Incentives Funnel | 🟢 live, Phase 2 deferred until 50+ leads | `projects/incentives-funnel.md` |
+| Claude Skills | 🟢 5 shipped May 1 | `projects/claude-skills.md` |
+| Signature + Marketing | (status TBD - verify in file) | `projects/signature-marketing.md` |
+| Deals Tracker | (status TBD - likely legacy/decommissioned) | `projects/deals-tracker.md` |
+| Main Site SEO | 🟢 mobile PageSpeed 96/100 | `projects/main-site-seo.md` |
+| Sellers Guide Meta Pixel + CAPI | 🟡 shipped, QA + Custom Conversion registration pending | (no spec file - tracked in SESSION-HANDOFF) |
+| Charlotte New Construction | 🟡 active build, /how-we-work + /incentives shipped | (no spec file - tracked in SESSION-HANDOFF) |
+| South Charlotte Report | 🟢 active content pipeline | (no spec file - tracked in SESSION-HANDOFF) |
+| Sellers Guide | 🟢 live, rebrand complete | (no spec file - tracked in SESSION-HANDOFF) |
+| Buyers Guide | 🟢 live, migrated Manus to React + Vite | (no spec file - tracked in SESSION-HANDOFF) |
 | FUB Lead Automation Rebuild | 🔵 planned, foundation ready | (no spec yet) |
 | Twilio A2P | ⚫ blocked on SMS consent checkbox | n/a |
 | DocuSign migration off zipForms | 🔵 workflow scoped, no build | (chat history) |
 | NeverBounce email validation | 🔵 spec written, not built | (chat history) |
 | Closing Concierge | 🟢 decommission pending, low priority | n/a |
-| $395 fee toggle (TM) | 🔵 build spec parked | `projects/tm-395-fee-toggle.md` |
-| Incentives funnel | 🟢 live, Phase 2 deferred until 50+ leads | `projects/incentives-funnel.md` |
+| $395 fee toggle (TM) | 🔵 build spec parked | (chat history - refs commit b9fa0deb) |
 
 ## Recently completed
 
@@ -51,27 +55,4 @@ Status legend: 🟢 shipped & live · 🟡 active build · 🔵 planned/scoped �
 - Don's TM feedback Cluster A-D batch shipped (7 items resolved)
 - Other-side client email made optional in seller/buyer wizards with format validation
 - Favicons rolled out to 9 sites with canonical asset set in brain at assets/favicon/
-- IDX Broker migration (Ylopo cancelled, Showcase IDX cancelled, FUB lead routing done)
-- Five new Claude skills shipped May 1 (objection-handler, referral-request-writer, showing-feedback-summarizer, offer-comparison-analyzer, market-update-writer)
-
-## Known blockers / pending
-
-See `SESSION-HANDOFF.md` for current scratchpad.
-
-- Sherlock 403 on Transaction Manager (likely API key scope)
-- .net Google Workspace migration to .com (do not proactively remind)
-- GitHub PAT exposed in chat history needs rotation
-- Supabase listing-report-portal at 15GB (soft warning; pruning plan exists, "revisit" status)
-- Twilio A2P TCR rejection (need SMS consent checkbox before resubmission)
-
-## Infrastructure
-
-| Topic | File |
-|---|---|
-| GitHub/Vercel/Supabase/DNS | `infrastructure.md` |
-| Brand colors, fonts, voice | `brand.md` |
-| Team, FUB IDs, contractors | `team.md` |
-| SC compliance, Lando Law | `compliance.md` |
-| Meta Ads, lead re-engagement | `marketing.md` |
-| Session protocol, formatting, iMessage | `operations.md` |
-| Specific project state | `projects/<name>.md` |
+- IDX Broker migration (Ylopo cancelled, Showcase IDX cancelled, FUB lead routi
