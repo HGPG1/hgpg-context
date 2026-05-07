@@ -1,4 +1,4 @@
-<!-- Last Updated: 2026-05-07 -->
+<!-- Last Updated: 2026-05-07 (session 5) -->
 
 # Infrastructure
 
@@ -32,7 +32,8 @@
 
 ### HGPG Core — TM tables of note
 
-- `fub_agent_lead_cooldowns` — added in session 4. Tracks per-lead cooldowns from rejected drafts. Columns: `id` (uuid), `fub_person_id` (bigint, matches existing `fub_agent_leads.fub_person_id` type), `cooldown_until` (timestamptz), `reason` (enum: `voice_off | wrong_lead_type | wrong_signal_read | low_quality | other`), `created_at`, `created_by_draft_id` (uuid FK to `fub_agent_message_drafts.id`). Indexed on `(fub_person_id, cooldown_until)`. `draftGenerator` skips leads with active cooldown.
+- `fub_agent_lead_cooldowns` — added in session 4. Tracks per-lead cooldowns from rejected drafts and (session 5) inbound classifier outcomes. Columns: `id` (uuid), `fub_person_id` (bigint, matches existing `fub_agent_leads.fub_person_id` type), `cooldown_until` (timestamptz), `reason` (enum), `created_at`, `created_by_draft_id` (uuid FK to `fub_agent_message_drafts.id`). Indexed on `(fub_person_id, cooldown_until)`. Reason enum (session 5): `voice_off | wrong_lead_type | wrong_signal_read | low_quality | other | hostile_reply | not_now_reply`. `draftGenerator` skips leads with active cooldown.
+- `fub_agent_lead_optouts` — session 1 table; session 5 wired the inbound classifier to write here on `opt_out` classification. Schema: `fub_person_id` (bigint), `optout_source` (enum incl. `inbound_email`, `llm`), `optout_message` (truncated body), `optout_confidence` (numeric), `detected_channel` (`imessage|email|sms|phone|manual`), `notes`, `created_at`. The inbound classifier also flips `fub_agent_leads.is_eligible = false` with `eligibility_reason = 'inbound_optout'` on the same call. `draftGenerator` skips any lead with an optout row (belt+suspenders alongside `is_eligible`).
 - `fub_agent_message_drafts` — session 4 added columns: `fub_pushed_at` (idempotency marker for pusher), `reject_reason` (enum), `reject_notes` (free-form, optional).
 
 ## Follow Up Boss (FUB)
@@ -52,7 +53,22 @@ Single source of truth for these names: `lib/agent/fubAgentConstants.ts` in the 
 
 ### FUB-related env vars
 
-- `FUB_AGENT_INBOUND_SECRET` — required by `app/api/agent/inbound/route.ts` (TM). Currently UNSET — route returns 503 until set. Will be wired in session 5 when inbound classifier connects to optout + cooldown tables.
+- `FUB_AGENT_INBOUND_SECRET` — required by `app/api/agent/inbound/route.ts` (TM). Route returns 503 until set. Session 5 wired the classifier-side effects (optout + cooldown writes), but Brian still needs to add this var in Vercel before pointing FUB at the inbound webhook.
+
+## TM cron jobs
+
+Registered in `hgpg-transaction-manager/vercel.json`. All UTC schedules.
+
+| Path | Schedule (UTC) | Notes |
+|---|---|---|
+| `/api/cron/reminders` | `0 13 * * *` | Daily deadline reminders (8am EST) |
+| `/api/cron/milestone-automation` | `15 13 * * *` | Milestone automation pass |
+| `/api/cron/concierge-reminders` | `0 14 * * *` | TC Concierge reminders |
+| `/api/cron/sync-emails` | `*/5 * * * *` | Gmail->transaction email matching |
+| `/api/cron/group-setup-nag` | `5 13 * * *` | iMessage group nag |
+| `/api/cron/feedback-digest` | `0 22 * * *` | Daily feedback digest |
+| `/api/agent/cron` | `0 7 * * *` | FUB AI Agent nightly sync + score (no-op while `agent_enabled=false`) |
+| `/api/cron/agent-daily-flush` | `1 5 * * *` | FUB AI Agent — flush approved-but-unpushed drafts at start of new ET day. UTC `1 5 * * *` = 12:01 AM EST or 1:01 AM EDT (DST drift acceptable; only needs to fire after the ET day rolls over). No-op while `agent_enabled=false`. Added session 5. |
 
 ## Resend SMTP
 

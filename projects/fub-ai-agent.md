@@ -2,7 +2,46 @@
 
 # FUB AI Agent
 
-- **Status:** 🟡 Sessions 1-4 shipped, gate still closed (no outbound messaging yet)
+- **Status:** 🟡 Sessions 1-5 shipped, gate still closed (no outbound messaging yet). Brian-as-client smoke test pending Viktor's FUB Automations 2.0.
+
+## Session 5 — 2026-05-07
+
+What shipped:
+- **Timezone helper** at `lib/agent/timezone.ts`. Single source of truth for ET start-of-day math (DST-aware via `Intl.DateTimeFormat` with `America/New_York`). Approve route, queue header endpoint, and the new daily-flush cron all import from it; the previous duplicated copies in approve/header are gone.
+- **Daily-cap flush cron** at `app/api/cron/agent-daily-flush/route.ts`. Reads `agent_enabled` (skips and logs `cron_skipped` when false), reads `daily_send_cap`, pulls approved-but-unpushed drafts oldest first (capped at 100/run), checks today's pushed count before each `pushDraftToFUB` call, defers when cap is hit. Logs `cron_flush_complete` summary. Defensive try/catch — always returns 200 so Vercel does not retry.
+- **vercel.json schedule** `"1 5 * * *"` UTC = 12:01 AM EST or 1:01 AM EDT. The DST-drift choice is documented in the cron route's docstring (vercel.json is strict JSON so the comment lives there). Cron only needs to fire after the ET day rolls over; an hour of drift is fine.
+- **Inbound classifier wired to side effects** in `app/api/agent/inbound/route.ts`:
+  - `opt_out` → insert `fub_agent_lead_optouts` (using existing schema: `optout_source`, `detected_channel`, `optout_message`, `optout_confidence`) AND flip `fub_agent_leads.is_eligible = false` with `eligibility_reason = 'inbound_optout'`. Logs `inbound_optout`.
+  - `hostile` → 90-day cooldown (`reason='hostile_reply'`). Logs `inbound_hostile_cooldown`.
+  - `not_now` → 60-day cooldown (`reason='not_now_reply'`). Logs `inbound_not_now_cooldown`.
+  - `interested` → log only (`inbound_interested`). Future surfacing in queue UI is a session 6 item.
+  - `irrelevant` → log only (`inbound_irrelevant`).
+  - Each branch try/catch'd. Route always returns 200 (FUB retries on non-2xx).
+- **Cooldown reason enum extended** via `supabase/migrations/20260507_fub_agent_session_5.sql`. Added `hostile_reply` and `not_now_reply` to the `fub_agent_lead_cooldowns_reason_check` constraint. Applied via Supabase MCP.
+- **draftGenerator optout skip**: belt+suspenders check before the existing cooldown skip. The inbound classifier flips `is_eligible=false` already, but defending against any path where an optout row exists without the eligibility flag flipped is cheap and prevents accidental sends.
+- **Smoke test SQL artifact** at `scripts/session-5-smoke-test.sql` + walkthrough at `scripts/README.md`. Three-section flow: pre-flight verification, manual draft insert (temporarily removes Brian's exclusion row, sets is_eligible=true, inserts iMessage draft for fub_person_id=27764), post-test cleanup (restores exclusion, deletes the test draft, inspects audit log). Brian runs manually after Viktor's Automations 2.0 are live.
+
+Schema-realism deviations from the prompt:
+- The prompt's `fub_agent_optouts` table already exists as `fub_agent_lead_optouts` (session 1, with the `_lead_` infix). Used the existing table; no new migration. Existing columns (`optout_source`, `optout_message`, `optout_confidence`, `detected_channel`, `notes`) are sufficient.
+- The prompt asked for cooldown ordering by `reviewed_at` in the cron — that column does not exist on `fub_agent_message_drafts`. Used `approved_at` (which does exist).
+
+Current state:
+- `agent_enabled` still **false**. No outbound messages have ever been sent.
+- `daily_send_cap` = 10
+- Cooldown reason enum: `voice_off | wrong_lead_type | wrong_signal_read | low_quality | other | hostile_reply | not_now_reply`
+- `fub_agent_lead_cooldowns` empty
+- `fub_agent_lead_optouts` empty (until inbound classifier sees real traffic)
+- Cron `agent-daily-flush` registered in vercel.json (no-op until `agent_enabled = true`)
+- Smoke test artifact lives in `scripts/`; not yet executed
+- Brian's FUB person id = **27764**, in `fub_agent_lead_exclusions` (pond:brian_excluded_contacts), phone 8039023700
+
+Open items for session 6:
+- Review smoke-test outcome with Brian (assumes Viktor has Automations live by then)
+- If smoke test is clean: plan first real outbound batch under the 10/day cap
+- Build "interested" inbound surfacing in the queue UI (currently logs only)
+- Week 1 metrics dashboard: pushes/day, opt-out rate, response classification breakdown, cooldown counts
+- Autonomous-mode evaluation criteria (what would have to be true to flip `auto_below_threshold = true`?)
+- Set FUB UI visibility on custom fields 157/158/159 to admins-only (carryover from session 4 — needs the FUB UI, not API)
 
 ## Session 4 — 2026-05-07
 
