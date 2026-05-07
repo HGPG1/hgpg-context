@@ -245,3 +245,47 @@ components/MobileNav.tsx Agent nav link in mobile (Brian-only)
 | `daily_send_cap` | `50` | Max messages queued in 24h window |
 | `voice_file` | `"brian-voice.md"` | Voice profile for LLM drafting |
 | `scoring_version` | `"v1"` | Current scoring engine version |
+
+## Session 2 shipped 2026-05-06
+
+Built via Claude Code in HGPG1/hgpg-transaction-manager main. Files:
+
+- lib/agent/voices/brian-voice.md
+- lib/agent/draftGenerator.ts
+- lib/agent/outboundGate.ts
+- app/agent/queue/page.tsx
+- app/api/agent/drafts/route.ts (list)
+- app/api/agent/drafts/generate/route.ts (manual trigger)
+- app/api/agent/drafts/[id]/{approve,reject,edit}/route.ts
+- migrations/2026-05-06-fub-agent-templates-seed.sql
+
+Migration applied to ioypqogunwsoucgsnmla. 8 v1.warm.* templates seeded (6 email, 2 imessage, all buyer-typed).
+
+Smoke test:
+- /generate dryRun returned 5 candidates
+- /generate real run created drafts 1-5, all routed to v1.warm.viewed_listing_recent.email
+- Slot fills clean and on-voice (Haiku output reads like Brian, no em dashes, fallback wording correct)
+- All 5 drafts rejected during review — see classifier gap below
+
+## Session 3 priority — buyer classifier doesn't exist
+
+Distribution check across fub_agent_leads:
+- unknown: 9,234 (85%)
+- seller: 1,631 (15%)
+- buyer: 0
+
+Session 1 only detects sellers. Buyers stay 'unknown' forever. This means:
+- 85% of eligible leads have lead_type='unknown' which the draft generator currently treats as buyer-compatible
+- John Miller (fub_person_id 23316) was the proof — score row signals listed seller_classification + avm_report_access + seller report engagement, but lead_type was 'unknown' so he got routed into a buyer template
+- Failing closed on 'unknown' is not viable — would skip 85% of pool including all actual buyers
+
+Three-part fix for session 3:
+
+1. Build buyer classifier mirroring seller logic. Batch-classify 9,234 unknowns. Expected: ~70% become buyer, ~25% stay unknown, ~5% flip to seller.
+2. Patch draftGenerator.ts template selector to read score-row signals as authoritative override. If signals contain seller_classification or similar, never route to buyer template even when lead_type='unknown'. Catches the John Miller case directly.
+3. Seed seller templates: 6 v1.warm.*.seller variants (seller_report_recent, avm_recent, long_dormant_seller, listing_thinking, no_response_recent_seller, generic_seller_reengagement).
+4. Backfill audit. Sample 50 reclassified leads, eyeball buyer/seller split, verify before re-enabling /generate.
+
+Templates and pipeline are otherwise solid. Voice file is good. Slot fills are clean. Gate works. Approve/reject/edit handlers all functional. Queue UI renders correctly.
+
+Gate stayed closed throughout (agent_enabled=false). No outbound sent. No FUB writes. Production-safe to leave as-is.
