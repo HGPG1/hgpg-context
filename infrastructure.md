@@ -1,3 +1,5 @@
+<!-- Last Updated: 2026-05-07 -->
+
 # Infrastructure
 
 > Secrets, project IDs, and credentials live in Claude memory and the Tech & Builds project instructions, not this file. This document covers structure only.
@@ -12,19 +14,29 @@
 ## GitHub auth
 
 - gh CLI authenticated on Mac Mini and iMac (token in macOS Keychain)
-- Web/sandbox Claude sessions cannot push — they prepare files and Brian pushes from his Mac
+- Web/sandbox Claude sessions cannot push - they prepare files and Brian pushes from his Mac
+- Brain App at `brain.homegrownpropertygroup.com` can write to `hgpg-context` directly via fine-grained PAT (single-user, magic link auth)
 - No PATs in remote URLs. Any PAT-embedded URL from older instructions is invalid and revoked.
 - Fix any leftover PAT remote: `git remote set-url origin https://github.com/HGPG1/REPO-NAME.git`
 
-## Supabase projects (5 active)
+## Supabase projects (4 active)
 
-- **Primary** (`tc-concierge` named) — shared by TC Concierge, Transaction Manager, CMA Engine
-- **Listing Report Portal** — dedicated
-- **Closing Concierge** — dedicated
-- **FUB Texting Integration** — dedicated
-- **Signature site** — legacy, dedicated
+| Display Name | Project ID | Purpose |
+|---|---|---|
+| HGPG Core | `ioypqogunwsoucgsnmla` | TC Concierge, Transaction Manager, CMA Engine, brain-app, Team Tools, FUB AI Agent |
+| HGPG Listing Reports + MLS | `wdheejgmrqzqxvgjvfee` | Listing Report Portal + MLS Grid replication |
+| HGPG FUB Integration | `ngdrliyjtqcwhhfrbxao` | Legacy FUB texting integration |
+| HGPG Signature + Relocation | `fkxgdqfnowskflgbuxhm` | Signature site + NYC relocation lead capture |
 
-Project IDs in memory and Tech & Builds project instructions.
+**Removed 2026-05-04:** `nfwjgsanvmwmrginhklz` (Suna self-host, abandoned)
+
+## Resend SMTP
+
+- Custom SMTP wired into HGPG Core Supabase
+- Sender: `noreply@homegrownpropertygroup.com` (name: HGPG)
+- Rate limit: 30/hr (was 2/hr on Supabase default)
+- API key in 1Password as "Supabase HGPG Core SMTP"
+- Affects ALL apps on HGPG Core: TM, CMA, TC Concierge, brain-app, Team Tools
 
 ## Active subdomains
 
@@ -32,13 +44,16 @@ Project IDs in memory and Tech & Builds project instructions.
 |---|---|---|
 | homegrownpropertygroup.com | Main site | homegrown-property-group-site |
 | cma.homegrownpropertygroup.com | CMA Engine | hgpg-cma-tool |
-| closings.homegrownpropertygroup.com | Transaction Manager | hgpg-transaction-manager |
+| closings.homegrownpropertygroup.com | Transaction Manager (also hosts /agent FUB AI surface) | hgpg-transaction-manager |
 | tc.homegrownpropertygroup.com | TC Concierge | tc-concierge |
 | reports.homegrownpropertygroup.com | Listing Report Portal | hgpg-listing-report |
+| brain.homegrownpropertygroup.com | Brain App (markdown editor for hgpg-context) | brain-app |
+| tools.homegrownpropertygroup.com | HGPG Team Tools | hgpg-team-tools2 |
+| newconstruction.homegrownpropertygroup.com | Charlotte New Construction | charlotte-new-construction-nextjs |
 | marketinganalyzer.homegrownpropertygroup.com | Property Marketing Analyzer | hgpg-property-analyzer |
 | calls.homegrownpropertygroup.com | Call script tool | hgpg-call-script |
 | buyersguide.homegrownpropertygroup.com | Buyers Guide (React + Vite) | charlotte-buyers-guide |
-| sellersguide.homegrownpropertygroup.com | Sellers Guide | charlotte-sellers-guide-vercel |
+| sellersguide.homegrownpropertygroup.com | Sellers Guide (Meta Pixel + CAPI live) | charlotte-sellers-guide-vercel |
 | signature.homegrownpropertygroup.com | Signature Marketing Collection | signature-marketing-collection1 |
 | relocate.homegrownpropertygroup.com | NYC-to-Charlotte relocation landing | nyc-to-charlotte-relocation |
 | portfolio.homegrownpropertygroup.com | Portfolio site | hgpg-portfolio |
@@ -46,17 +61,16 @@ Project IDs in memory and Tech & Builds project instructions.
 
 ## Active build repos (not subdomain-mapped above)
 
-- `hgpg-context` — this brain repo
-- `hgpg-imessage-bridge` — backs the closings.../api/internal/dm-brian relay
-- `hgpg-home-calculator` — home calculator tool
-- `closing-concierge` — smart home manufacturer link database
-- `charlotte-new-construction-nextjs` — new construction site (active build)
-- `south-charlotte-report` + `south-charlotte-scraper` — @southcharlottereport content brand pipeline
+- `hgpg-context` - this brain repo
+- `hgpg-imessage-bridge` - backs the closings.../api/internal/dm-brian relay
+- `hgpg-home-calculator` - home calculator tool
+- `closing-concierge` - smart home manufacturer link database (decommission pending)
+- `south-charlotte-report` + `south-charlotte-scraper` - @southcharlottereport content brand pipeline
 
 ## Archived
 
-- `hgpg-deals-tracker` — replaced/abandoned
-- `hgpg-transaction-monitor` — superseded by hgpg-transaction-manager
+- `hgpg-deals-tracker` - decommissioned 2026-05-01, superseded by hgpg-transaction-manager
+- `hgpg-transaction-monitor` - superseded by hgpg-transaction-manager
 
 ## ReZEN APIs
 
@@ -66,7 +80,7 @@ Project IDs in memory and Tech & Builds project instructions.
 
 ## MCP servers
 
-- **FUB MCP:** `~/Documents/followupboss-mcp-server-neuhaus/index.js` — Claude Desktop only
+- **FUB MCP:** `~/Documents/followupboss-mcp-server-neuhaus/index.js` - Claude Desktop only
 
 ## iCloud workspace
 

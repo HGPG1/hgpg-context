@@ -1,16 +1,17 @@
+<!-- Last Updated: 2026-05-07 -->
+
 # Team
 
-## HGPG Roster (as of 2026-03-30)
+## HGPG Roster (as of 2026-05-07)
 
-| Name | Role |
-|---|---|
-| Brian McCarron | Broker/Owner |
-| Ashley Johnson | Agent |
-| Brenda Bain | Agent |
-| Taylor Sheehan-Watson | Agent |
-| Lauren Williams | Agent |
-| Don Broyles | Transaction Coordinator |
-| Sami Clubb | Part-time marketing |
+| Name | Role | FUB User |
+|---|---|---|
+| Brian McCarron | Broker/Owner | Yes |
+| Ashley Johnson | Agent | Yes |
+| Brenda Bain | Agent | Yes |
+| Taylor Sheehan-Watson | Agent | Yes |
+| Don Broyles | Transaction Coordinator | No (TM primary user) |
+| Sami Clubb | Part-time marketing | No |
 
 ## FUB IDs
 
@@ -26,9 +27,10 @@ Brian rents office space at **Lando Law** (see `compliance.md` for closing detai
 - **Realty Candy** - support@realtycandy.com, 435-222-5522 - handles IDX header fixes
 - **Lando Law** - SC closings, $550 flat (seller rep + owner search)
 
-## Phone
+## Phone numbers
 
-Correct office phone: **803-902-3700** (FUB line)
+- **Main office line (FUB):** 803-902-3700
+- **Brian's direct FUB line:** 803-902-4701
 
 ## Org notes
 

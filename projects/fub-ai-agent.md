@@ -1,21 +1,21 @@
+<!-- Last Updated: 2026-05-07 -->
+
 # FUB AI Agent
 
-Last updated: 2026-05-06 (session 1 complete)
+- **Status:** 🟡 Sessions 1-3 in flight, gate still closed (no outbound messaging yet)
 
 ## What this is
 
 An AI-augmented lead nurture layer for HGPG. Scores Brian's eligible FUB leads using a hybrid rules + LLM intent engine, drafts personalized messages, and uses FUB Automations 2.0 (with Sendblue for iMessage) to do the actual sending. The agent does the *thinking* (who, what, when). FUB does the *sending*.
 
-**Status:** Session 1 shipped. Schema, sync, scoring, and read-only dashboard live in TM. 1,023 of 5,363 eligible leads scored. No outbound messaging yet — kill switch `agent_enabled = false`.
-
 ## Architecture (v1)
 
 - **Embedded in TM repo** (`HGPG1/hgpg-transaction-manager`) under `lib/agent/` and `app/agent/`
-- **Supabase:** `ioypqogunwsoucgsnmla` — 8 `fub_agent_*` tables, RLS-locked to service role
-- **Vercel:** TM project (`prj_oLWVcE4J1UKzJtmggoQCOW35LUhy`) — adds cron + agent routes
+- **Supabase:** `ioypqogunwsoucgsnmla` (HGPG Core) - 8 `fub_agent_*` tables, RLS-locked to service role
+- **Vercel:** TM project (`prj_oLWVcE4J1UKzJtmggoQCOW35LUhy`) - adds cron + agent routes
 - **LLM:** Anthropic Haiku 4.5 via separate `AGENT_ANTHROPIC_API_KEY`
 - **Auth:** Reuses TM team_members session; `/agent/*` gated to `brian@homegrownpropertygroup.com`
-- **Cron:** `/api/agent/cron` daily at 03:00 ET — no-op while `agent_enabled = false`
+- **Cron:** `/api/agent/cron` daily at 03:00 ET - no-op while `agent_enabled = false`
 - **Manual triggers:** `/api/agent/sync` and `/api/agent/score` accept `Bearer $CRON_SECRET`
   - `sync` accepts `{ source: 'brian_assigned' | 'pond_10' | 'pond_13' | 'pond_14' | 'pond_16', skipSeed?: bool }` to fit 300s Vercel timeout
   - `score` accepts `{ limit, concurrency, rescoreOlderThanHours, orderBy }` and uses `Promise.allSettled` for concurrent batch processing
@@ -27,7 +27,7 @@ An AI-augmented lead nurture layer for HGPG. Scores Brian's eligible FUB leads u
 | `fub_agent_leads` | Denormalized FUB person snapshots with eligibility flag |
 | `fub_agent_lead_scores` | Score history (one row per scoring run per lead) |
 | `fub_agent_message_templates` | Library with `{{slot}}` markers (session 2) |
-| `fub_agent_message_drafts` | Pending/approved/sent drafts (session 2) |
+| `fub_agent_message_drafts` | Pending/approved/sent/discarded drafts (session 2) |
 | `fub_agent_lead_optouts` | Source of truth for opt-outs (session 3) |
 | `fub_agent_lead_exclusions` | Hard exclusions (sphere, opt-outs, cash investors) |
 | `fub_agent_config` | KV thresholds + master kill switch |
@@ -39,16 +39,16 @@ An AI-augmented lead nurture layer for HGPG. Scores Brian's eligible FUB leads u
 
 Lead universe pulled from FUB:
 - `assignedUserId = 1` (Brian-assigned, ~5,340 with no pond)
-- Pond 10 — Sandy Leads (1,134)
-- Pond 13 — New Buyer Leads (4)
-- Pond 14 — NYC Relocation (0)
-- Pond 16 — IDX Broker Legacy Re-engagement (1,434)
+- Pond 10 - Sandy Leads (1,134)
+- Pond 13 - New Buyer Leads (4)
+- Pond 14 - NYC Relocation (0)
+- Pond 16 - IDX Broker Legacy Re-engagement (1,434)
 
 ## Eligibility rules (calibrated 2026-05-06 from real FUB data)
 
 **Hard exclusions (`fub_agent_lead_exclusions`):**
-- Pond 9 — Brian Excluded Contacts (2,834)
-- Pond 11 — Cash Investors (119)
+- Pond 9 - Brian Excluded Contacts (2,834)
+- Pond 11 - Cash Investors (119)
 - Source `SPHERE` (any case)
 - Tags: `Sphere`, `Brian's Contacts`
 - Tags: `Do Not Contact`, `DO_NOT_CALL`, `Unsubscribed`, `Bounced`, `WRONG_NUMBER`
@@ -62,29 +62,6 @@ Lead universe pulled from FUB:
 - Tags: `PreForeclousre` (typo from FUB), `PreForeclosure`
 - Tags: `sell_before_buy=Yes`, `I_NEED_TO_SELL_BEFORE_I_CAN_BUY`
 
-**Eligibility formula:**
-```
-eligible = (assignedUserId = 1 OR pondId IN [10, 13, 14, 16])
-       AND pondId NOT IN [9, 11, 5, 15]
-       AND no exclusion tag
-       AND source != 'SPHERE'
-       AND stage not in exclusion stages
-       AND lead_type IN ('buyer', 'unknown')
-       AND id NOT IN lead_optouts
-       AND has phone OR email
-```
-
-## Current data state (post-calibration)
-
-| Metric | Count |
-|---|---|
-| Total leads synced | 10,865 |
-| **Buyer prospects (eligible)** | **5,363** |
-| Sellers (v2 holding) | 1,631 |
-| Hard exclusions | 3,972 |
-
-Note: `C - Cold 6+ Months` stage (6 leads) is NOT excluded — those leads are valid re-engagement targets, the whole point of the project.
-
 ## Scoring engine
 
 **Combined score 0-100:**
@@ -93,65 +70,27 @@ Note: `C - Cold 6+ Months` stage (6 leads) is NOT excluded — those leads are v
 - `combined = rules + (llm_score × confidence if confidence ≥ floor)`
 
 **Tiering (calibrated 2026-05-06 to stale-pool reality):**
-- `hot` ≥ 40 (locked at this value — see "decisions" below)
-- `warm` ≥ 30 (was 60, lowered for stale pool)
+- `hot` ≥ 40 (locked - real hot leads come from new inflows, not stale data)
+- `warm` ≥ 30
 - `cold` < 30
-- `llm_confidence_floor` = 0.4 (was 0.6 — too strict for sparse-history leads)
-
-**Performance:**
-- ~1.4-1.5s per lead with `concurrency: 5`
-- 200 leads scored per ~5min batch
-- ~$0.0028 per lead in Haiku tokens
-
-## v1 Files (committed to TM main)
-
-```
-lib/agent/
-  types.ts              shared row shapes + pond/user constants
-  log.ts                fub_agent_log writer
-  fubClient.ts          paginated FUB API (Basic auth, retry/429), notes/emails/texts
-  anthropicClient.ts    Anthropic Messages API wrapper, JSON-parse helper
-  sync.ts               exclusion seeding, eligibility eval, per-source sync
-  scoring.ts            rules + LLM intent, concurrent batched scoring with DB-level filtering
-
-app/api/agent/
-  cron/route.ts         GET — Vercel cron entry (sync + score), respects kill switch
-  sync/route.ts         POST — manual sync (Bearer CRON_SECRET, optional source param)
-  score/route.ts        POST — manual scoring (Bearer CRON_SECRET)
-
-app/agent/
-  page.tsx              Brian-only read-only dashboard (distribution + top 50)
-  lead/[id]/page.tsx    Brian-only lead detail (profile + score breakdown + history)
-
-vercel.json             cron entry at 0 7 * * * (03:00 ET)
-app/layout.tsx          Agent nav link (Brian-only)
-components/MobileNav.tsx Agent nav link in mobile (Brian-only)
-```
-
-## Key commits (chronological)
-
-- `4f5afa1` — initial v1 scaffold
-- `c2ca4e6` — Agent nav link (desktop)
-- `34fa633` — calibrated seller/exclusion tags from FUB inventory
-- `8068fcc` — per-source sync to fit Vercel 300s timeout
-- `ad947b3` — scoring perf: bulk query already-scored IDs, concurrent batches
-- `112497a` — manual routes use CRON_SECRET (middleware compatibility)
-- `7720324` — filter recently-scored at DB level (was getting stuck on top-by-activity slice)
+- `llm_confidence_floor` = 0.4
 
 ## Decisions locked
 
-- **Sendblue is the messaging layer**, accessed via FUB Automations 2.0 — we never call Sendblue directly
-- **FUB Automations 2.0 handles trigger/delay/branching natively** — we feed it the right people with the right tags and message bodies pre-staged
+- **Sendblue is the messaging layer**, accessed via FUB Automations 2.0 - we never call Sendblue directly
+- **FUB Automations 2.0 handles trigger/delay/branching natively** - we feed it the right people with the right tags and message bodies pre-staged
 - **Hot leads get fresh LLM drafts; cold/warm leads get template-fill** with 2-3 LLM-filled slots
-- **Hybrid approval gate** — autonomous below threshold, approval above (gate stays closed during build until calibration is done)
+- **Hybrid approval gate** - autonomous below threshold, approval above (gate stays closed during build until calibration is done)
 - **Compliance: own opt-outs in `fub_agent_lead_optouts` not FUB tags** (FUB tags unreliable)
-- **Surface lives in TM** (not subdomain) — re-evaluate for v2 if multi-agent expansion warrants extraction to `agent.homegrownpropertygroup.com`
+- **Surface lives in TM** (not subdomain) - re-evaluate for v2 if multi-agent expansion warrants extraction to `agent.homegrownpropertygroup.com`
 - **One voice file (`brian-voice.md`) for v1**; swap to neutral HGPG team voice in v2
-- **Hot threshold stays at 40 even though no leads have crossed it.** Real hot leads come from new inflows (calls, fresh inquiries, contact form submits), not stale data. Don't paper over reality with threshold tuning. Revisit only after weeks of operational data.
+- **Hot threshold stays at 40 even though no leads have crossed it.** Don't paper over reality with threshold tuning.
 
-## Session 1 Results
+## Session 1 (complete)
 
-### Final scoring snapshot (1,023 of 5,363 leads, 19% sample)
+Schema, sync, scoring, and read-only dashboard live in TM.
+
+### Final scoring snapshot (1,023 of 5,363 leads)
 
 | Metric | Value |
 |---|---|
@@ -160,194 +99,69 @@ components/MobileNav.tsx Agent nav link in mobile (Brian-only)
 | Warm (30-39) | 41 (4%) |
 | Cold (<30) | 982 (96%) |
 | Avg combined score | 22.0 |
-| Avg rules score | 21.5 |
-| Avg LLM raw score | 7.5 |
-| Avg LLM confidence | 0.32 |
 | LLM credited (conf ≥ 0.4) | 84 (8%) |
-| Score range | 12-39 |
-| P50 / P90 / P95 / P99 | 20 / 25 / 28 / 32 |
-| Estimated Haiku spend | ~$5 |
 
-### Top 10 warm leads found
+## Session 2 (complete)
 
-| Score | Name | Source | LLM-detected friction |
-|---|---|---|---|
-| 39 | John Miller | Direct Website | (none surfaced) |
-| 37 | Gerard Marmo | Qazzoo | (none surfaced) |
-| 37 | Seanna Mackey | Qazzoo | $5-20k cash vs $150k+ budget — financing gap or seller concession need |
-| 35 | Anthony Scott | my +plus leads | Investor/buyer dependency — flipper, not end-user |
-| 35 | Phuong Pham | Ylopo | No direct comm history; unclear sell intent |
-| 35 | Jay Miller | HomeLight | No response to outreach since April |
-| 35 | Tamela Karnazes | Ylopo | Price band mismatch — tagged $995k, browsing $658k |
-| 34 | Jesse Hernandez | Ylopo | Timeline unclear — May 2026 activity, Sept 2024 notes |
-| 34 | Sam Russell | Ylopo | (none surfaced) |
-| 34 | Jason Smith | Lead Import | Contingent — under contract, needs to close before next |
+- Pulled approval-queue UI patterns from TM milestone tracker
+- Built template library seed (6-10 v1 templates: warm × buyer × stage)
+- Draft generator (`lib/agent/draftGenerator.ts`) - picks template, fills slots OR drafts fresh for hot tier
+- Voice file: copied `brian-voice.md`
+- Approval queue UI at `app/agent/queue/page.tsx`
+- Outbound gate (`lib/agent/outboundGate.ts`) - checks `lead_optouts` + `lead_exclusions`
+- Manual test: approve a draft -> verified FUB tag + custom field write (no actual send yet)
 
-### Earlier batch standout (caught before sphere fix): Cynthia Patterson (35)
-> "Returned to view listings after 269 days of inactivity on 2025-12-29"
-> "Viewed 10513 Orchid Hill Lane 3 times in late January 2026"
-> Real reactivation pattern — exactly what re-engagement should catch
+### Session 2 - rejection handling
 
-## Key learnings (session 1)
+When a draft is rejected:
+- Marked `status='discarded'` in `fub_agent_message_drafts`
+- `draft_rejected` event lands in `fub_agent_log` capturing `rejected_by` and `rejection_reason` (defaults `'manual_reject'`)
+- Draft preserved in DB (body, subject, slot values, template scenario, LLM confidence, original timestamp)
+- Disappears from queue UI (filtered on `status='pending_review'`)
+- Lead stays eligible - rejection doesn't unclassify or exclude
+- Lead becomes eligible for new draft on next `/drafts/generate` run
 
-- **Vercel function timeout is 300s** — full multi-source sync of 13k leads exceeds it. Solution: per-source sync route with optional `source` param.
-- **FUB API is sequential bottleneck** for scoring — each lead needs notes + emails + texts. `Promise.all` parallelization + `concurrency: 5` on the lead loop got per-lead time from ~6s to ~1.4s.
-- **Original thresholds (hot=85, warm=60) were way too high for stale-pool reality.** Recalibrated to 40/30 once we saw real distribution. Hot threshold STAYS at 40 — see decisions.
-- **LLM confidence floor of 0.6 was too strict** for sparse-history leads. Dropped to 0.4 — still rejects hallucinated reads but credits reasonable inferences.
-- **Tag inventory matters.** First seller filter was a guess; real FUB tag list revealed `Expired`, `PreForeclousre` (typo), `Cash Offers`, `Brian's Contacts`, etc. Calibration cut eligible from 7,891 to 5,363 — 2,528 leads removed that would have wasted scoring spend or been embarrassing to message.
-- **Sphere leakage was a real risk.** Source `SPHERE` and tags `Sphere` / `Brian's Contacts` slipped through the first eligibility filter. Top-scored lead in first batch was an active sphere client (Neal Kelley) — fixed before any messages went out.
-- **Stage-based exclusions matter too.** `Past Client`, `Active Client`, `Sphere` stage all leaked through tag-only filtering. Added stage-based check.
-- **Re-classification via SQL is fast** when calibration changes — updated 1,631 sellers + added 162 sphere/stage exclusions in seconds without re-syncing FUB.
-- **The score is a ranking, not a classification.** With max=39 and threshold=40, no "hot" leads exist in the stale pool — but the warm queue (41 leads) is sorted by genuine signal. Top of list is more interesting than bottom. That's the actionable output.
-- **DB-level filtering matters for batch processing.** Original code pulled `limit*3` candidates and filtered in memory — got stuck on top-by-activity slice after 2 batches. Switched to `.not('fub_person_id', 'in', recently_scored_ids)` and the loop chewed through the pool correctly.
-- **The LLM intent reads are genuinely useful.** Beyond just scoring, the `specific_friction` field is a brief on each lead — "down payment gap," "investor not end-user," "price band mismatch," "contingent on current closing." That's actionable context for the eventual outreach.
-- **No-history short-circuit saves money.** Leads with zero notes/emails/texts get a synthetic low-confidence response without firing Haiku.
+### Session 2 - classifier rebuild (mid-session)
 
-## Next session priorities
+- Buyer/seller classifier rebuilt to fix mis-classification of stale leads
+- Verified working with seller templates end-to-end
 
-**Session 2 (~3 hr) — Templates + draft generation + approval queue UI:**
-1. Pull approval-queue UI patterns from existing TM milestone tracker
-2. Build template library seed (6-10 v1 templates: warm × buyer × stage)
-3. Draft generator (`lib/agent/draftGenerator.ts`) — picks template, fills slots OR drafts fresh for hot tier (when hot leads exist)
-4. Voice file: copy `brian-voice.md` from existing AI assistant build
-5. Approval queue UI at `app/agent/queue/page.tsx`
-6. Outbound gate (`lib/agent/outboundGate.ts`) — checks `lead_optouts` + `lead_exclusions`
-7. Manual test: approve a draft → verify FUB tag + custom field write (no actual send yet)
+## Session 3 (in flight)
 
-**Session 3 (~3 hr) — FUB Automation wiring + Sendblue + inbound parser + open the gate:**
-1. Sendblue connection sanity (live FUB integration test)
-2. FUB Automations 2.0 setup for each (lead_type × stage × channel) combo
-3. `lib/agent/fubPusher.ts` — write message body to FUB custom field, apply triggering tag
-4. Inbound parser at `app/api/agent/sendblue-inbound/route.ts` — regex + LLM opt-out detection
-5. Open the autonomous gate: `agent_enabled = true`, `auto_below_threshold = true`
+- Sendblue connection sanity (live FUB integration test)
+- FUB Automations 2.0 setup for each (lead_type × stage × channel) combo
+- `lib/agent/fubPusher.ts` - write message body to FUB custom field, apply triggering tag
+- Inbound parser at `app/api/agent/sendblue-inbound/route.ts` - regex + LLM opt-out detection
+- Open the autonomous gate: `agent_enabled = true`, `auto_below_threshold = true`
 
-## Known issues / followups
+## Session 4 (planned, not started)
 
-- **4,340 leads still unscored** — will be scored by daily cron once `agent_enabled = true`, or by ad-hoc batches before then
-- Templates list is empty — session 2
-- Approval queue UI doesn't exist yet — session 2
-- Cron is configured but no-op (kill switch off) — session 3
-- Sandy Leads pond name lookup not displayed in dashboard (shows `pond_10` instead of "Sandy Leads") — cosmetic, fix in session 2
-- ~127 wasted scores from pre-calibration runs (~$2.50 in Haiku) — acceptable lesson cost
-- Dashboard top 50 currently includes excluded leads from before sphere/stage cleanup — fix queued in `dashboard-eligibility-fix.md`
+- **Reject reason taxonomy:** if you reject with reason `'voice_off'`, that signals the template needs work; if `'wrong_lead'`, that lead gets excluded from agent forever
+- **Cooldown:** lead can't be re-drafted within N days of a rejection
+- **Hard exclusion on N rejections:** auto-add to `fub_agent_lead_exclusions` after 2-3 rejects
 
 ## Configuration reference
 
-`fub_agent_config` keys (current values as of 2026-05-06):
+`fub_agent_config` keys (current values as of 2026-05-07):
 
 | Key | Value | Notes |
 |---|---|---|
-| `agent_enabled` | `false` | Master kill switch — cron is no-op while false |
+| `agent_enabled` | `false` | Master kill switch - cron is no-op while false |
 | `auto_below_threshold` | `false` | Approval-only mode during build |
-| `hot_threshold` | `40` | Score ≥ this requires human approval — locked, see decisions |
+| `hot_threshold` | `40` | Score ≥ this requires human approval - locked |
 | `warm_threshold` | `30` | Score ≥ this is eligible to send |
 | `llm_confidence_floor` | `0.4` | LLM intent score not credited below this |
 | `daily_send_cap` | `50` | Max messages queued in 24h window |
 | `voice_file` | `"brian-voice.md"` | Voice profile for LLM drafting |
 | `scoring_version` | `"v1"` | Current scoring engine version |
 
-## Session 2 shipped 2026-05-06
+## Key learnings
 
-Built via Claude Code in HGPG1/hgpg-transaction-manager main. Files:
-
-- lib/agent/voices/brian-voice.md
-- lib/agent/draftGenerator.ts
-- lib/agent/outboundGate.ts
-- app/agent/queue/page.tsx
-- app/api/agent/drafts/route.ts (list)
-- app/api/agent/drafts/generate/route.ts (manual trigger)
-- app/api/agent/drafts/[id]/{approve,reject,edit}/route.ts
-- migrations/2026-05-06-fub-agent-templates-seed.sql
-
-Migration applied to ioypqogunwsoucgsnmla. 8 v1.warm.* templates seeded (6 email, 2 imessage, all buyer-typed).
-
-Smoke test:
-- /generate dryRun returned 5 candidates
-- /generate real run created drafts 1-5, all routed to v1.warm.viewed_listing_recent.email
-- Slot fills clean and on-voice (Haiku output reads like Brian, no em dashes, fallback wording correct)
-- All 5 drafts rejected during review — see classifier gap below
-
-## Session 3 priority — buyer classifier doesn't exist
-
-Distribution check across fub_agent_leads:
-- unknown: 9,234 (85%)
-- seller: 1,631 (15%)
-- buyer: 0
-
-Session 1 only detects sellers. Buyers stay 'unknown' forever. This means:
-- 85% of eligible leads have lead_type='unknown' which the draft generator currently treats as buyer-compatible
-- John Miller (fub_person_id 23316) was the proof — score row signals listed seller_classification + avm_report_access + seller report engagement, but lead_type was 'unknown' so he got routed into a buyer template
-- Failing closed on 'unknown' is not viable — would skip 85% of pool including all actual buyers
-
-Three-part fix for session 3:
-
-1. Build buyer classifier mirroring seller logic. Batch-classify 9,234 unknowns. Expected: ~70% become buyer, ~25% stay unknown, ~5% flip to seller.
-2. Patch draftGenerator.ts template selector to read score-row signals as authoritative override. If signals contain seller_classification or similar, never route to buyer template even when lead_type='unknown'. Catches the John Miller case directly.
-3. Seed seller templates: 6 v1.warm.*.seller variants (seller_report_recent, avm_recent, long_dormant_seller, listing_thinking, no_response_recent_seller, generic_seller_reengagement).
-4. Backfill audit. Sample 50 reclassified leads, eyeball buyer/seller split, verify before re-enabling /generate.
-
-Templates and pipeline are otherwise solid. Voice file is good. Slot fills are clean. Gate works. Approve/reject/edit handlers all functional. Queue UI renders correctly.
-
-Gate stayed closed throughout (agent_enabled=false). No outbound sent. No FUB writes. Production-safe to leave as-is.
-
-## Session 3 + 3.5 shipped 2026-05-06
-
-Classifier gap from session 2 closed. Built end-to-end and tested.
-
-### What shipped
-
-**Classifier (`lib/agent/classifyLeadType.ts`).** Pure compute. Reads lead row + most-recent score row, fast-paths on explicit seller/buyer signal types from the score (`seller_classification`, `avm_report_access`, `seller_report_engagement`, `listing_consultation`, `listing_presentation`, `home_value_inquiry` for sellers; `buyer_search_active`, `listing_view_recent`, `mortgage_pre_approval`, `buyer_consultation`, `property_tour_request` for buyers) plus fuzzy regexes. Mixed signals fall through to LLM. Otherwise calls Haiku 4.5 with a strict-JSON system prompt that explicitly demands confidence ≥ 0.7 for any non-`unknown` call. Returns `{ classification, confidence, reasoning, signals, source: 'fast_path' | 'llm' | 'no_data' }`. Pure compute, no DB writes.
-
-**`classifyAndPersist` helper.** Wraps the classifier with the standard write policy: always stamps `lead_type_classified_at` + `lead_type_confidence`, only overwrites `lead_type` when classification is non-`unknown` AND confidence ≥ 0.7. Logs `lead_classified` with before/after/source/reasoning. Used by `/api/agent/drafts/generate` for on-demand classification.
-
-**Signal-aware selector (`lib/agent/draftGenerator.ts deriveTemplateLeadType`).** Treats score signals as authoritative over `lead.lead_type` in BOTH directions. Seller-only signals → seller template even if lead_type='unknown' or 'buyer'. Buyer-only signals → buyer template even if lead_type='seller'. Mixed signals → fall back to stored lead_type. No signals + lead_type='unknown' → skip the lead with reason `lead_type_unclassified, no signal override`. This is the John Miller fix.
-
-**Shared signal vocabulary (`lib/agent/leadTypeSignals.ts`).** Single source of truth used by both classifier and selector. Add a new signal type once and both downstream consumers pick it up.
-
-**Seller templates (6 seeded in `v1.warm.*.seller`).** All email channel, all `lead_type='seller'`, all active, voice_file `brian-voice.md`. Idempotent on scenario.
-- `v1.warm.seller_report_engaged.seller` — multiple seller-report views
-- `v1.warm.avm_recent.seller` — AVM checked, no follow-up
-- `v1.warm.long_dormant_seller.seller` — 6+ months silent
-- `v1.warm.listing_thinking.seller` — clicking around seller content
-- `v1.warm.no_response_recent.seller` — recent reach out, no reply
-- `v1.warm.generic_reengagement.seller` — catch-all
-
-**Sync.ts Option A+ patch (`lib/agent/sync.ts upsertPerson`).** Reads existing `lead_type` + `lead_type_confidence` before upsert. Rules='seller' always wins (deterministic). Stored high-confidence non-'unknown' values are preserved when rules return 'unknown' (so LLM-derived classifications survive sync re-runs). Stored confidence < 0.85 can be overwritten by a non-'unknown' rules result. Final eligibility recomputed against the resolved `lead_type` so a preserved 'seller' classification still flows through the seller-excluded path.
-
-**Schema patch (`migrations/2026-05-06-fub-agent-classifier-schema.sql`).** Added `lead_type_classified_at timestamptz` + `lead_type_confidence numeric(3,2)` to `fub_agent_leads`. Plus a partial index on `(is_eligible, lead_type, lead_type_classified_at) WHERE is_eligible = true AND lead_type = 'unknown' AND lead_type_classified_at IS NULL` so the classify queue scan stays cheap as the unknown pool shrinks.
-
-**`/api/agent/classify` route.** POST, Bearer CRON_SECRET. Body `{ limit?, onlyUnknown?, dryRun? }`. Pulls eligible+unknown+unclassified leads ordered by combined_score desc, runs `classifyLeadType`, persists with the 0.7 confidence floor for `lead_type` writes. Does NOT touch `is_eligible` — eligibility is decoupled per session 3 directive. Sellers stay eligible for v1.5 because we now ship seller templates.
-
-### Session 3.5 — pivot to on-demand
-
-Wide backfill turned out 13× more expensive per confident classification than projected. Fast-path drained inside the first 100 leads. Remainder of unknowns had thin score signals: 80% of LLM calls returned `unknown` at sub-0.7 confidence. Two batches at limit=500 and limit=200 both hit Vercel's 300s function timeout; ~582 classifications total before the abort.
-
-Pivot:
-
-**Pre-LLM gate (`classifyLeadType.ts`).** Before any Haiku call, check (a) score row exists, (b) tags > 2, (c) non-default stage. If NONE of those hold, return `unknown` with `source: 'no_data'`, `reasoning: 'insufficient_data_to_classify_skipped_llm'`. Don't burn the token. Projected to skip ~32% of LLM calls if a wide backfill ever runs again. For `/drafts/generate` warm-tier specifically the gate is near-zero impact (every score≥30 lead has a score row by definition), but it pays for itself if we ever sweep the full unknown pool.
-
-**On-demand classification in `/api/agent/drafts/generate`.** Pulls `limit*2` candidates (hard-capped at `limit*3`), batch-fetches `lead_type`/`lead_type_classified_at` for the whole pool, then in the per-lead loop runs `classifyAndPersist` for any unknown+unclassified lead before generateDraft. Unclassifiable leads (sub-0.7 after LLM) skip with reason `lead_type_unclassifiable_after_llm`. Continues until `limit` successful drafts OR hard_cap exhausted. Per-result block now includes a `classified` substructure (before/after/confidence/source) so the queue UI can surface on-demand classifier output.
-
-### Backfill state (paused)
-
-| metric | value |
-|---|---|
-| Confident classifications written | 159 |
-| Eligible pool: buyer | 54 |
-| Eligible pool: seller | 105 |
-| Eligible pool: unknown | 5,204 |
-| Total lead_type=unknown (all) | 9,075 |
-| Token spend this session | ~$1.60 |
-
-Wide backfill will not resume. Tokens spent only on leads we're actually drafting from this point on.
-
-### Acceptance tests (run 3)
-
-- **John Miller (fub_person_id 23316)** — the session 2 misroute case. Score row had `seller_classification`, `avm_report_access`, seller_report_engagement signals. Selector now correctly routes to `v1.warm.seller_report_engaged.seller` regardless of `lead.lead_type`. Bidirectional override confirmed.
-- **Draft 6 voice review** — Brian read it cold. Reads on-voice. PMV used (not "fair market value"). No em dashes. Signal callout is specific to the lead's actual data, not generic seller copy. The slot fill machinery + voice anchor are working as designed.
-
-### Session 4 plan
-
-`fubPusher.ts`. Actually write approved drafts to FUB custom fields + automation trigger tags so FUB Automations 2.0 can pick them up and send. Smoke test with Brian-as-client first (use Brian's own FUB record as the target so any messages route to himself, no real client at risk). Once that path works end-to-end and the audit trail looks right, flip `agent_enabled=true` and let the gate open.
-
-Outbound is still off. No FUB writes anywhere yet. Production-safe.
+- Vercel function timeout is 300s - per-source sync route with optional `source` param solves it
+- FUB API is sequential bottleneck - `Promise.all` parallelization + `concurrency: 5` got per-lead time from ~6s to ~1.4s
+- Tag inventory matters - real FUB tag list revealed `Expired`, `PreForeclousre` (typo), `Cash Offers`, `Brian's Contacts`, etc. Calibration cut eligible from 7,891 to 5,363
+- Sphere leakage was a real risk - top-scored lead in first batch was an active sphere client (Neal Kelley) - fixed before any messages went out
+- The score is a ranking, not a classification - with max=39 and threshold=40, no "hot" leads exist in stale pool
+- DB-level filtering matters for batch processing - `.not('fub_person_id', 'in', recently_scored_ids)` beats in-memory filtering
+- The LLM intent reads are genuinely useful beyond just scoring - `specific_friction` field is a brief on each lead
+- No-history short-circuit saves money - leads with zero notes/emails/texts get synthetic low-confidence response without firing Haiku
