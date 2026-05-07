@@ -37,6 +37,12 @@ Open items for session 5:
 - Wire the inbound classifier to `fub_agent_lead_optouts` (when class=opt_out) and to `fub_agent_lead_cooldowns` (when class=not_now or hostile)
 - Set FUB UI visibility on the three custom fields to admins-only
 
+### Learnings captured in session 4
+
+1. **FUB tag list endpoint not accessible to standard API key.** The `/v1/peopleTags` endpoint (or equivalent listing endpoint) returns 403 or 404 with the API key in env. Workaround used in session 4: tags are implicit-on-first-apply. The pusher's POST to apply a tag to a person creates the tag if it does not exist. This is fine for known tag names hardcoded in `fubAgentConstants.ts`. Becomes a problem if we ever need to enumerate tags programmatically — we would need a higher-scoped API key or a scraping fallback.
+
+2. **Schema realism beats spec when adding new tables that reference existing ones.** Session 4 spec said `fub_person_id` should be text and FK should be uuid. Existing schema has `fub_person_id` as bigint and `drafts.id` as uuid. Claude Code correctly matched the existing types rather than introducing a type mismatch that would have required casts everywhere. Principle for future sessions: "match what's there" beats "follow the spec literally" when the two conflict on type or naming conventions.
+
 
 
 ## What this is

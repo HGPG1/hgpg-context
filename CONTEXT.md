@@ -23,7 +23,7 @@ Status legend: 🟢 shipped & live · 🟡 active build · 🔵 planned/scoped �
 | CMA Engine | 🟡 PRs #16-22 shipped, awaiting Taylor stress test | `projects/cma-engine.md` |
 | Transaction Manager | 🟡 ongoing Don feedback batches, $395 fee toggle parked | `projects/transaction-manager.md` |
 | TC Concierge | 🟢 live, Don running real deals | `projects/tc-concierge.md` |
-| FUB AI Agent | 🟡 Session 2-3 in flight (approval queue, draft gen) | `projects/fub-ai-agent.md` |
+| FUB AI Agent | 🟡 session 4 shipped — pusher live, `agent_enabled` false, smoke test pending session 5 | `projects/fub-ai-agent.md` |
 | Brain App | 🟢 shipped 2026-05-06, Phase 2 backlog | `projects/brain-app.md` |
 | HGPG Team Tools | 🟢 fixed 2026-05-05 (Google OAuth via Supabase) | `projects/team-tools.md` |
 | Listing Report Portal | 🟢 GitHub auth resolved | `projects/listing-report-portal.md` |

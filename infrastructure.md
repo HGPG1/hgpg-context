@@ -30,6 +30,30 @@
 
 **Removed 2026-05-04:** `nfwjgsanvmwmrginhklz` (Suna self-host, abandoned)
 
+### HGPG Core — TM tables of note
+
+- `fub_agent_lead_cooldowns` — added in session 4. Tracks per-lead cooldowns from rejected drafts. Columns: `id` (uuid), `fub_person_id` (bigint, matches existing `fub_agent_leads.fub_person_id` type), `cooldown_until` (timestamptz), `reason` (enum: `voice_off | wrong_lead_type | wrong_signal_read | low_quality | other`), `created_at`, `created_by_draft_id` (uuid FK to `fub_agent_message_drafts.id`). Indexed on `(fub_person_id, cooldown_until)`. `draftGenerator` skips leads with active cooldown.
+- `fub_agent_message_drafts` — session 4 added columns: `fub_pushed_at` (idempotency marker for pusher), `reject_reason` (enum), `reject_notes` (free-form, optional).
+
+## Follow Up Boss (FUB)
+
+### FUB AI Agent custom fields and tags
+
+Custom fields (created via FUB API in session 4, IDs 157-159):
+- `customAgentDraftEmailBody` (id 157, long text, admin-only) — written by `lib/agent/fubPusher.ts` on email-channel approval
+- `customAgentDraftEmailSubject` (id 158, short text, admin-only) — written by pusher on email-channel approval
+- `customAgentDraftIMessageBody` (id 159, long text, admin-only) — written by pusher on imessage-channel approval
+
+Tags (implicit-on-first-apply since FUB tag list endpoint is not accessible to the API key):
+- `agent_draft_email_ready` — applied by pusher on email-channel approval
+- `agent_draft_imessage_ready` — applied by pusher on imessage-channel approval
+
+Single source of truth for these names: `lib/agent/fubAgentConstants.ts` in the TM repo.
+
+### FUB-related env vars
+
+- `FUB_AGENT_INBOUND_SECRET` — required by `app/api/agent/inbound/route.ts` (TM). Currently UNSET — route returns 503 until set. Will be wired in session 5 when inbound classifier connects to optout + cooldown tables.
+
 ## Resend SMTP
 
 - Custom SMTP wired into HGPG Core Supabase
