@@ -2,7 +2,42 @@
 
 # FUB AI Agent
 
-- **Status:** 🟡 Sessions 1-3 in flight, gate still closed (no outbound messaging yet)
+- **Status:** 🟡 Sessions 1-4 shipped, gate still closed (no outbound messaging yet)
+
+## Session 4 — 2026-05-07
+
+What shipped:
+- **FUB pusher** (`lib/agent/fubPusher.ts`) — replaces the session-2 staged_fub_action stub. Writes draft body (and subject for email) into channel-specific custom fields, merges-on the ready tag, stamps `fub_pushed_at` for idempotency, never throws.
+- **Reject taxonomy with 5-class enum** (`voice_off`, `wrong_lead_type`, `wrong_signal_read`, `low_quality`, `other`) plus optional free-form notes. Per-reason side effects: voice_off logs only; wrong_lead_type resets `fub_agent_leads.lead_type='unknown'` and clears `lead_type_classified_at`; wrong_signal_read inserts 30-day cooldown; low_quality + other insert 14-day cooldowns. Each side effect wrapped in try/catch so a secondary failure does not undo the rejection.
+- **Cooldown table** `fub_agent_lead_cooldowns` (id uuid, fub_person_id bigint, cooldown_until timestamptz, reason check-constrained, created_by_draft_id bigint FK to drafts on delete set null). RLS enabled, no policies — service-role-only same as drafts table. `lib/agent/draftGenerator.ts` queries this and skips leads with active cooldown.
+- **Daily cap default lowered to 10** (was 50). Approve route checks today's pushed count (ET start-of-day) before calling pushDraftToFUB; if at cap, draft stays approved-but-unpushed. Midnight-ET flush cron is a session-5 TODO.
+- **Queue header** with master kill switch (Agent ON/OFF), today's pushed count, inline daily-cap editor. Reads from `/api/agent/config/header`. Toggle endpoint `/api/agent/config/toggle` flips `agent_enabled`. Cap endpoint `/api/agent/config/cap` validates 1..1000.
+- **Inbound classifier stub** at `app/api/agent/inbound/route.ts`. Shared-secret auth via `FUB_AGENT_INBOUND_SECRET` env var (returns 503 if unset, never auto-generates). Haiku 5-class enum: opt_out, interested, not_now, hostile, irrelevant. Logs only — no optout/cooldown writes (session-5 work). Always returns 200 to avoid FUB retry loops.
+- **Three FUB custom fields** created via `POST /v1/customFields`:
+  - id 157 — Agent Draft Email Body — API name `customAgentDraftEmailBody`
+  - id 158 — Agent Draft Email Subject — API name `customAgentDraftEmailSubject`
+  - id 159 — Agent Draft iMessage Body — API name `customAgentDraftIMessageBody`
+  - All `text` type (FUB does not differentiate short/long via API). Visibility (admins-only) is a FUB UI setting that must be toggled manually in FUB.
+- **Two FUB tags** scheduled to be created on first apply (FUB does not expose `/v1/tags` to our API key): `agent_draft_email_ready`, `agent_draft_imessage_ready`.
+- **Single source of truth** for FUB-side identifiers in `lib/agent/fubAgentConstants.ts`. Pusher and inbound stub both import from here.
+- **Schema additions** in `supabase/migrations/20260507_fub_agent_session_4.sql` (applied via Supabase MCP): cooldowns table + index, drafts.fub_pushed_at + reject_reason + reject_notes, drafts reject_reason check constraint, drafts.fub_pushed_at partial index, daily_send_cap value updated to 10.
+
+Current state:
+- `agent_enabled` still **false**. No outbound messages have ever been sent.
+- `daily_send_cap` = 10
+- 159 confidently classified leads (count from session 3.5)
+- 3 FUB custom fields configured (admin visibility pending UI step)
+- 2 FUB tags scheduled to appear on first apply
+
+Open items for session 5:
+- Confirm Brian's own FUB person ID
+- Wire FUB Automations 2.0 triggers for `agent_draft_email_ready` and `agent_draft_imessage_ready` tags
+- Brian-as-client smoke test: flip `agent_enabled` true on a single draft, verify FUB roundtrip, flip back to false
+- Build daily-cap flush cron at midnight ET that re-pushes approved-but-unpushed drafts
+- Wire the inbound classifier to `fub_agent_lead_optouts` (when class=opt_out) and to `fub_agent_lead_cooldowns` (when class=not_now or hostile)
+- Set FUB UI visibility on the three custom fields to admins-only
+
+
 
 ## What this is
 
