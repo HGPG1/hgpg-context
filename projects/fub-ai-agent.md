@@ -289,3 +289,65 @@ Three-part fix for session 3:
 Templates and pipeline are otherwise solid. Voice file is good. Slot fills are clean. Gate works. Approve/reject/edit handlers all functional. Queue UI renders correctly.
 
 Gate stayed closed throughout (agent_enabled=false). No outbound sent. No FUB writes. Production-safe to leave as-is.
+
+## Session 3 + 3.5 shipped 2026-05-06
+
+Classifier gap from session 2 closed. Built end-to-end and tested.
+
+### What shipped
+
+**Classifier (`lib/agent/classifyLeadType.ts`).** Pure compute. Reads lead row + most-recent score row, fast-paths on explicit seller/buyer signal types from the score (`seller_classification`, `avm_report_access`, `seller_report_engagement`, `listing_consultation`, `listing_presentation`, `home_value_inquiry` for sellers; `buyer_search_active`, `listing_view_recent`, `mortgage_pre_approval`, `buyer_consultation`, `property_tour_request` for buyers) plus fuzzy regexes. Mixed signals fall through to LLM. Otherwise calls Haiku 4.5 with a strict-JSON system prompt that explicitly demands confidence ≥ 0.7 for any non-`unknown` call. Returns `{ classification, confidence, reasoning, signals, source: 'fast_path' | 'llm' | 'no_data' }`. Pure compute, no DB writes.
+
+**`classifyAndPersist` helper.** Wraps the classifier with the standard write policy: always stamps `lead_type_classified_at` + `lead_type_confidence`, only overwrites `lead_type` when classification is non-`unknown` AND confidence ≥ 0.7. Logs `lead_classified` with before/after/source/reasoning. Used by `/api/agent/drafts/generate` for on-demand classification.
+
+**Signal-aware selector (`lib/agent/draftGenerator.ts deriveTemplateLeadType`).** Treats score signals as authoritative over `lead.lead_type` in BOTH directions. Seller-only signals → seller template even if lead_type='unknown' or 'buyer'. Buyer-only signals → buyer template even if lead_type='seller'. Mixed signals → fall back to stored lead_type. No signals + lead_type='unknown' → skip the lead with reason `lead_type_unclassified, no signal override`. This is the John Miller fix.
+
+**Shared signal vocabulary (`lib/agent/leadTypeSignals.ts`).** Single source of truth used by both classifier and selector. Add a new signal type once and both downstream consumers pick it up.
+
+**Seller templates (6 seeded in `v1.warm.*.seller`).** All email channel, all `lead_type='seller'`, all active, voice_file `brian-voice.md`. Idempotent on scenario.
+- `v1.warm.seller_report_engaged.seller` — multiple seller-report views
+- `v1.warm.avm_recent.seller` — AVM checked, no follow-up
+- `v1.warm.long_dormant_seller.seller` — 6+ months silent
+- `v1.warm.listing_thinking.seller` — clicking around seller content
+- `v1.warm.no_response_recent.seller` — recent reach out, no reply
+- `v1.warm.generic_reengagement.seller` — catch-all
+
+**Sync.ts Option A+ patch (`lib/agent/sync.ts upsertPerson`).** Reads existing `lead_type` + `lead_type_confidence` before upsert. Rules='seller' always wins (deterministic). Stored high-confidence non-'unknown' values are preserved when rules return 'unknown' (so LLM-derived classifications survive sync re-runs). Stored confidence < 0.85 can be overwritten by a non-'unknown' rules result. Final eligibility recomputed against the resolved `lead_type` so a preserved 'seller' classification still flows through the seller-excluded path.
+
+**Schema patch (`migrations/2026-05-06-fub-agent-classifier-schema.sql`).** Added `lead_type_classified_at timestamptz` + `lead_type_confidence numeric(3,2)` to `fub_agent_leads`. Plus a partial index on `(is_eligible, lead_type, lead_type_classified_at) WHERE is_eligible = true AND lead_type = 'unknown' AND lead_type_classified_at IS NULL` so the classify queue scan stays cheap as the unknown pool shrinks.
+
+**`/api/agent/classify` route.** POST, Bearer CRON_SECRET. Body `{ limit?, onlyUnknown?, dryRun? }`. Pulls eligible+unknown+unclassified leads ordered by combined_score desc, runs `classifyLeadType`, persists with the 0.7 confidence floor for `lead_type` writes. Does NOT touch `is_eligible` — eligibility is decoupled per session 3 directive. Sellers stay eligible for v1.5 because we now ship seller templates.
+
+### Session 3.5 — pivot to on-demand
+
+Wide backfill turned out 13× more expensive per confident classification than projected. Fast-path drained inside the first 100 leads. Remainder of unknowns had thin score signals: 80% of LLM calls returned `unknown` at sub-0.7 confidence. Two batches at limit=500 and limit=200 both hit Vercel's 300s function timeout; ~582 classifications total before the abort.
+
+Pivot:
+
+**Pre-LLM gate (`classifyLeadType.ts`).** Before any Haiku call, check (a) score row exists, (b) tags > 2, (c) non-default stage. If NONE of those hold, return `unknown` with `source: 'no_data'`, `reasoning: 'insufficient_data_to_classify_skipped_llm'`. Don't burn the token. Projected to skip ~32% of LLM calls if a wide backfill ever runs again. For `/drafts/generate` warm-tier specifically the gate is near-zero impact (every score≥30 lead has a score row by definition), but it pays for itself if we ever sweep the full unknown pool.
+
+**On-demand classification in `/api/agent/drafts/generate`.** Pulls `limit*2` candidates (hard-capped at `limit*3`), batch-fetches `lead_type`/`lead_type_classified_at` for the whole pool, then in the per-lead loop runs `classifyAndPersist` for any unknown+unclassified lead before generateDraft. Unclassifiable leads (sub-0.7 after LLM) skip with reason `lead_type_unclassifiable_after_llm`. Continues until `limit` successful drafts OR hard_cap exhausted. Per-result block now includes a `classified` substructure (before/after/confidence/source) so the queue UI can surface on-demand classifier output.
+
+### Backfill state (paused)
+
+| metric | value |
+|---|---|
+| Confident classifications written | 159 |
+| Eligible pool: buyer | 54 |
+| Eligible pool: seller | 105 |
+| Eligible pool: unknown | 5,204 |
+| Total lead_type=unknown (all) | 9,075 |
+| Token spend this session | ~$1.60 |
+
+Wide backfill will not resume. Tokens spent only on leads we're actually drafting from this point on.
+
+### Acceptance tests (run 3)
+
+- **John Miller (fub_person_id 23316)** — the session 2 misroute case. Score row had `seller_classification`, `avm_report_access`, seller_report_engagement signals. Selector now correctly routes to `v1.warm.seller_report_engaged.seller` regardless of `lead.lead_type`. Bidirectional override confirmed.
+- **Draft 6 voice review** — Brian read it cold. Reads on-voice. PMV used (not "fair market value"). No em dashes. Signal callout is specific to the lead's actual data, not generic seller copy. The slot fill machinery + voice anchor are working as designed.
+
+### Session 4 plan
+
+`fubPusher.ts`. Actually write approved drafts to FUB custom fields + automation trigger tags so FUB Automations 2.0 can pick them up and send. Smoke test with Brian-as-client first (use Brian's own FUB record as the target so any messages route to himself, no real client at risk). Once that path works end-to-end and the audit trail looks right, flip `agent_enabled=true` and let the gate open.
+
+Outbound is still off. No FUB writes anywhere yet. Production-safe.
