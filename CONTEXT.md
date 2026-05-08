@@ -1,6 +1,6 @@
 # HGPG Context (Brain)
 
-Last updated: 2026-05-08 (refresh: brain audit cleanup, 5 new spec files, PropStream caller parked)
+Last updated: 2026-05-08 (final: completed truncated line, em dashes stripped per brand)
 
 ## Who
 
@@ -46,15 +46,15 @@ Status legend: 🟢 shipped & live · 🟡 active build · 🔵 planned/scoped �
 
 ## Recently completed
 
-- **Home Grown Selling Score v2 shipped 2026-05-08** — replaced 46-item wizard with 5 categories × 4 items, internal 4/2/1/-1 scoring (max raw 80), client-facing 0-80 curved score (no flat ceiling, no perfect achievable). New `/api/assessment/submit` endpoint, Supabase migration `seller_assessments_v2_2026_05_07`, all Meta Pixel anchors preserved. FUB push via existing `/api/fub-lead`.
-- **Brain App write API live 2026-05-08** — `/api/external/write` POST endpoint with bearer token auth allows Claude sessions to commit directly to `HGPG1/hgpg-context` without manual copy-paste. Token stored in Vercel as `BRAIN_WRITE_TOKEN`. Fix in commit `127cc0c` corrected env var lookup to use `GITHUB_PAT` (matches what brain-app already uses).
+- **Home Grown Selling Score v2 shipped 2026-05-08**, replaced 46-item wizard with 5 categories × 4 items, internal 4/2/1/-1 scoring (max raw 80), client-facing 0-80 curved score (no flat ceiling, no perfect achievable). New `/api/assessment/submit` endpoint, Supabase migration `seller_assessments_v2_2026_05_07`, all Meta Pixel anchors preserved. FUB push via existing `/api/fub-lead`.
+- **Brain App write API live 2026-05-08**, `/api/external/write` POST endpoint with bearer token auth allows Claude sessions to commit directly to `HGPG1/hgpg-context` without manual copy-paste. Token stored in Vercel as `BRAIN_WRITE_TOKEN`. Fix in commit `127cc0c` corrected env var lookup to use `GITHUB_PAT` (matches what brain-app already uses).
 - Brain App MVP shipped 2026-05-06 (Next.js 16, CodeMirror 6, Supabase magic link, fine-grained PAT for hgpg-context writes)
 - HGPG Team Tools auth restored 2026-05-05 (rebuilt on HGPG Core Supabase + Google OAuth)
-- Resend custom SMTP wired into HGPG Core Supabase (raises rate limit from 2/hr to 30/hr — affects TM, CMA, TC Concierge, brain-app)
+- Resend custom SMTP wired into HGPG Core Supabase (raises rate limit from 2/hr to 30/hr, affects TM, CMA, TC Concierge, brain-app)
 - Supabase project rename to descriptive names (HGPG Core, HGPG Listing Reports + MLS, HGPG FUB Integration, HGPG Signature + Relocation)
 - CMA Engine PRs #16-22: outlier auto-exclusion + escape hatch + suppression banner, condition-tier inference, address parser, GLA methodology fix, OUTLIER_MIN_CLUSTER_SIZE lowered 4→3
 - Sellers Guide Meta Pixel + CAPI: server-side mirror with event_id dedup, 7 FUB UTM custom fields, UTM-bypass for ?utm_source=meta
 - Don's TM feedback Cluster A-D batch shipped (7 items resolved)
 - Other-side client email made optional in seller/buyer wizards with format validation
 - Favicons rolled out to 9 sites with canonical asset set in brain at assets/favicon/
-- IDX Broker migration (Ylopo cancelled, Showcase IDX cancelled, FUB lead routi
+- IDX Broker migration (Ylopo cancelled, Showcase IDX cancelled, FUB lead routing live, search.homegrownpropertygroup.com on Realty Candy / Canopy MLS, IDX Addons widget on main site)
