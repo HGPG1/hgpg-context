@@ -1,4 +1,4 @@
-<!-- Last Updated: 2026-05-06 -->
+<!-- Last Updated: 2026-05-08 -->
 
 # Session Handoff
 
@@ -74,3 +74,51 @@
 - Pinned files on dashboard configured in `lib/config.ts` — edit that array to change pins
 - Stray bundle in `~/Downloads/fub-agent-tm-files/` is unrelated FUB lead-scoring agent work for `hgpg-transaction-manager`, NOT brain-app — leave alone, separate project for another session
 - Cleanup tip: `rm ~/package-lock.json` to clear the harmless "multiple lockfiles" Next.js warning (leftover from earlier npm misuse in home dir)
+---
+
+## Phase 1.6: Write API (shipped 2026-05-08)
+
+Programmatic write endpoint for the brain repo so Claude sessions can update files directly without copy-paste through the UI.
+
+### Endpoint
+
+`POST https://brain.homegrownpropertygroup.com/api/external/write`
+
+Request:
+
+    Authorization: Bearer <BRAIN_WRITE_TOKEN>
+    Content-Type: application/json
+    {
+      "path": "SESSION-HANDOFF.md",
+      "content": "<full file contents>",
+      "message": "commit message",
+      "branch": "main"
+    }
+
+Response: `{ ok, path, branch, commitSha, created, bytes }`
+
+GET request returns a non-auth health-check showing `configured: true|false` based on env var presence — useful for smoke tests after deploy.
+
+### Auth
+
+Bearer token in `BRAIN_WRITE_TOKEN` Vercel env var. Constant-time compare (timing-attack safe). Token is stored in Claude memory + 1Password ("HGPG Brain Write Token").
+
+The endpoint reuses the existing `GITHUB_PAT` env var that brain-app already uses for UI-based commits — no new GitHub credentials needed. Lookup chain is `GITHUB_PAT` → `GITHUB_TOKEN` → `BRAIN_GITHUB_PAT` for resilience.
+
+### Safety guardrails
+
+- POST only, JSON body only
+- Path validator rejects: leading `/`, `..` segments, backslashes, null bytes, control chars, paths >500 chars
+- Path blocks: `.git/`, `.github/workflows/`, `.vercel/`, `node_modules/`, plus any `.env*` file or `package-lock.json` at any depth
+- Content cap: 1 MB per write
+- All commits authored as `brian@homegrownpropertygroup.com` (matches existing history, won't trip Vercel build hooks)
+
+### Bug found and fixed
+
+First deploy had endpoint reading wrong env var name (`GITHUB_TOKEN` only). Brain-app's existing PAT is stored as `GITHUB_PAT`. Fix in commit `127cc0c` added `GITHUB_PAT` as the first lookup. After fix, `configured: true` and end-to-end write loop verified.
+
+### What this unlocks
+
+- Claude sessions can now auto-commit SESSION-HANDOFF.md at session end
+- Multi-file batch updates possible (project specs + CONTEXT.md cross-references in one session)
+- Future automations (cron-style brain refreshes, scheduled audits) can write without human in the loop
