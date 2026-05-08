@@ -2,7 +2,30 @@
 
 # Session Handoff
 
-## Most recent session: 2026-05-08, NeverBounce wired into Home Grown Selling Score 🟢
+## Most recent session: 2026-05-08 (overnight), CMA math bundle PR #31 🟢
+
+### What shipped
+
+PR #31, math bundle for CMA Engine: feature parity (Bug 1) + outlier symmetry (Bug 3) + strategy band cap (Bug 11). https://github.com/HGPG1/hgpg-cma-tool/pull/31
+
+- **Bug 1 feature parity:** Auto-Find comps now arrive with `hgpgFeatures` populated by a data-first then remarks-fallback inference pass. `finished-basement` reads `mls_property.below_grade_finished_area > 0` first, falls back to remarks regex when null. `in-law-suite`, `primary-on-main`, `screened-porch`, `chef-kitchen` stay remarks-only. Adjustments engine emits per-feature lines (parity = $0 visible line, subject-only = +rate, comp-only = -rate, neither = no line) instead of one combined "Subject features" line.
+- **Bug 3 outlier symmetry:** counter-cluster protection in `detectWithinBandOutliers`. Groups of 2+ flagged comps within 5% of each other AND on the same side AND >25% from cluster median get unflagged together. The Walnut Creek $610K / $595K Soft Shell pair is the verified case.
+- **Bug 11 strategy band cap:** shared `lib/cma/strategy.ts` caps Aspirational to `MIN(PMV * 1.05, High - $5K buffer)` and Event to `MAX(PMV * 0.95, Low + $5K buffer)`. Degenerate-band escape hatch when band width < 4%: Aspirational gets at least PMV * 1.02; Event at most PMV * 0.98. Both consumers (seller packet route + PDF one-pager) call the shared function.
+- New `mls_property` columns selected: `above_grade_finished_area`, `below_grade_finished_area`, `below_grade_unfinished_area` (the latter two also serve PR 5 GLA/basement separation when that ships).
+
+### Cumulative CMA ship list this session
+
+#25 Bug 5 bounds invariant, #26 Bug 6 active weighting, #27 Bug 4 anchor sanity, #28 Bug 7 self-listing suffix tolerance, #29 Bugs 8+9 distance-tiered cascade + per-comp distance/direction, #30 cross-state comp deprioritization, #31 math bundle (feature parity / outlier symmetry / strategy band cap). All live on `cma.homegrownpropertygroup.com`.
+
+### Pickup notes (CMA)
+
+- PR 5 (Bug 2, GLA / basement separation) is the next CMA work and gets simpler thanks to the structured Carolina MLS sqft fields already wired up by PR #31.
+- Saved test reports (Candlestick `3a84f12c`, Redwine, Medlin, the original `8023175d` Candlestick) still hold pre-fix numbers. Re-saving each via `/seller/adjust` is required to apply the math, comp-set, cross-state, feature-parity, and strategy-cap changes to the historical rows.
+- See `projects/cma-engine.md` for the full architecture snapshot post-bundle.
+
+---
+
+## Earlier session: 2026-05-08, NeverBounce wired into Home Grown Selling Score 🟢
 
 ### What shipped
 
