@@ -1,6 +1,6 @@
 # HGPG Context (Brain)
 
-Last updated: 2026-05-08 (final: completed truncated line, em dashes stripped per brand)
+Last updated: 2026-05-08 (NeverBounce now live on Sellers Guide + status promoted)
 
 ## Who
 
@@ -40,12 +40,13 @@ Status legend: 🟢 shipped & live · 🟡 active build · 🔵 planned/scoped �
 | PropStream Caller | ⚫ parked / mostly abandoned, status unclear | `projects/propstream-caller.md` |
 | Twilio A2P | ⚫ blocked on SMS consent checkbox | n/a |
 | DocuSign migration off zipForms | 🔵 workflow scoped, no build | `projects/docusign-migration.md` |
-| NeverBounce email validation | 🔵 spec written, not built | `projects/neverbounce-validation.md` |
+| NeverBounce email validation | 🟢 live on /incentives + Home Grown Selling Score, Phase 2 rollout pending | `projects/neverbounce-validation.md` |
 | Closing Concierge | 🟢 decommission pending, low priority | n/a |
 | $395 fee toggle (TM) | 🔵 build spec parked | `projects/tm-395-fee-toggle.md` |
 
 ## Recently completed
 
+- **NeverBounce wired into Home Grown Selling Score v2 (2026-05-08)**, mirrors the implementation on charlotte-new-construction-nextjs /incentives. New /api/validate-email serverless function, debounced 500ms blur validation with inline UI feedback, hard-block on invalid+disposable, allow-with-warning on catchall+unknown, fail-open on errors. Supabase migration `seller_assessments_add_email_validation_2026_05_08` adds 2 columns + partial index. FUB customEmailValidationStatus custom field reused.
 - **Home Grown Selling Score v2 shipped 2026-05-08**, replaced 46-item wizard with 5 categories × 4 items, internal 4/2/1/-1 scoring (max raw 80), client-facing 0-80 curved score (no flat ceiling, no perfect achievable). New `/api/assessment/submit` endpoint, Supabase migration `seller_assessments_v2_2026_05_07`, all Meta Pixel anchors preserved. FUB push via existing `/api/fub-lead`.
 - **Brain App write API live 2026-05-08**, `/api/external/write` POST endpoint with bearer token auth allows Claude sessions to commit directly to `HGPG1/hgpg-context` without manual copy-paste. Token stored in Vercel as `BRAIN_WRITE_TOKEN`. Fix in commit `127cc0c` corrected env var lookup to use `GITHUB_PAT` (matches what brain-app already uses).
 - Brain App MVP shipped 2026-05-06 (Next.js 16, CodeMirror 6, Supabase magic link, fine-grained PAT for hgpg-context writes)
