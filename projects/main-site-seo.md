@@ -1,3 +1,5 @@
+<!-- Last Updated: 2026-05-08 -->
+
 # Main Site SEO
 
 - **URL:** homegrownpropertygroup.com
