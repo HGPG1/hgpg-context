@@ -2,7 +2,32 @@
 
 # Session Handoff
 
-## Last session: 2026-05-08 (PM) — Team Dashboard Tab 1 SHIPPED 🟢
+## Last session: 2026-05-08 (overnight) — CMA PR #33 GLA / basement separation 🟢
+
+### What shipped
+
+PR #33, GLA / basement separation per Fannie Mae URAR Form 1004. https://github.com/HGPG1/hgpg-cma-tool/pull/33
+
+The engine was comparing `subject.sqft` (total) against `mls_property.living_area` (total = above + below) at the GLA rate, double-counting basement and mis-adjusting on every comp with one. URAR requires GLA = above-grade only with separate contributory rates for finished and unfinished basement. Carolina MLS exposes this structurally via `above_grade_finished_area` + `below_grade_finished_area` (PR #31 already wired the columns into CompRow).
+
+- **Subject form:** three numeric inputs (GLA, finished basement, unfinished basement) plus read-only Total replace the legacy single Heated sqft field. Every breakdown edit recomputes `subject.sqft = sum` so legacy ranking / flags / packet routes keep reading the same field. MLS auto-fill populates GLA + finished basement directly from the structured columns.
+- **Adjustment engine:** single Square Footage line replaced with up to three lines (GLA / Finished basement / Unfinished basement). GLA reads `comp.hgpgGlaSqft` (from `above_grade_finished_area`) with fallback to `sqftOf` plus a new `estimated-gla` info flag when the structured column is missing. Finished basement reads `comp.hgpgFinishedBasementSqft`. Unfinished basement is subject-side only because MLS Grid sync doesn't carry a `below_grade_unfinished_area` column - documented limitation.
+- **Rates:** new `finishedBasementRate` ($25/sqft default) + `unfinishedBasementRate` ($10/sqft default) on AdjustmentRates. Optional on the type for back-compat with older `ratesUsed` snapshots.
+- **Worked example (Wyngate vs Candlestick):** pre-fix Wyngate adjustment was a single +$6,000 line on a 100 sqft delta. Post-fix per-line: GLA +$32,340, Finished basement -$10,975, Unfinished basement +$10,000 = +$31,365. PMV anchor expected to rise ~$15-30K on Candlestick.
+
+### Cumulative CMA ship list this session window
+
+#25 Bug 5 bounds invariant, #26 Bug 6 active weighting, #27 Bug 4 anchor sanity, #28 Bug 7 self-listing suffix, #29 Bugs 8+9 distance-tiered cascade + per-comp distance/direction, #30 cross-state comp deprioritization, #31 math bundle (feature parity / outlier symmetry / strategy band cap), #32 hotfix drop unfinished column from COMP_SELECT, #33 GLA / basement separation. All live on `cma.homegrownpropertygroup.com`.
+
+### Pickup notes (CMA)
+
+- PR 6 (Bug 3, outlier symmetry) is now LOWEST priority - already partly addressed by PR #31's counter-cluster protection.
+- Enhancement 1 (autosave) still queued as a separate piece of work.
+- Saved test reports still hold pre-fix numbers; re-saving via `/seller/adjust` is required to apply the cumulative changes to historical rows.
+
+---
+
+## Earlier session: 2026-05-08 (PM) — Team Dashboard Tab 1 SHIPPED 🟢
 
 ### What got shipped
 - New repo live: `HGPG1/hgpg-team-dash` (commit `e9d1366` initial scaffold)
