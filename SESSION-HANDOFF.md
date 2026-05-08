@@ -2,81 +2,125 @@
 
 # Session Handoff
 
-## Last session: 2026-05-07 — Sellers Guide Meta Pixel + CAPI fully verified 🟢
+## Last session: 2026-05-07 — CMA subject auto-fill fixed + Claude Code setup 🟢
 
-### What shipped
-- **Meta Pixel + CAPI on sellers guide is production-ready and verified end-to-end**
-- Path A (organic) QA: PASSED — PageView, AssessmentStarted, Lead, ScoreCompleted all fire browser + server with matching `event_id` and Meta-side dedup confirmed
-- Path B (Meta bypass) QA: PASSED — phone required, 6-digit verify skipped, FUB lead lands with `meta-bypass` tag and ALL 7 UTM/click custom fields populated
-- `META_TEST_EVENT_CODE` env var removed from Vercel + redeployed — production traffic now flows to real Events Manager dashboards (not Test Events tab)
-- Production deploy on commit `8ea82cc`
+### Headline wins
 
-### Bug found + fixed mid-session
-- `api/fub-lead.js` was sending FUB custom field **labels** (e.g., `"UTM Source"`) as object keys instead of FUB API **names** (e.g., `customUTMSource`). FUB silently drops unknown keys, so all 7 fields had been failing silently the whole time.
-- Confirmed correct API names via `GET /v1/customFields`:
-  - `customUTMSource`, `customUTMMedium`, `customUTMCampaign`, `customUTMContent`, `customUTMTerm`, `customFacebookClickID`, `customGoogleClickID`
-- Patched in commit `8ea82cc` on `main`. Also added `X-System` / `X-System-Key` headers and a `DEBUG_FUB=1` env flag for surfacing FUB error bodies in API responses when needed.
+1. CMA subject auto-fill bug diagnosed and fixed (RPC timeout, missing index)
+2. Diagnostic infrastructure shipped (verbose Postgres error format, PR #23)
+3. Claude Code wired up on iMac with full MCP kit (Supabase, Vercel, GitHub)
+4. CLAUDE.md ship-it spec dropped into hgpg-cma-tool — next CMA session can be hands-off
 
-### Infra changes
-- **FUB API key rotated** — placeholder `fka_PLACEHOLDER` (which had been set as a Sensitive Vercel env var with empty value) replaced with real key on `charlotte-sellers-guide-vercel` project
-- **Vercel "Sensitive" env var gotcha logged** — to UN-mark a var as Sensitive in Vercel, you must DELETE the var entirely and re-add it. There's no toggle. This was the root cause of repeated empty-key issues during diagnosis.
-- **FUB integration system identifier** — sellers guide now identifies as `X-System: HGPG-SellersGuide` / `X-System-Key: sellers-guide-vercel` per FUB integration guide. Removes the rate-limit notice and gives us higher limits.
+---
+
+### CMA Engine: subject auto-fill bug
+
+**Symptom:** subject property auto-fill (the blur handler in the CMA tool's seller form) was returning "no match" for valid addresses. Started Brian fearing a real bug; field was failing on Cressingham, Alma Blount, and others.
+
+**Root cause:** the strict-path RPC `mls_subject_detect_v2` was timing out (Postgres error code `57014`, `canceling statement due to statement timeout`) on cold buffer cache. Function was doing a bitmap heap scan that read ~20K heap blocks (~160MB) per lookup to find 5 rows — no composite index on `(postal_code, street_number)`.
+
+**Why it presented as "intermittent":** warm cache made it work in 49ms. Cold cache (post-MLS-sync flush, post-cold-lambda-start, post-deploy) blew past the 8-second statement timeout. Looked random; was actually deterministic.
+
+**Fix applied:** migration `add_postal_streetnumber_index_for_subject_detect` on Supabase project `wdheejgmrqzqxvgjvfee`:
+
+    CREATE INDEX IF NOT EXISTS idx_mls_prop_postal_streetnum
+      ON public.mls_property USING btree (postal_code, street_number)
+      WHERE mlg_can_view = true;
+
+**Performance:**
+- Before: 49ms warm / 8s+ cold (timeout)
+- After: 2.4ms warm / ~50-100ms cold expected
+- Plan: bitmap heap scan to index scan, 20,025 buffers to 36 buffers (~556x reduction)
+
+No code changes needed for the fix itself. Brian verified 5022 Cressingham Dr 29707 works after the migration.
+
+### Diagnostic patch (PR #23)
+
+`HGPG1/hgpg-cma-tool` PR #23 — `Surface full Postgres error on subject-detect RPC failure` — squash-merged.
+
+Changed two error-throw lines in `lib/mls/subjectDetect.ts` (327, 353) from `${err.message}` to a fuller string that includes `code`, `details`, `hint`. Without this we would never have caught the 57014 timeout — the original `${err.message}` was getting truncated in Vercel's table view to `[subjectDetect] auto-fill f...`. With the patch live, we got the full `code=57014` text immediately.
+
+**Keep this patch.** It's diagnostic infrastructure that paid for itself within an hour. If anyone proposes "cleaning it up" in the future, push back hard.
+
+### Bugs found that are NOT bugs
+
+- **9644 Alma Blount Blvd 28277:** address genuinely not in MLS data. Neighbors at 9636, 9640, 9651, 9652, 9728 all in DB; 9644 specifically was never on Carolina MLS or pre-dates MLS Grid backfill. Tool correctly returns no match.
+- **504 Redwine St (zip mistyped):** real address but in Monroe 28110, not the zip Brian typed. Tool correctly returns no match because strict RPC filters on exact `postal_code`.
+
+### Pickup notes for next CMA session — wrong-zip candidate fallback
+
+Real UX gap: when subject auto-fill returns null, the form shows "No MLS match found, fill in manually." Correct but unhelpful when the underlying cause is a wrong zip (Brian fat-fingered Redwine and got nothing, no hint why).
+
+Proposed fix (fully spec'd, ready to ship):
+
+1. Create new RPC `mls_subject_detect_v2_zip_fallback(p_street_number, p_street_name_tokens)` — searches by `street_number + street_name` ignoring zip, returns up to 5 rows ordered by `modification_timestamp DESC`. Same RETURNS TABLE shape as v2/v2_fuzzy + a new `postal_code` column so the picker can show "Monroe 28110" next to each candidate.
+2. Wire into `createSupabaseSubjectLookup` as a third call after fuzzy returns empty. Add `zipFallbackRows` to `SubjectMlsLookup`'s return type.
+3. Add new `kind` to `SubjectDetectResult` — `kind: "wrong_zip_candidates"`. Render distinct UI in `MlsCandidatesPicker` ("Did you mean an address in a different ZIP?").
+4. Same composite index covers it — no new migration if we don't filter by zip.
+
+Estimated effort: 30-45 min including tsc + deploy. Send Brian into Claude Code in `~/Documents/hgpg-cma-tool` and have it cook end-to-end.
+
+Also pickup-worthy:
+- Same-street-neighbor fallback for new construction (Alma Blount type cases)
+- Index audit across other CMA RPCs to confirm none are doing similar full-zip scans
+
+---
+
+### Claude Code setup (iMac)
+
+Brian hit a wall with the babysit-the-paste-loop dynamic during today's CMA debug. Solution: get Claude Code's MCP kit equivalent to web Claude's so future sessions can ship end-to-end without him in the middle.
+
+**Installed on iMac (Home Office):**
+
+- claude.ai Supabase ✓ (managed connector)
+- claude.ai Vercel ✓ (via plugin path)
+- claude.ai Gmail ✓
+- claude.ai Google Calendar ✓
+- claude.ai Google Drive ✓
+- claude.ai Canva ✓
+- github ✓ (local install, fine-grained PAT, scope=user)
+- claude.ai Slack — skipped, not actively using
+
+**GitHub PAT details:**
+- Token name: `Claude Code MCP - iMac`
+- Scopes: HGPG1 org, Contents R/W, Pull requests R/W, Issues R/W, Metadata R, Actions R, Workflows R/W
+- Stored in `~/.claude.json` (plaintext, file perms protect it)
+- Expiration set on creation — calendar reminder needed to rotate
+
+**Important — needs same setup on Mac mini:**
+The Mac mini hasn't been MCPed yet. Repeat this on the Mac mini next time Brian works there:
+
+    claude mcp add --transport http --scope user --header 'Authorization: Bearer NEW_PAT_HERE' github https://api.githubcopilot.com/mcp/
+
+Generate a separate PAT named `Claude Code MCP - Mac mini` so they can be revoked independently.
+
+The claude.ai connectors (Supabase, Vercel, etc.) auto-sync across machines on first Claude Code login — no per-machine setup needed for those. Only GitHub needs the per-machine PAT.
+
+### CLAUDE.md ship-it spec
+
+Dropped a CLAUDE.md into `hgpg-cma-tool/main` (commit `300018a`). Tells Claude Code:
+
+- Read CONTEXT.md + SESSION-HANDOFF.md from brain at session start
+- Cook freely on diagnosed bugs (branch, patch, push, PR, squash-merge with `--auto`)
+- Stop and ask only for: 5+ file changes, schema migrations, RLS/auth changes, `compSearch.ts` changes, env var changes, or refactors
+- Conventions: commit author `brian@homegrownpropertygroup.com`, `/* Last Updated */` on touched files, no em dashes, snake_case for Supabase columns
+- CMA-specific gotchas baked in (unparsed_address null, GLA rate, PIN auth, etc.)
+
+**Next session worth doing:** drop equivalent CLAUDE.md files into the other HGPG repos in priority order: `hgpg-transaction-manager`, `brain-app`, `charlotte-new-construction-nextjs`, `south-charlotte-report`, `homegrown-property-group-site`. Each one calibrated to that repo's quirks.
+
+---
 
 ### Project status updates
-- Sellers guide Meta Pixel + CAPI status: 🟢 SHIPPED + verified
-- FUB key swap blocker — RESOLVED. Brain notes flagged this as pending; can clear that flag.
 
----
+- `projects/cma-engine.md` — note the timeout fix + diagnostic patch + CLAUDE.md. Subject auto-fill now reliable.
+- `projects/transaction-manager.md` — no changes. CLAUDE.md to be added next session.
+- `projects/brain-app.md` — no changes today.
 
-### Carryover for next session
+### Pickup checklist for next session
 
-**1. Create `ScoreCompleted` Custom Conversion in Events Manager** (~5 min)
-- Direct URL: `https://business.facebook.com/events_manager2/list/dataset/861295553661596` → Custom Conversions → Create
-- Settings:
-  - Name: `Sellers Guide - Score Completed`
-  - Description: `User finished home selling score assessment`
-  - Data source: HGPG — Sellers Guide
-  - Action Source: Website
-  - **Event: `ScoreCompleted`** ← critical, NOT Lead. Lead would double-count form submissions
-  - Rules: URL contains `home-selling-score`
-  - Skip conversion value
-- If `ScoreCompleted` isn't in the Event dropdown, real ad traffic firing it will surface it within minutes-to-hours. By the time we come back to this, it'll be there.
-- Once created, takes 24-48 hours of data to warm up before usable as an ad optimization goal.
-
-**2. Meta Lead Ads → FUB native integration** — DEFERRED
-- Only needed if HGPG runs Meta Instant Form lead ads. Current campaigns are click-to-website only, which the existing pixel + CAPI + FUB API flow handles fully.
-- Re-add to active list if/when running Instant Form ads.
-
-### Cleanup tasks (low priority)
-- Delete QA test leads from FUB:
-  - `qa-may7-fields-test@hgpg-test.com`
-  - Any other QA leads created during Path A / Path B testing on May 7
-- Remove "Phase 1 ads test markers" in code (flagged in original session intro as a future cleanup item)
-
----
-
-### Next big initiative: Meta Pixel + CAPI rollout to remaining sites
-
-Sellers guide is the proven pattern. Bring the same setup to:
-- **Transaction Manager** (closings.homegrownpropertygroup.com)
-- **Marketing analyzer** (which site/repo — confirm next session)
-- **Signature** (signature.homegrownpropertygroup.com)
-
-Each needs:
-- Its own Meta Pixel ID (separate dataset per site for clean attribution)
-- Pixel snippet + hgpgTrack helper on all pages
-- `api/meta/capi.js` (copy from sellers guide, ~no changes)
-- `api/fub-lead.js` with `CUSTOM_FIELD_MAP` using FUB API names (reuse the map from sellers guide — it's the same 7 fields)
-- Vercel env vars: `META_PIXEL_ID`, `META_CAPI_ACCESS_TOKEN`, `FUB_API_KEY`
-- DO NOT mark FUB_API_KEY as Sensitive in Vercel until first verified working — the empty-value gotcha is real
-
-Playbook: `META-PIXEL-CAPI-PLAYBOOK.md` in sellers guide repo root. Estimated ~30 min/site.
-
-### Pickup notes
-- All env vars on `charlotte-sellers-guide-vercel` are healthy. Real FUB key, real Meta tokens, no test event code.
-- Pattern for future "FUB silently dropping fields" debugging: hit `GET /v1/customFields` with the rotated key to confirm exact API names match what your code is sending.
-- Fast env-var sanity check: `echo "len: ${#FUB_API_KEY}"` after sourcing `.env.local` — length 0 = empty (broken), length ~38-40 = real.
-- The CUSTOM_FIELD_MAP pattern in `api/fub-lead.js` is reusable for the other sites' FUB integrations — bring it to TM / marketing analyzer / signature when rolling pixel + CAPI to those sites.
+1. Decide which repo gets the next CLAUDE.md (TM is highest impact)
+2. Either ship the wrong-zip-fallback CMA improvement directly via Claude Code in the cma-tool repo, OR queue it for whenever
+3. Repeat MCP + GitHub PAT setup on Mac mini if/when next session starts there
 
 ---
 
@@ -89,7 +133,7 @@ Playbook: `META-PIXEL-CAPI-PLAYBOOK.md` in sellers guide repo root. Estimated ~3
 - Stack: Next.js 16.2.4, Tailwind v4, CodeMirror 6, Supabase Auth (magic link)
 - Single-user lock: `BRIAN_EMAIL=brian@homegrownpropertygroup.com` allow-list
 - GitHub auth: fine-grained PAT scoped to `HGPG1/hgpg-context`, contents:write only
-- Round-trip verified: edit file in browser → commit lands on `main` with author `brian@homegrownpropertygroup.com`
+- Round-trip verified: edit file in browser, commit lands on `main` with author `brian@homegrownpropertygroup.com`
 
 ### Infra changes that affect other apps
 - Resend custom SMTP wired into `HGPG Core` Supabase (project `ioypqogunwsoucgsnmla`)
@@ -108,8 +152,8 @@ Playbook: `META-PIXEL-CAPI-PLAYBOOK.md` in sellers guide repo root. Estimated ~3
   - (Existing tools.hgpg entries left intact)
 
 ### Bugs found and fixed mid-session
-- Magic link redirected to `tools.homegrownpropertygroup.com` (Supabase Site URL fallback) — fixed by adding `/auth/callback` route handler that was missing from initial scaffold + pointing `emailRedirectTo` at it
-- Supabase free SMTP rate limit (2/hr) hit during testing — fixed permanently by switching to Resend custom SMTP
+- Magic link redirected to `tools.homegrownpropertygroup.com` (Supabase Site URL fallback), fixed by adding `/auth/callback` route handler that was missing from initial scaffold + pointing `emailRedirectTo` at it
+- Supabase free SMTP rate limit (2/hr) hit during testing, fixed permanently by switching to Resend custom SMTP
 
 ### Project status updates
 - `projects/brain-app.md` — status now 🟢 SHIPPED (was 🟡)
@@ -123,9 +167,9 @@ Playbook: `META-PIXEL-CAPI-PLAYBOOK.md` in sellers guide repo root. Estimated ~3
 - Diff view before save
 - Cross-file search
 
-### Pickup notes for next session
-- Brain-app is live and working — use it for any future updates to `hgpg-context`
+### Pickup notes
+- Brain-app is live and working, use it for any future updates to `hgpg-context`
 - Resend API key is in 1Password ("Supabase HGPG Core SMTP")
 - Brain-app local dev: `cd ~/brain-app && npm run dev` on Mac mini (work machine)
 - Brain-app local on iMac: same setup, repo at `~/Developer/brain-app` if rebuilt, otherwise needs fresh `gh repo clone HGPG1/brain-app` + `npm install` + `cp env.example .env.local`
-- The `package-lock.json` may differ between iMac and Mac mini — push from whichever machine you most recently ran `npm install` on
+- The `package-lock.json` may differ between iMac and Mac mini, push from whichever machine you most recently ran `npm install` on
