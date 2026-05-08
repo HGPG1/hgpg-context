@@ -2,133 +2,143 @@
 
 # Session Handoff
 
-## Last session: 2026-05-08 (overnight) — CMA PR #33 GLA / basement separation 🟢
+## Most recent session: 2026-05-08 — CMA adjustment engine bugs, full sweep 🟢
 
-### What shipped
+### State as Brian leaves the desk
 
-PR #33, GLA / basement separation per Fannie Mae URAR Form 1004. https://github.com/HGPG1/hgpg-cma-tool/pull/33
+Massive ship day on `hgpg-cma-tool`. Eight PRs merged to main, all live on `cma.homegrownpropertygroup.com`. Engine is materially better than this morning. Real verification still pending on Brian's desk after the road trip — see "Pickup checklist" below.
 
-The engine was comparing `subject.sqft` (total) against `mls_property.living_area` (total = above + below) at the GLA rate, double-counting basement and mis-adjusting on every comp with one. URAR requires GLA = above-grade only with separate contributory rates for finished and unfinished basement. Carolina MLS exposes this structurally via `above_grade_finished_area` + `below_grade_finished_area` (PR #31 already wired the columns into CompRow).
+### CRITICAL — Verification still owed before sending CMAs to clients
 
-- **Subject form:** three numeric inputs (GLA, finished basement, unfinished basement) plus read-only Total replace the legacy single Heated sqft field. Every breakdown edit recomputes `subject.sqft = sum` so legacy ranking / flags / packet routes keep reading the same field. MLS auto-fill populates GLA + finished basement directly from the structured columns.
-- **Adjustment engine:** single Square Footage line replaced with up to three lines (GLA / Finished basement / Unfinished basement). GLA reads `comp.hgpgGlaSqft` (from `above_grade_finished_area`) with fallback to `sqftOf` plus a new `estimated-gla` info flag when the structured column is missing. Finished basement reads `comp.hgpgFinishedBasementSqft`. Unfinished basement is subject-side only because MLS Grid sync doesn't carry a `below_grade_unfinished_area` column - documented limitation.
-- **Rates:** new `finishedBasementRate` ($25/sqft default) + `unfinishedBasementRate` ($10/sqft default) on AdjustmentRates. Optional on the type for back-compat with older `ratesUsed` snapshots.
-- **Worked example (Wyngate vs Candlestick):** pre-fix Wyngate adjustment was a single +$6,000 line on a 100 sqft delta. Post-fix per-line: GLA +$32,340, Finished basement -$10,975, Unfinished basement +$10,000 = +$31,365. PMV anchor expected to rise ~$15-30K on Candlestick.
+The math fixes layered today need eye-on verification with real reports. Do NOT send CMAs to clients until Brian walks through:
 
-### Cumulative CMA ship list this session window
+1. **Open the Candlestick 3a84f12c draft** at `cma.homegrownpropertygroup.com/seller/adjust`. Manually input GLA=3805, finished basement=1250, unfinished basement=1000 (rough estimate, agent can refine). Confirm Wyngate's adjustment now shows three lines summing ~+$31K (vs pre-PR-33 +$6K). PMV should rise from $932K to ~$960-985K range — closer to Brian's $1M instinct.
+2. **Re-save Cressingham** (5022 Cressingham). Subject is single-story no-basement. Basement fields should be 0. PMV stays at $659K (control test).
+3. **Re-save Tyndale** (yesterday's tight-confidence Somerset). Should still produce strategies tightly capped within band.
 
-#25 Bug 5 bounds invariant, #26 Bug 6 active weighting, #27 Bug 4 anchor sanity, #28 Bug 7 self-listing suffix, #29 Bugs 8+9 distance-tiered cascade + per-comp distance/direction, #30 cross-state comp deprioritization, #31 math bundle (feature parity / outlier symmetry / strategy band cap), #32 hotfix drop unfinished column from COMP_SELECT, #33 GLA / basement separation. All live on `cma.homegrownpropertygroup.com`.
+If anything looks off, ping web Claude with what you see. Don't ship to clients until verification clean.
 
-### Pickup notes (CMA)
+### What shipped today (8 PRs in sequence)
 
-- PR 6 (Bug 3, outlier symmetry) is now LOWEST priority - already partly addressed by PR #31's counter-cluster protection.
-- Enhancement 1 (autosave) still queued as a separate piece of work.
-- Saved test reports still hold pre-fix numbers; re-saving via `/seller/adjust` is required to apply the cumulative changes to historical rows.
+| PR | Bug | Description | Status |
+|----|-----|-------------|--------|
+| #25 | Bug 5 | Confidence bounds invariant (Low ≤ anchor ≤ High; fallback to anchor*0.93/1.08 if invalid) | ✅ live |
+| #26 | Bug 6 | Active comp weighting drops to 0.03 when only 1 Sold; "very-low" confidence + banner when 0 Sold | ✅ live |
+| #27 | Bug 4 | Anchor sanity check; flag if no comp's adjusted price within ±5%/$50K of weighted PMV | ✅ live |
+| #28 | Bug 7 | Subject self-listing exclusion; address parts compare with postal_code gate, suffix-tolerant | ✅ live |
+| #29 | Bugs 8+9 | Distance-tiered comp selection (subdivision → 1mi → 3mi → zip fallback) + per-comp distance/direction display | ✅ live |
+| #30 | Bug 10 | Cross-state deprioritization; 0.75x weight + 5pt similarity penalty + amber pill flag for cross-state Sold comps | ✅ live |
+| #31 | Bugs 1+3+11 | Per-feature parity scoring (data-first via `below_grade_finished_area`, remarks regex fallback) + outlier counter-cluster protection + strategy band cap | ✅ live |
+| #32 | hotfix | Removed `below_grade_unfinished_area` reference from COMP_SELECT (column doesn't exist in MLS Grid sync data) | ✅ live |
+| #33 | Bug 2 | GLA / basement separation per Fannie Mae URAR Form 1004; subject form gets 3 sqft fields; comp side reads structured `above_grade_finished_area` + `below_grade_finished_area`; rate table adds $25/sqft finished basement, $10/sqft unfinished | ✅ live |
 
----
+### Key engine learnings (for future Claude Code prompts)
 
-## Earlier session: 2026-05-08 (PM) — Team Dashboard Tab 1 SHIPPED 🟢
+- **Carolina/Canopy MLS structure**: `mls_property` has `above_grade_finished_area` and `below_grade_finished_area`. **No `below_grade_unfinished_area` column** — comp-side unfinished basement is unrecoverable from feed. Subject-side is manual input only. `living_area = above_grade + below_grade` (sum, includes basement).
+- **Wyngate ground truth (verified via Supabase)**: 7026 Wyngate Place, 29720, sold ~$910K. above_grade=3,266, below_grade_finished=1,689, total=4,955. Year built 2020 (NOT a 2010s home — no age premium gap vs subject).
+- **Candlestick subject GLA confusion was the cause of $1M-vs-$932K disagreement**: with subject reported as 5,055 total (basement included) and Wyngate 4,955 total, the engine saw near-parity sqft. Reality: subject GLA is ~3,805 vs Wyngate's 3,266 = subject is LARGER above-grade by 539 sqft. PR 33 fixes this.
+- **Verify Postgres columns before claiming they exist** (lesson from PR #32 hotfix). Web Claude told Code `below_grade_unfinished_area` was available; Code shipped, comp search 500'd in production. Always run column check via Supabase MCP before specifying.
+- **MLS field naming gotcha**: Supabase columns are snake_case, MLS Grid spec is PascalCase, mapper translates. PostgREST silently returns empty when filtering on nonexistent column — error surfaces during SELECT instead.
+- **Diagnostic patches are infrastructure**: PR #23 (yesterday) verbose RPC error format saved hours diagnosing the wrong-zip subject auto-fill timeout. Do NOT remove during cleanup.
 
-### What got shipped
-- New repo live: `HGPG1/hgpg-team-dash` (commit `e9d1366` initial scaffold)
-- New Vercel project: `hgpg-team-dash` on team `team_FietQPKCmnyioG2n0FdteQCV`
-- Live at: **`team.homegrownpropertygroup.com`** (CNAME via GoDaddy → cname.vercel-dns.com)
-- Tab 1 (Inventory + Showings) end-to-end working:
-  - Grid filtered by office key `CAR118249224`
-  - Status filter pills (Live / Closed 90 / All / Canceled+Expired)
-  - Sync freshness banner reading from `mls_sync_state`
-  - `/inventory/[listingId]` drilldown with showings, ListTrac platform views, key dates
-  - Banner when listing isn't onboarded into the Listing Report Portal
-- Magic link auth + email allow-list via `TEAM_EMAILS` env var (Brian, Ashley, Brenda, Taylor, Closings)
-- Brand-correct UI: Cooper Hewitt body, Sansita display, navy/steel/light-steel/off-white tokens, status pills (signature brown for Under Contract, navy for Active, etc.)
-- Spec at `projects/team-dashboard.md` (commit `f1582a1`)
+### Wrong-zip subject auto-fill (RESOLVED yesterday + earlier today)
 
-### Critical fixes shipped during deploy
-- **Supabase RLS policies added** (migration `team_dash_read_mls_tables`): `mls_property`, `mls_member`, `mls_sync_state` had RLS on but zero policies, so anon key returned empty result sets. Added authenticated-role SELECT policies on all three.
-- **Performance index added** (migration `team_dash_office_key_index`): MLS Grid table has 2.57M rows. No index on `list_office_key` was causing 8-second statement timeouts on the `?status=all` filter. Added composite `(list_office_key, standard_status, list_date DESC)` and `(listing_id)` indexes. Query time went from timing-out to ~36ms.
+Two-part fix landed across yesterday evening through this morning:
+- **Composite index** `idx_mls_prop_postal_streetnum` on `mls_property(postal_code, street_number)` — fixed strict-path RPC timeout (Postgres code 57014).
+- **Statement timeout** raised to 30s for `authenticated` role — absorbs cold lambda + pooler latency variance.
+- **Single-column index** `idx_mls_prop_streetnum` added in PR #24 (this morning) — composite index leads with postal_code so was unusable for wrong-zip lookup. Single-column btree fixes 19.6s seq scan → 8ms warm cache.
+- **PR #24 wrong-zip fallback** lets agents type wrong zip; picker offers correct zip candidate; ZIP field auto-corrects on pick. Smoke test path: type "504 Redwine St" with ZIP "28210" — picker should offer 28110 candidate.
 
-### Supabase auth config
-- Site URL: kept as `https://listing-report-deploy.vercel.app` (do NOT change — Listing Report Portal uses Google OAuth and may rely on it; Brian found that callback URL was already in redirect list)
-- Redirect URLs added:
-  - `https://team.homegrownpropertygroup.com/**`
-  - `http://localhost:3000/**`
-- Existing Listing Report Portal redirect URLs left intact
+### Bugs/work remaining (priority order)
 
-### Key data discoveries
-- **Office key** is `CAR118249224` — NOT R04075 (that's a Canopy display ID, doesn't appear in MLS Grid feed)
-- 63 total team listings: 3 Active, 1 Active Under Contract, 1 Pending, 42 Closed, 14 Canceled, 2 Expired
-- Active+UC+Pending: 1444 Society Hill Rd, 7807 Lamington Dr (Pending), 11230 Mallard Crossing Dr, 13002 Butters Way (UC), 00 Stratton Farm Rd
-- 4 distinct list_agent_keys: Brian (CAR39987928), Ashley (CAR25452179), Brenda (CAR26251536), Taylor (CAR266730170)
-- Vessie Lopez and Lauren McCarron are on the office key but haven't listed yet
-- Address composition required — `unparsed_address` is null on most rows, build from `street_number + street_name + street_suffix`
-- mls_property `listing_id` has `CAR` prefix; `listings.mls_number` does not. Strip on join: `REPLACE(listing_id, 'CAR', '')`
-- MLS Grid Media table exists but zero rows synced. Hero photos fall back to portal `listings.hero_photo_url` then placeholder
+1. **PR 6 (Bug 3, outlier symmetry)** — LOWEST priority. Already partially addressed by counter-cluster protection in PR #31. Skip unless something specific surfaces.
+2. **Enhancement 1 (autosave on /seller/adjust)** — currently saves only on "Generate Packet". Brian flagged this as UX risk. Should autosave drafts every change, with explicit publish on Generate. Lower priority but worth shipping after engine verification.
+3. **Possible Bug 12 (build year adjustment)** — Brian observed Candlestick may benefit from age premium. Engine doesn't appear to apply year-built adjustment. Worth investigating after PR 33 verification — may already be acceptable if subject and Wyngate are both 2019-2020 builds.
+4. **Possible Bug 13 (time-of-sale adjustment)** — appraisers add for older comps. Engine doesn't appear to apply. Investigate if Wyngate sold 6+ months ago and market has moved.
 
-### Pickup notes for next session
+### Test reports to use as regression baselines
 
-**Goal: Build Tab 2 (Market Intelligence)**
+- `8023175d-37c8-45d7-95da-b9245abe4761` — 6022 Candlestick Lane (Bent Creek, Lancaster SC, luxury 6BR with finished basement + in-law-suite). Primary test case for feature parity, GLA/basement separation.
+- `3a84f12c-dc91-407b-ac93-5efaa5c4d564` — Candlestick draft (created 18:49 today). The active draft for PR #33 verification.
+- 5022 Cressingham (Indian Land 29707, 5BR/4BA, single-story no basement, healthy tier-1 same-subdivision data). Control test — math fixes should not move PMV from $659K.
+- 215 Tyndale Ct (Somerset 28277, tight-confidence). Strategy compression test.
+- 504 Redwine St (Monroe 28110, the wrong-zip case). Cross-state policy test.
+- 5601 Medlin Rd (Monroe 28110, 1.84 acres, semi-rural). Thin-data tier-3 test.
 
-Spec stub from `projects/team-dashboard.md`:
-- Search bar: zip / subdivision / radius from address
-- Recharts: median price (12mo), DOM, sold volume, list-to-sold ratio, months-of-supply
-- Active inventory count + 30-day movers (new pendings, new closings, price changes)
-- All charts read from `mls_property` filtered by area
-- Reuse Recharts components from TM where possible
+### Brian's instincts to address in upcoming work
 
-Implementation order suggestion:
-1. Decide search input UX (zip-first is simplest, subdivision/address adds complexity)
-2. Build the area-filter SQL helpers (separate from inventory.ts — new file `lib/market.ts`)
-3. Build the snapshot page with stats cards
-4. Add Recharts time-series sections one chart at a time
-5. Add 30-day movers list at bottom
+- **Strategy spreads**: was a real concern this morning, fixed by Bug 11 cap. Verify on desk that Aspirational stays under High and Event stays above Low across all 5 test reports.
+- **$1M Candlestick instinct**: PR 33 should bring it within range. If post-PR-33 still feels low, investigate build year + time-of-sale adjustments (Bugs 12+13 noted above).
+- **Cross-state lender concerns**: handled via 0.75x weight + amber pill flag in PR #30. Brian's "Waxhaw NC across state line" instinct was right; engine respects it but doesn't exclude.
+- **Comp selection appraiser-grade**: handled via Fannie Mae B4-1.3-08 cascade (subdivision → 1mi → 3mi → zip) in PR #29. Distance + direction shown per comp.
 
-**Open follow-ups specific to team dashboard**
-- Visual polish only after Tab 2 ships (no point iterating on shell now)
-- MLS Grid Media sync still parked — until it runs, hero photos only appear for ~7 portal-onboarded listings
-- Consider adding a "non-team listings I have a stake in" feature later (buyer-side deals) — not in current spec
+### Mac mini Claude Code MCP setup
 
----
+Still needs same MCP+GitHub PAT setup as iMac (which was completed yesterday evening). When Brian works on Mac mini next:
 
-## Locked queue
+```
+claude mcp add --transport http --scope user --header 'Authorization: Bearer NEW_PAT_HERE' github https://api.githubcopilot.com/mcp/
+```
 
-1. ⏳ Sellers guide Pixel QA — close out before treating as fully done
-2. 🔄 Team Dashboard Tab 2 (Market Intelligence) — NEXT SESSION
-3. 🎯 Buyer Alerts — first piece of MLS Dashboard Suite (~4-5 hr)
-4. 🔍 Off-market / Expireds Finder — (~5-6 hr, replaces external scraper)
-5. 🤖 FUB AI Agent rebuild — gated on Sendblue eval
+Generate separate PAT named "Claude Code MCP - Mac mini". Same fine-grained scope=user pattern as iMac.
 
-### Smaller open items
-- Signature Meta Pixel + CAPI (~30-45 min, copy buyers guide pattern)
-- MLS Grid Media kickoff (parked alongside .net→.com migration)
+### Default `claude` to dangerous mode
 
-### Parked
-- #3 hgpg-transaction-monitor (audit checklist required)
-- #6 deal notes UI (after CMA battle testing)
-- MLS Grid Media
-- #14 .net→.com migration
-- Listing Report Portal MLS enrichment (low ROI — Team Dashboard now covers the team-facing need)
+iMac alias added today: `alias claude="claude --dangerously-skip-permissions"` in `~/.zshrc`. Use `\claude` to bypass alias if ever needed. Mac mini still needs same alias added when Brian works there.
+
+### Pickup checklist for next session
+
+1. **Verify PR #33 on the desk** — open Candlestick 3a84f12c draft, manually input GLA 3,805 / finished basement 1,250 / unfinished basement 1,000. Confirm three sqft adjustment lines on Wyngate summing ~+$31K. PMV should rise from $932K to ~$960-985K range.
+2. **Re-save Cressingham as control** — basement fields zero, PMV stays at $659K, no behavior change.
+3. **Re-save Tyndale** — strategy compression test, Aspirational should cap inside the band.
+4. **If verification clean**, the engine is essentially ready for client-facing CMAs. Ship Enhancement 1 (autosave) next as the UX gap that's most worth closing.
+5. **If verification surfaces issues**, ping web Claude with what you see — likely Bug 12 (year-built) or Bug 13 (time-of-sale) territory.
+6. **Mac mini Claude Code MCP setup** when Brian works there next.
+7. Eventually decide which other repos get CLAUDE.md ship-it specs. TM is highest impact next.
+
+### Other repos for CLAUDE.md ship-it specs (deferred)
+
+- `hgpg-transaction-manager` (next priority)
+- `brain-app`
+- `charlotte-new-construction-nextjs`
+- `south-charlotte-report`
+- `homegrown-property-group-site`
 
 ---
 
-## Prior session: 2026-05-08 (AM) — Strategic queue refresh + brain hygiene 🟢
-
-### What got done
-- Verified Pixel/CAPI rollout status across all consumer sites (Buyers, Sellers, NewCon shipped; Signature pending; TM/marketinganalyzer intentionally skipped)
-- Pulled forward the locked queue from the 2026-05-06 strategic review
-
----
-
-## Prior session: 2026-05-06 — Brain App MVP shipped 🟢
+## Previous session: 2026-05-06 — Brain App MVP shipped 🟢
 
 ### What got built
 - New Vercel project: `brain-app` on team `team_FietQPKCmnyioG2n0FdteQCV`
+- New repo: `HGPG1/brain-app` (private)
 - Live at: `https://brain.homegrownpropertygroup.com`
 - Stack: Next.js 16.2.4, Tailwind v4, CodeMirror 6, Supabase Auth (magic link)
 - Single-user lock: `BRIAN_EMAIL=brian@homegrownpropertygroup.com` allow-list
+- GitHub auth: fine-grained PAT scoped to `HGPG1/hgpg-context`, contents:write only
+- Round-trip verified: edit file in browser, commit lands on `main` with author `brian@homegrownpropertygroup.com`
+
+### Brain App write API (added 2026-05-07 evening)
+- POST `https://brain.homegrownpropertygroup.com/api/external/write`
+- Authorization: Bearer token (in 1Password as "HGPG Brain Write Token")
+- JSON body: `{ path, content, message?, branch? }`
+- Authored as brian@homegrownpropertygroup.com
+- 1MB content cap. Blocked paths: `.git/`, `.github/workflows/`, `.vercel/`, `node_modules/`, `.env*`, `package-lock.json`
+- Used by web Claude sessions to update brain files without manual paste
 
 ### Infra changes that affect other apps
-- Resend custom SMTP wired into `HGPG Core` Supabase
-- Supabase project renames for hygiene completed
+- Resend custom SMTP wired into `HGPG Core` Supabase (project `ioypqogunwsoucgsnmla`)
+  - Sender: `noreply@homegrownpropertygroup.com`, name: HGPG
+  - API key stored under "Supabase HGPG Core" in Resend
+  - Rate limit went from 2/hr (Supabase default) to 30/hr (Resend default), can be raised
+  - This affects ALL apps using this Supabase: TM, CMA, TC Concierge, brain-app
+- Supabase project renames for hygiene:
+  - `ioypqogunwsoucgsnmla` → "HGPG Core"
+  - `ngdrliyjtqcwhhfrbxao` → "HGPG FUB Integration" (verify)
+  - `wdheejgmrqzqxvgjvfee` → "HGPG Listing Reports + MLS" (verify)
+  - `fkxgdqfnowskflgbuxhm` → "HGPG Signature + Relocation" (verify)
 
-### Deferred / Phase 2 for brain-app
-- iPhone smoke test, Cooper Hewitt self-hosted, file rename/delete, diff view, cross-file search
+### Pickup notes
+- Brain-app is live and working, use it for any future updates to `hgpg-context`
+- Resend API key is in 1Password ("Supabase HGPG Core SMTP")
+- Brain-app local dev: `cd ~/brain-app && npm run dev` on Mac mini (work machine)
+- Brain-app local on iMac: same setup, repo at `~/Developer/brain-app` if rebuilt, otherwise needs fresh `gh repo clone HGPG1/brain-app` + `npm install` + `cp env.example .env.local`
