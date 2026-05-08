@@ -245,3 +245,28 @@ When a draft is rejected:
 - DB-level filtering matters for batch processing - `.not('fub_person_id', 'in', recently_scored_ids)` beats in-memory filtering
 - The LLM intent reads are genuinely useful beyond just scoring - `specific_friction` field is a brief on each lead
 - No-history short-circuit saves money - leads with zero notes/emails/texts get synthetic low-confidence response without firing Haiku
+
+---
+
+## Session 6 pickup status (added 2026-05-08)
+
+**Smoke test status: UNCLEAR.**
+
+Session 5 (2026-05-07) shipped the agent-daily-flush cron, daily-cap config, queue UI header, and inbound classifier wiring. SESSION-HANDOFF after session 5 noted "smoke test pending Automations" — meaning Brian needed Viktor to finish the FUB Automations 2.0 work on his side before the end-to-end smoke test could run.
+
+When session 6 starts, the first action should be to:
+
+1. Check FUB to see if Viktor has shipped the Automations 2.0 work that consumes the agent's draft fields
+2. Check `fub_agent_message_drafts` in TM Supabase for any rows in `pending_review` status that have been sitting since 2026-05-07
+3. Ask Brian directly whether the smoke test was run — Brian may have done it without writing it up
+
+Until that's resolved:
+- Treat `agent_enabled` as still `false` (master kill switch closed)
+- Do not assume any production messaging has gone out
+- Do not start session 6 build work until smoke test outcome is known
+
+If smoke test ran and passed: flip `agent_enabled` to `true`, ramp daily_send_cap from 10 to 25 over the first week, monitor reject rate.
+
+If smoke test ran and failed: capture the specific failure mode in a new "Session 5 smoke test issues" block before scoping session 6.
+
+If smoke test never ran: figure out the blocker (Viktor capacity, FUB Automations build still pending, etc.) and either resolve it or scope around it.
