@@ -2,7 +2,41 @@
 
 # Session Handoff
 
-## Last session: 2026-05-08 — Strategic queue refresh + brain hygiene 🟡
+## Most recent session: 2026-05-08 (evening) — CMA adjustment engine bugs PR 1-3 shipped 🟢
+
+### What got built (PR 1-3 of 6)
+
+Three of the six CMA adjustment-engine bug fixes from `projects/cma-engine-bugs-2026-05-08.md` shipped to production in sequence. All squash-merged, all on production at `cma.homegrownpropertygroup.com`.
+
+- **PR #25 — Bug 5 (confidence bounds invariant):** https://github.com/HGPG1/hgpg-cma-tool/pull/25 — In `lib/cma/pmv.ts`, after the p25/p75 percentile bounds are computed, enforce `low < anchor < high` (all finite). On invariant failure, substitute `anchor*0.93 / anchor*1.08` and force confidence to a new `"low"` band. Adds `"low"` to the `PmvConfidence` union, threaded through `PmvCard` (red badge "Low (manual review)") and `pmv-narrative.ts` (dedicated copy).
+- **PR #26 — Bug 6 (active weighting + zero-closed banner):** https://github.com/HGPG1/hgpg-cma-tool/pull/26 — Counts closed comps once at the top of `computePmv`. When `closedCount === 1`, drops active weight from `0.08` to `0.03` so five actives sum to `0.15` against a `1.0` sold instead of `0.40`. When `closedCount === 0`, sets new `pmv.noClosedCompsWarning: true` flag, forces confidence to a new `"very-low"` band, and renders a red banner on `/seller/adjust`. Appraiser narrative gets a "not a comparable-sales analysis" line.
+- **PR #27 — Bug 4 (anchor sanity check):** https://github.com/HGPG1/hgpg-cma-tool/pull/27 — After `computePmv` settles the anchor, scans the post-exclusion math set for any comp within `max($50K, anchor * 5%)` of the anchor. If none qualify, sets new `pmv.anchorSyntheticWarning: true`, forces confidence to `"low"` (unless `"very-low"` is already in play), and renders a red banner on `/seller/adjust` ("Weighted PMV does not correspond to any individual comp"). Seller narrative gets a manual-review line.
+
+### Bug evidence captured pre-fix (HGPG Core Supabase, `cma_reports`)
+
+Confirmed the pre-fix state of all three test reports via `execute_sql` before merging:
+
+- `d2a1710a-ae49-4a44-acc0-04fd9f55b376` (504 redwine st): low=$381,760, anchor=$374,028, high=$381,760, confidence "tight" (Bug 5 collapsed-bounds case AND anchor below low — invariant violation)
+- `9753a990-8776-421f-ad86-b086fd0472ec` (5601 Medlin Rd): low=$331,500, anchor=$376,388, high=$331,500, confidence "wide" (Bug 5 anchor-above-high case)
+- `8023175d-37c8-45d7-95da-b9245abe4761` (6022 Candlestick Ln): low=$1,090,000, anchor=$1,172,235, high=$1,287,000, confidence "wide". Closest math-set comps ~$1,107K and ~$1,237K, both more than $58.6K (5% of anchor) from $1,172K — Bug 4 banner will fire on regenerate.
+
+### Verification status
+
+- Production deploys for PRs #25 and #26 are READY at the time of this writeup. PR #27 was BUILDING when the handoff was written; expected READY within ~90s of merge.
+- Live UI re-verification on the saved Redwine, Medlin, and Candlestick reports is **NOT YET DONE** — saved reports cache the math output; per `CLAUDE.md` regenerating only re-runs the AI narrative, so producing a clean Redwine/Medlin/Candlestick result requires opening `/seller/adjust` and re-saving each report. Brian to verify next time he's at a desk.
+
+### Pickup notes
+
+- **PR 4 (Bug 1 — feature parity) is paused awaiting Brian's go.** This is the biggest dollar-impact fix, and per the original prompt Claude was instructed to stop here for confirmation before starting it. Open `projects/cma-engine-bugs-2026-05-08.md` for spec, then run a fresh Claude Code session on `~/Documents/hgpg-cma-tool` with the explicit go-ahead.
+- PR 5 (Bug 2 — GLA / basement separation) requires schema additions to `cma_reports.subject_summary` jsonb shape and the Subject input form. Original prompt instructed Claude to also pause before this one because it touches data shape.
+- PR 6 (Bug 3 — outlier symmetry) is the smallest fix and lowest priority. Cluster-based outlier evaluation (`±5%` of each other AND `>25%` from anchor → keep both at standard weight or drop both, never split).
+- Saved Redwine + Medlin + Candlestick reports still hold the buggy numbers in the database. Regenerating them will not refresh the math — the agent has to walk back into `/seller/adjust` and re-save.
+- The new `PmvConfidence` band ladder is now `tight | moderate | wide | low | very-low`. Override priority in `computePmv` is documented inline at the override site.
+- `PmvResult` shape gained two boolean flags: `noClosedCompsWarning`, `anchorSyntheticWarning`. Backward-compat for older saved reports without these fields: undefined coerces to false in the React banner conditionals.
+
+---
+
+## Earlier session: 2026-05-08 (afternoon) — Strategic queue refresh + brain hygiene 🟡
 
 ### What got done
 - Verified Pixel/CAPI rollout status across all consumer sites:
