@@ -2,70 +2,7 @@
 
 # Session Handoff
 
-## Pickup: FUB AI Agent session 6
-
-Pick up FUB AI Agent at session 6. Smoke test should be complete by now — confirm with Brian. Read `projects/fub-ai-agent.md` for the session 5 detail before changing anything.
-
-### Session 6 priorities (in order)
-
-1. **Review smoke-test outcome with Brian.**
-   - Did the manual SQL flow at `scripts/session-5-smoke-test.sql` complete cleanly?
-   - Did Brian receive the iMessage on +1 803 902 3700? Did email follow?
-   - Are FUB Automations 2.0 actually live for both ready tags (Viktor)?
-   - Pull `fub_agent_log` rows tagged `fub_push_success` / `fub_push_failure` from the smoke test window — anything weird?
-   - **If anything is off, halt and triage; do not proceed to step 2.**
-2. **First real outbound batch (only if smoke test was clean).**
-   - Plan a small (e.g. 3-5 lead) initial run under the daily cap of 10
-   - Pick the leads from the queue UI by hand; do not auto-batch
-   - Brian flips `agent_enabled` true, approves them one by one, watches the FUB-side delivery + responses
-   - Observe for 24-48h; revisit cap, cooldowns, classifier behavior
-3. **"Interested" inbound surfacing in queue UI.**
-   - Right now `inbound_interested` only logs. Build a small section in `/agent/queue` listing recent interested replies (joined to lead) so Brian can act on them.
-   - Schema may need a small denormalized view or a new `fub_agent_inbound_replies` table; investigate before changing.
-4. **Week 1 metrics dashboard.**
-   - Pushes/day vs cap
-   - Opt-out rate (rows in `fub_agent_lead_optouts` over messages pushed)
-   - Inbound classification breakdown
-   - Active cooldowns by reason
-5. **Autonomous-mode evaluation criteria.**
-   - What would have to be true (numerically + behaviorally) to flip `auto_below_threshold = true`?
-   - Document on `projects/fub-ai-agent.md` so we don't move that gate by feel
-
-### Current system state (as of 2026-05-07 EOD session 5)
-
-- `agent_enabled` = **false** (master kill switch, all crons no-op)
-- `daily_send_cap` = 10
-- `fub_agent_lead_cooldowns_reason_check` enum now includes `hostile_reply` and `not_now_reply` (added in session 5)
-- `fub_agent_lead_optouts` empty
-- `fub_agent_lead_cooldowns` empty
-- `fub_agent_message_drafts` 0 with `fub_pushed_at` non-null
-- 0 outbound messages have ever been sent
-- Cron `/api/cron/agent-daily-flush` registered in vercel.json on `1 5 * * *` UTC. No-op while `agent_enabled = false`.
-- Smoke test SQL artifact lives at `hgpg-transaction-manager/scripts/session-5-smoke-test.sql`
-- Brian's FUB person id = **27764**, currently excluded (pond:brian_excluded_contacts). Smoke test temporarily removes exclusion + restores in cleanup.
-- 3 FUB custom fields configured (`customAgentDraftEmailBody`, `customAgentDraftEmailSubject`, `customAgentDraftIMessageBody`)
-- 2 FUB tags scheduled to appear on first apply (`agent_draft_email_ready`, `agent_draft_imessage_ready`)
-- FUB Automations 2.0: built? coordinate with Viktor before assuming live
-- FUB UI visibility on custom fields: still pending the FUB UI step (carryover from session 4)
-
-### Where things live
-
-- TM repo: `HGPG1/hgpg-transaction-manager` on `main`
-- Latest commit: `eb9089d` — session 5 ship
-- Supabase: `ioypqogunwsoucgsnmla` (HGPG Core)
-- Vercel: TM project (`prj_oLWVcE4J1UKzJtmggoQCOW35LUhy`)
-- Brain: this repo, `projects/fub-ai-agent.md` is the canonical multi-session log
-
-### Blockers / dependencies
-
-- **FUB Automations 2.0** — Viktor's lane. Without them, custom-field writes + tag applies happen but no actual outbound message lands. Smoke test cannot complete without these.
-- **`FUB_AGENT_INBOUND_SECRET`** must be set in Vercel before the inbound classifier can be invoked end-to-end. Until set, `/api/agent/inbound` returns 503.
-
----
-
-## Previous session: 2026-05-07 — Sellers Guide Meta Pixel + CAPI fully verified 🟢
-
-(Full notes below preserved for context — not actionable.)
+## Last session: 2026-05-07 — Sellers Guide Meta Pixel + CAPI fully verified 🟢
 
 ### What shipped
 - **Meta Pixel + CAPI on sellers guide is production-ready and verified end-to-end**
@@ -74,25 +11,121 @@ Pick up FUB AI Agent at session 6. Smoke test should be complete by now — conf
 - `META_TEST_EVENT_CODE` env var removed from Vercel + redeployed — production traffic now flows to real Events Manager dashboards (not Test Events tab)
 - Production deploy on commit `8ea82cc`
 
-### Carryover for the sellers-guide meta work (still open)
+### Bug found + fixed mid-session
+- `api/fub-lead.js` was sending FUB custom field **labels** (e.g., `"UTM Source"`) as object keys instead of FUB API **names** (e.g., `customUTMSource`). FUB silently drops unknown keys, so all 7 fields had been failing silently the whole time.
+- Confirmed correct API names via `GET /v1/customFields`:
+  - `customUTMSource`, `customUTMMedium`, `customUTMCampaign`, `customUTMContent`, `customUTMTerm`, `customFacebookClickID`, `customGoogleClickID`
+- Patched in commit `8ea82cc` on `main`. Also added `X-System` / `X-System-Key` headers and a `DEBUG_FUB=1` env flag for surfacing FUB error bodies in API responses when needed.
 
-**Create `ScoreCompleted` Custom Conversion in Events Manager** (~5 min)
+### Infra changes
+- **FUB API key rotated** — placeholder `fka_PLACEHOLDER` (which had been set as a Sensitive Vercel env var with empty value) replaced with real key on `charlotte-sellers-guide-vercel` project
+- **Vercel "Sensitive" env var gotcha logged** — to UN-mark a var as Sensitive in Vercel, you must DELETE the var entirely and re-add it. There's no toggle. This was the root cause of repeated empty-key issues during diagnosis.
+- **FUB integration system identifier** — sellers guide now identifies as `X-System: HGPG-SellersGuide` / `X-System-Key: sellers-guide-vercel` per FUB integration guide. Removes the rate-limit notice and gives us higher limits.
+
+### Project status updates
+- Sellers guide Meta Pixel + CAPI status: 🟢 SHIPPED + verified
+- FUB key swap blocker — RESOLVED. Brain notes flagged this as pending; can clear that flag.
+
+---
+
+### Carryover for next session
+
+**1. Create `ScoreCompleted` Custom Conversion in Events Manager** (~5 min)
 - Direct URL: `https://business.facebook.com/events_manager2/list/dataset/861295553661596` → Custom Conversions → Create
 - Settings:
   - Name: `Sellers Guide - Score Completed`
-  - Event: `ScoreCompleted` (NOT Lead — Lead would double-count form submissions)
+  - Description: `User finished home selling score assessment`
+  - Data source: HGPG — Sellers Guide
+  - Action Source: Website
+  - **Event: `ScoreCompleted`** ← critical, NOT Lead. Lead would double-count form submissions
   - Rules: URL contains `home-selling-score`
+  - Skip conversion value
+- If `ScoreCompleted` isn't in the Event dropdown, real ad traffic firing it will surface it within minutes-to-hours. By the time we come back to this, it'll be there.
 - Once created, takes 24-48 hours of data to warm up before usable as an ad optimization goal.
 
-**Cleanup tasks (low priority)**
-- Delete QA test leads from FUB: `qa-may7-fields-test@hgpg-test.com`
-- Remove "Phase 1 ads test markers" in code
+**2. Meta Lead Ads → FUB native integration** — DEFERRED
+- Only needed if HGPG runs Meta Instant Form lead ads. Current campaigns are click-to-website only, which the existing pixel + CAPI + FUB API flow handles fully.
+- Re-add to active list if/when running Instant Form ads.
+
+### Cleanup tasks (low priority)
+- Delete QA test leads from FUB:
+  - `qa-may7-fields-test@hgpg-test.com`
+  - Any other QA leads created during Path A / Path B testing on May 7
+- Remove "Phase 1 ads test markers" in code (flagged in original session intro as a future cleanup item)
+
+---
 
 ### Next big initiative: Meta Pixel + CAPI rollout to remaining sites
 
-Bring the proven sellers-guide pattern to:
+Sellers guide is the proven pattern. Bring the same setup to:
 - **Transaction Manager** (closings.homegrownpropertygroup.com)
 - **Marketing analyzer** (which site/repo — confirm next session)
 - **Signature** (signature.homegrownpropertygroup.com)
 
+Each needs:
+- Its own Meta Pixel ID (separate dataset per site for clean attribution)
+- Pixel snippet + hgpgTrack helper on all pages
+- `api/meta/capi.js` (copy from sellers guide, ~no changes)
+- `api/fub-lead.js` with `CUSTOM_FIELD_MAP` using FUB API names (reuse the map from sellers guide — it's the same 7 fields)
+- Vercel env vars: `META_PIXEL_ID`, `META_CAPI_ACCESS_TOKEN`, `FUB_API_KEY`
+- DO NOT mark FUB_API_KEY as Sensitive in Vercel until first verified working — the empty-value gotcha is real
+
 Playbook: `META-PIXEL-CAPI-PLAYBOOK.md` in sellers guide repo root. Estimated ~30 min/site.
+
+### Pickup notes
+- All env vars on `charlotte-sellers-guide-vercel` are healthy. Real FUB key, real Meta tokens, no test event code.
+- Pattern for future "FUB silently dropping fields" debugging: hit `GET /v1/customFields` with the rotated key to confirm exact API names match what your code is sending.
+- Fast env-var sanity check: `echo "len: ${#FUB_API_KEY}"` after sourcing `.env.local` — length 0 = empty (broken), length ~38-40 = real.
+- The CUSTOM_FIELD_MAP pattern in `api/fub-lead.js` is reusable for the other sites' FUB integrations — bring it to TM / marketing analyzer / signature when rolling pixel + CAPI to those sites.
+
+---
+
+## Previous session: 2026-05-06 — Brain App MVP shipped 🟢
+
+### What got built
+- New Vercel project: `brain-app` on team `team_FietQPKCmnyioG2n0FdteQCV`
+- New repo: `HGPG1/brain-app` (private)
+- Live at: `https://brain.homegrownpropertygroup.com`
+- Stack: Next.js 16.2.4, Tailwind v4, CodeMirror 6, Supabase Auth (magic link)
+- Single-user lock: `BRIAN_EMAIL=brian@homegrownpropertygroup.com` allow-list
+- GitHub auth: fine-grained PAT scoped to `HGPG1/hgpg-context`, contents:write only
+- Round-trip verified: edit file in browser → commit lands on `main` with author `brian@homegrownpropertygroup.com`
+
+### Infra changes that affect other apps
+- Resend custom SMTP wired into `HGPG Core` Supabase (project `ioypqogunwsoucgsnmla`)
+  - Sender: `noreply@homegrownpropertygroup.com`, name: HGPG
+  - API key stored under "Supabase HGPG Core" in Resend
+  - Rate limit went from 2/hr (Supabase default) to 30/hr (Resend default), can be raised
+  - This affects ALL apps using this Supabase: TM, CMA, TC Concierge, brain-app
+- Supabase project renames for hygiene:
+  - `ioypqogunwsoucgsnmla` → "HGPG Core"
+  - `ngdrliyjtqcwhhfrbxao` → "HGPG FUB Integration" (verify)
+  - `wdheejgmrqzqxvgjvfee` → "HGPG Listing Reports + MLS" (verify)
+  - `fkxgdqfnowskflgbuxhm` → "HGPG Signature + Relocation" (verify)
+- Supabase `HGPG Core` redirect URLs added:
+  - `https://brain.homegrownpropertygroup.com/**`
+  - `http://localhost:3000/**`
+  - (Existing tools.hgpg entries left intact)
+
+### Bugs found and fixed mid-session
+- Magic link redirected to `tools.homegrownpropertygroup.com` (Supabase Site URL fallback) — fixed by adding `/auth/callback` route handler that was missing from initial scaffold + pointing `emailRedirectTo` at it
+- Supabase free SMTP rate limit (2/hr) hit during testing — fixed permanently by switching to Resend custom SMTP
+
+### Project status updates
+- `projects/brain-app.md` — status now 🟢 SHIPPED (was 🟡)
+- `projects/hgpg-team-tools2.md` — Site URL in Supabase still points here for the broken app's eventual fix
+- `projects/transaction-manager.md` — no changes today, but TM benefits from Resend SMTP upgrade
+
+### Deferred / Phase 2 for brain-app
+- iPhone smoke test (CodeMirror + iOS soft keyboard scroll behavior)
+- Cooper Hewitt self-hosted (currently falling back to system sans)
+- File rename and delete
+- Diff view before save
+- Cross-file search
+
+### Pickup notes for next session
+- Brain-app is live and working — use it for any future updates to `hgpg-context`
+- Resend API key is in 1Password ("Supabase HGPG Core SMTP")
+- Brain-app local dev: `cd ~/brain-app && npm run dev` on Mac mini (work machine)
+- Brain-app local on iMac: same setup, repo at `~/Developer/brain-app` if rebuilt, otherwise needs fresh `gh repo clone HGPG1/brain-app` + `npm install` + `cp env.example .env.local`
+- The `package-lock.json` may differ between iMac and Mac mini — push from whichever machine you most recently ran `npm install` on
