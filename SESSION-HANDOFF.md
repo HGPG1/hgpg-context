@@ -2,7 +2,21 @@
 
 # Session Handoff
 
-## Most recent session: 2026-05-08 (evening) — CMA adjustment engine bugs PR 1-3 shipped 🟢
+## Most recent session: 2026-05-08 (late evening) — Bug 7 self-listing suffix fix shipped 🟢
+
+### What got built
+
+- **PR #28 — Bug 7 (self-listing detection breaks on missing suffix):** https://github.com/HGPG1/hgpg-cma-tool/pull/28 — Subject "6022 Candlestick" (no suffix) was matching against MLS row "6022 Candlestick Lane" but the legacy `normalizeAddress` whole-string compare in `lib/cma/flags.ts` produced `"6022 candlestick"` vs `"6022 candlestick ln"` → not equal → `isSelfListing` returned null → `rankComps` never dropped the comp → the prior sale of the subject home itself rolled up as a $1.036M Sold comp at weight 1.00. Affected draft: `cma_reports 3a84f12c-dc91-407b-ac93-5efaa5c4d564` (created 2026-05-08 18:49). Fix swaps the whole-string compare for a parsed-parts compare via `parseAddress` (number + nameTokens + dirPrefix must match; suffix is one-sided-tolerant so subject input wins when only one side has it). Adds a `postal_code` gate so the looser compare can't false-positive across metros, and falls back to the old whole-string normalizer when either side fails to parse a street number.
+- This is a separate, freshly-discovered bug from the original six. Brian flagged it during review of PR 1-3 deploys; queued ahead of PR 4 (feature parity) since it's a quick safety fix and the subject-as-its-own-comp is a much louder math distortion than feature-parity error.
+
+### Pickup notes (updated)
+
+- PR 4 (Bug 1, feature parity) still paused awaiting Brian's go - see "Pickup notes" in the earlier evening session below.
+- Saved `3a84f12c` Candlestick draft still has the bad comp baked into its `comps` jsonb. Re-saving the report on `/seller/adjust` post-deploy will drop it.
+
+---
+
+## Earlier session: 2026-05-08 (evening) — CMA adjustment engine bugs PR 1-3 shipped 🟢
 
 ### What got built (PR 1-3 of 6)
 
