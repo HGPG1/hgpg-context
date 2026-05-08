@@ -1,6 +1,6 @@
 # HGPG Context (Brain)
 
-Last updated: 2026-05-08 (refresh: brain audit cleanup + 4 new spec files)
+Last updated: 2026-05-08 (refresh: brain audit cleanup, 5 new spec files, PropStream caller parked)
 
 ## Who
 
@@ -37,7 +37,7 @@ Status legend: 🟢 shipped & live · 🟡 active build · 🔵 planned/scoped �
 | Charlotte New Construction | 🟡 active build, /how-we-work + /incentives shipped | `projects/charlotte-new-construction.md` |
 | South Charlotte Report | 🟢 active content pipeline | `projects/south-charlotte-report.md` |
 | Buyers Guide | 🟢 live, migrated Manus to React + Vite | `projects/buyers-guide.md` |
-| FUB Lead Automation Rebuild | 🔵 planned, foundation ready | (no spec yet) |
+| PropStream Caller | ⚫ parked / mostly abandoned, status unclear | `projects/propstream-caller.md` |
 | Twilio A2P | ⚫ blocked on SMS consent checkbox | n/a |
 | DocuSign migration off zipForms | 🔵 workflow scoped, no build | `projects/docusign-migration.md` |
 | NeverBounce email validation | 🔵 spec written, not built | `projects/neverbounce-validation.md` |
