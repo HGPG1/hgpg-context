@@ -1,3 +1,5 @@
+<!-- Last Updated: 2026-05-08 -->
+
 # Signature Marketing Collection
 
 - **URL:** signature.homegrownpropertygroup.com
