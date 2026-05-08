@@ -32,9 +32,9 @@ Status legend: 🟢 shipped & live · 🟡 active build · 🔵 planned/scoped �
 | Signature + Marketing | (status TBD - verify in file) | `projects/signature-marketing.md` |
 | Deals Tracker | (status TBD - likely legacy/decommissioned) | `projects/deals-tracker.md` |
 | Main Site SEO | 🟢 mobile PageSpeed 96/100 | `projects/main-site-seo.md` |
-| Sellers Guide | 🟢 live, rebrand complete + Home Grown Selling Score v2 shipped 2026-05-08 | (no spec file - tracked in SESSION-HANDOFF) |
-| Home Grown Selling Score | 🟢 live 2026-05-08 (5x4 wizard, curved 0-80 score, lead capture at end) | (tracked in SESSION-HANDOFF) |
-| Sellers Guide Meta Pixel + CAPI | 🟢 shipped, Custom Conversion registration still pending | (tracked in SESSION-HANDOFF) |
+| Sellers Guide | 🟢 live, rebrand complete + Home Grown Selling Score v2 shipped 2026-05-08 | `projects/sellers-guide.md` |
+| Home Grown Selling Score | 🟢 live 2026-05-08 (5x4 wizard, curved 0-80 score, lead capture at end) | `projects/sellers-guide.md` |
+| Sellers Guide Meta Pixel + CAPI | 🟢 shipped, Custom Conversion registration still pending | `projects/sellers-guide.md` |
 | Charlotte New Construction | 🟡 active build, /how-we-work + /incentives shipped | (no spec file - tracked in SESSION-HANDOFF) |
 | South Charlotte Report | 🟢 active content pipeline | (no spec file - tracked in SESSION-HANDOFF) |
 | Buyers Guide | 🟢 live, migrated Manus to React + Vite | (no spec file - tracked in SESSION-HANDOFF) |
