@@ -1,6 +1,6 @@
 # HGPG Context (Brain)
 
-Last updated: 2026-05-08
+Last updated: 2026-05-08 (refresh: brain audit + 3 new spec files)
 
 ## Who
 
@@ -23,7 +23,7 @@ Status legend: 🟢 shipped & live · 🟡 active build · 🔵 planned/scoped �
 | CMA Engine | 🟡 PRs #16-22 shipped, awaiting Taylor stress test | `projects/cma-engine.md` |
 | Transaction Manager | 🟡 ongoing Don feedback batches, $395 fee toggle parked | `projects/transaction-manager.md` |
 | TC Concierge | 🟢 live, Don running real deals | `projects/tc-concierge.md` |
-| FUB AI Agent | 🟡 session 4 shipped — pusher live, `agent_enabled` false, smoke test pending session 5 | `projects/fub-ai-agent.md` |
+| FUB AI Agent | 🟡 sessions 4+5 shipped, smoke test status unclear (verify before session 6) | `projects/fub-ai-agent.md` |
 | Brain App | 🟢 shipped 2026-05-06 + write API live 2026-05-08 (`/api/external/write`) | `projects/brain-app.md` |
 | HGPG Team Tools | 🟢 fixed 2026-05-05 (Google OAuth via Supabase) | `projects/team-tools.md` |
 | Listing Report Portal | 🟢 GitHub auth resolved | `projects/listing-report-portal.md` |
@@ -40,10 +40,10 @@ Status legend: 🟢 shipped & live · 🟡 active build · 🔵 planned/scoped �
 | Buyers Guide | 🟢 live, migrated Manus to React + Vite | (no spec file - tracked in SESSION-HANDOFF) |
 | FUB Lead Automation Rebuild | 🔵 planned, foundation ready | (no spec yet) |
 | Twilio A2P | ⚫ blocked on SMS consent checkbox | n/a |
-| DocuSign migration off zipForms | 🔵 workflow scoped, no build | (chat history) |
-| NeverBounce email validation | 🔵 spec written, not built | (chat history) |
+| DocuSign migration off zipForms | 🔵 workflow scoped, no build | `projects/docusign-migration.md` |
+| NeverBounce email validation | 🔵 spec written, not built | `projects/neverbounce-validation.md` |
 | Closing Concierge | 🟢 decommission pending, low priority | n/a |
-| $395 fee toggle (TM) | 🔵 build spec parked | (chat history - refs commit b9fa0deb) |
+| $395 fee toggle (TM) | 🔵 build spec parked | `projects/tm-395-fee-toggle.md` |
 
 ## Recently completed
 
