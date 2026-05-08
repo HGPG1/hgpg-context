@@ -1,3 +1,5 @@
+<!-- Last Updated: 2026-05-08 -->
+
 # Claude Skills & AI Tooling
 
 ## Skills shipped May 1, 2026
