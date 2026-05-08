@@ -2,7 +2,49 @@
 
 # Session Handoff
 
-## Most recent session: 2026-05-07 evening to 2026-05-08 morning — CMA subject auto-fill (two-fer) + Claude Code setup 🟢
+## Most recent session: 2026-05-08 — CMA wrong-zip candidate fallback shipped 🟢
+
+### What shipped
+
+PR #24 in `HGPG1/hgpg-cma-tool` — `feat(subject-detect): wrong-zip candidate fallback`. Squash-merged as `8bc81a8`. Vercel production deploy READY on `cma.homegrownpropertygroup.com`.
+
+The fully-spec'd queue item from yesterday's handoff is now done end-to-end, including a profile-driven index addition the spec didn't catch.
+
+### What it does
+
+When subject auto-fill's strict (`mls_subject_detect_v2`) and fuzzy (`mls_subject_detect_v2_fuzzy`) paths both miss in the typed ZIP but the same `street_number + street_name` exists under a different ZIP, the lookup now surfaces those candidates through a distinct picker variant ("Did you mean an address in a different ZIP?"). On pick, the form auto-corrects the ZIP field so downstream comp search uses the right postal code.
+
+The 504 Redwine test case (real address in Monroe 28110, agent typed 28210) now confirms instead of falling through to manual entry.
+
+### How it's wired
+
+- New RPC `mls_subject_detect_v2_zip_fallback(p_street_number, p_street_name_tokens)` — drops the `postal_code` filter, returns up to 5 candidates with their actual `postal_code` column. Migration `mls_subject_detect_v2_zip_fallback_2026_05_08` applied to project `wdheejgmrqzqxvgjvfee`.
+- Cascade in `lib/mls/subjectDetect.ts` is now: strict → fuzzy → zip-fallback → null. Strict + fuzzy stay can-view-gated; zip-fallback drops both gates because the typed ZIP being wrong is the dominant failure mode.
+- `SubjectDetectResult` discriminated union gained `kind: "wrong_zip_candidates"`. `MlsSubjectMatch.context.postalCode` populated only by this path (null on strict/fuzzy).
+- `MlsCandidatesPicker.tsx` props changed from `fromFuzzyFallback: boolean` to `variant: "strict" | "fuzzy" | "wrong_zip"`. The wrong_zip variant labels each candidate with its actual ZIP.
+
+### Index gap caught by EXPLAIN ANALYZE — spec was wrong
+
+Yesterday's spec claimed "Same composite index covers it — no new migration if we don't filter by zip." Wrong. `idx_mls_prop_postal_streetnum` leads with `postal_code` and is unusable for a postal-less search. Pre-fix EXPLAIN ANALYZE on a 504 Redwine probe ran **19.6s as a parallel seq scan** over 2.5M rows.
+
+Migration also adds `idx_mls_prop_streetnum` (single-column btree on `street_number`). Post-fix: cold cache ~1s, warm cache **8ms**, well within the 3s `SUBJECT_DETECT_TIMEOUT_MS` budget in `SubjectForm.tsx`.
+
+Lesson reinforces the CLAUDE.md gotcha: **always EXPLAIN ANALYZE before assuming an existing index covers a new lookup.** Even fully-spec'd queue items can ship with the wrong index assumption.
+
+### Other files touched
+
+- `app/seller/new/SubjectForm.tsx` — handles the new kind, auto-corrects ZIP on pick, picker variant prop wired through
+- `scripts/test-ranking.ts` — 4 new fixtures (wrong-zip surfaces correct kind/listing/postal, fuzzy hit takes precedence over zip fallback, all-three-empty still returns null)
+
+### Pickup notes for next CMA session
+
+- Smoke-test in production: type "504 Redwine St" with ZIP "28210" on a fresh seller form. Picker should offer the 28110 candidate; on pick, the ZIP field should auto-correct to 28110 and downstream comp search runs in 28110.
+- Same-street-neighbor fallback for new construction (Alma Blount type cases) is still queued from yesterday — if the agent types 9644 and the row doesn't exist yet but 9636/9640/9651 do, surface those as a "first home on this block? here are the recent neighbors" hint. Distinct UX from wrong-zip — agent isn't typo'ing, the row is genuinely missing. Defer until a real Alma-Blount-type case shows up live.
+- Index audit across other CMA RPCs to confirm none are doing similar full-zip scans is still queued. Same 19.6s pattern could be lurking. Low-priority since `searchComps()` uses the well-indexed `idx_mls_prop_comp_search` path.
+
+---
+
+## Previous session: 2026-05-07 evening to 2026-05-08 morning — CMA subject auto-fill (two-fer) + Claude Code setup 🟢
 
 ### Headline wins
 
