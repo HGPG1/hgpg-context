@@ -1,126 +1,62 @@
-<!-- Last Updated: 2026-05-07 -->
+<!-- Last Updated: 2026-05-08 -->
 
 # Session Handoff
 
-## Last session: 2026-05-07 — CMA subject auto-fill fixed + Claude Code setup 🟢
+## Last session: 2026-05-07 → 2026-05-08 — Home Grown Selling Score v2 + Brain Write API 🟢
 
-### Headline wins
+### What shipped
 
-1. CMA subject auto-fill bug diagnosed and fixed (RPC timeout, missing index)
-2. Diagnostic infrastructure shipped (verbose Postgres error format, PR #23)
-3. Claude Code wired up on iMac with full MCP kit (Supabase, Vercel, GitHub)
-4. CLAUDE.md ship-it spec dropped into hgpg-cma-tool — next CMA session can be hands-off
+**1. Home Grown Selling Score v2** — replaced the 46-item wizard at `sellersguide.homegrownpropertygroup.com/home-selling-score/` with a tighter 5-category, 4-item-per-category structure (20 items total). Lead capture flipped to the END of the flow.
 
----
+- New page: `public/public/public/home-selling-score/index.html` (full rewrite)
+- New API endpoint: `api/assessment/submit.js` (single-call write to Supabase + fire-and-forget FUB forward)
+- Supabase migration applied: `seller_assessments_v2_2026_05_07` on project `fkxgdqfnowskflgbuxhm`
+- Renamed from "Home Selling Score" to "Home Grown Selling Score" throughout (title, brand header, results header, FUB source, 3x Meta Pixel content_name fields)
+- Math curved: raw -20..+80 maps to display 0..80 (smooth scale, no flat ceiling)
 
-### CMA Engine: subject auto-fill bug
+**Score model:**
+- Internal (saved as `total_score`): 4/2/1/-1 points per item, range -20 to +80, NEVER shown to clients
+- Client-facing (saved as `score_percentage`): normalized 0-80 via `Math.round((raw + 20) * 0.8)`, no value over 80 reachable
+- Tier (saved as `tier_name`):
+  - 85+ → Market Ready (UNREACHABLE BY DESIGN — there's always a reason for a consult)
+  - 70-84 → Strong Foundation (top tier client can hit, requires raw 68+)
+  - 55-69 → Solid Bones
+  - 0-54 → Pre-Market Project
 
-**Symptom:** subject property auto-fill (the blur handler in the CMA tool's seller form) was returning "no match" for valid addresses. Started Brian fearing a real bug; field was failing on Cressingham, Alma Blount, and others.
+**Categories:** Curb Appeal, Kitchen, Bathrooms, Living Spaces, Exterior and Systems.
 
-**Root cause:** the strict-path RPC `mls_subject_detect_v2` was timing out (Postgres error code `57014`, `canceling statement due to statement timeout`) on cold buffer cache. Function was doing a bitmap heap scan that read ~20K heap blocks (~160MB) per lookup to find 5 rows — no composite index on `(postal_code, street_number)`.
+**Pixel safety verified.** All anchor markers preserved (META_BYPASS, AssessmentStarted, ScoreCompleted, metaBypass, getUtmsForFub) so `patch-home-selling-score.py` will detect "already patched" and exit clean if re-run. Server-side `/api/fub-lead.js` and `/api/meta/capi.js` untouched.
 
-**Why it presented as "intermittent":** warm cache made it work in 49ms. Cold cache (post-MLS-sync flush, post-cold-lambda-start, post-deploy) blew past the 8-second statement timeout. Looked random; was actually deterministic.
+**Final commits (charlotte-sellers-guide-vercel main):**
+- `7b8f27c` (rebased to TBD) — gitignore harden (.vercel + .env*.local)
+- `dad98fb` — Home Grown Selling Score: rename + curve math to cap at 80
 
-**Fix applied:** migration `add_postal_streetnumber_index_for_subject_detect` on Supabase project `wdheejgmrqzqxvgjvfee`:
+**2. Brain Write API** — programmatic write endpoint for the brain repo at `https://brain.homegrownpropertygroup.com/api/external/write`.
 
-    CREATE INDEX IF NOT EXISTS idx_mls_prop_postal_streetnum
-      ON public.mls_property USING btree (postal_code, street_number)
-      WHERE mlg_can_view = true;
+- New file: `app/api/external/write/route.ts` (in brain-app repo)
+- POST with `Authorization: Bearer <token>` and JSON `{path, content, message?, branch?}` commits to HGPG1/hgpg-context
+- Bearer token stored in Vercel env as `BRAIN_WRITE_TOKEN`, also saved to Claude memory
+- Auto-commits authored as `brian@homegrownpropertygroup.com`
+- Path validator blocks `.git/`, `.github/workflows/`, `.vercel/`, `node_modules/`, `.env*`, `package-lock.json`
+- Constant-time bearer compare, 1MB content cap, POST only
+- Final fix: route checks `process.env.GITHUB_PAT` first (the env var brain-app actually uses). Original version checked GITHUB_TOKEN/BRAIN_GITHUB_PAT and didn't match. Fixed in commit `127cc0c`.
 
-**Performance:**
-- Before: 49ms warm / 8s+ cold (timeout)
-- After: 2.4ms warm / ~50-100ms cold expected
-- Plan: bitmap heap scan to index scan, 20,025 buffers to 36 buffers (~556x reduction)
+**This very file was written via the new API as the live end-to-end test.** No copy-paste from Claude to GitHub UI required.
 
-No code changes needed for the fix itself. Brian verified 5022 Cressingham Dr 29707 works after the migration.
+### Pickup notes for next session
 
-### Diagnostic patch (PR #23)
+- Both deploys are LIVE. Smoke-test the score flow end-to-end (fill it out with a real email, verify FUB lead lands with `source: home-selling-score`).
+- Sample SQL to verify v2 rows landing:
+  
+      SELECT * FROM seller_assessments_v2_summary LIMIT 5;
 
-`HGPG1/hgpg-cma-tool` PR #23 — `Surface full Postgres error on subject-detect RPC failure` — squash-merged.
+- Old `/api/assessment/create.js` and `/api/assessment/submit-ratings.js` left in place for backward compat; can be removed in a future cleanup once we confirm zero traffic for a week.
+- Brain write API token is in Claude memory; future sessions can write directly without prompting Brian.
 
-Changed two error-throw lines in `lib/mls/subjectDetect.ts` (327, 353) from `${err.message}` to a fuller string that includes `code`, `details`, `hint`. Without this we would never have caught the 57014 timeout — the original `${err.message}` was getting truncated in Vercel's table view to `[subjectDetect] auto-fill f...`. With the patch live, we got the full `code=57014` text immediately.
+### Open follow-ups
 
-**Keep this patch.** It's diagnostic infrastructure that paid for itself within an hour. If anyone proposes "cleaning it up" in the future, push back hard.
-
-### Bugs found that are NOT bugs
-
-- **9644 Alma Blount Blvd 28277:** address genuinely not in MLS data. Neighbors at 9636, 9640, 9651, 9652, 9728 all in DB; 9644 specifically was never on Carolina MLS or pre-dates MLS Grid backfill. Tool correctly returns no match.
-- **504 Redwine St (zip mistyped):** real address but in Monroe 28110, not the zip Brian typed. Tool correctly returns no match because strict RPC filters on exact `postal_code`.
-
-### Pickup notes for next CMA session — wrong-zip candidate fallback
-
-Real UX gap: when subject auto-fill returns null, the form shows "No MLS match found, fill in manually." Correct but unhelpful when the underlying cause is a wrong zip (Brian fat-fingered Redwine and got nothing, no hint why).
-
-Proposed fix (fully spec'd, ready to ship):
-
-1. Create new RPC `mls_subject_detect_v2_zip_fallback(p_street_number, p_street_name_tokens)` — searches by `street_number + street_name` ignoring zip, returns up to 5 rows ordered by `modification_timestamp DESC`. Same RETURNS TABLE shape as v2/v2_fuzzy + a new `postal_code` column so the picker can show "Monroe 28110" next to each candidate.
-2. Wire into `createSupabaseSubjectLookup` as a third call after fuzzy returns empty. Add `zipFallbackRows` to `SubjectMlsLookup`'s return type.
-3. Add new `kind` to `SubjectDetectResult` — `kind: "wrong_zip_candidates"`. Render distinct UI in `MlsCandidatesPicker` ("Did you mean an address in a different ZIP?").
-4. Same composite index covers it — no new migration if we don't filter by zip.
-
-Estimated effort: 30-45 min including tsc + deploy. Send Brian into Claude Code in `~/Documents/hgpg-cma-tool` and have it cook end-to-end.
-
-Also pickup-worthy:
-- Same-street-neighbor fallback for new construction (Alma Blount type cases)
-- Index audit across other CMA RPCs to confirm none are doing similar full-zip scans
-
----
-
-### Claude Code setup (iMac)
-
-Brian hit a wall with the babysit-the-paste-loop dynamic during today's CMA debug. Solution: get Claude Code's MCP kit equivalent to web Claude's so future sessions can ship end-to-end without him in the middle.
-
-**Installed on iMac (Home Office):**
-
-- claude.ai Supabase ✓ (managed connector)
-- claude.ai Vercel ✓ (via plugin path)
-- claude.ai Gmail ✓
-- claude.ai Google Calendar ✓
-- claude.ai Google Drive ✓
-- claude.ai Canva ✓
-- github ✓ (local install, fine-grained PAT, scope=user)
-- claude.ai Slack — skipped, not actively using
-
-**GitHub PAT details:**
-- Token name: `Claude Code MCP - iMac`
-- Scopes: HGPG1 org, Contents R/W, Pull requests R/W, Issues R/W, Metadata R, Actions R, Workflows R/W
-- Stored in `~/.claude.json` (plaintext, file perms protect it)
-- Expiration set on creation — calendar reminder needed to rotate
-
-**Important — needs same setup on Mac mini:**
-The Mac mini hasn't been MCPed yet. Repeat this on the Mac mini next time Brian works there:
-
-    claude mcp add --transport http --scope user --header 'Authorization: Bearer NEW_PAT_HERE' github https://api.githubcopilot.com/mcp/
-
-Generate a separate PAT named `Claude Code MCP - Mac mini` so they can be revoked independently.
-
-The claude.ai connectors (Supabase, Vercel, etc.) auto-sync across machines on first Claude Code login — no per-machine setup needed for those. Only GitHub needs the per-machine PAT.
-
-### CLAUDE.md ship-it spec
-
-Dropped a CLAUDE.md into `hgpg-cma-tool/main` (commit `300018a`). Tells Claude Code:
-
-- Read CONTEXT.md + SESSION-HANDOFF.md from brain at session start
-- Cook freely on diagnosed bugs (branch, patch, push, PR, squash-merge with `--auto`)
-- Stop and ask only for: 5+ file changes, schema migrations, RLS/auth changes, `compSearch.ts` changes, env var changes, or refactors
-- Conventions: commit author `brian@homegrownpropertygroup.com`, `/* Last Updated */` on touched files, no em dashes, snake_case for Supabase columns
-- CMA-specific gotchas baked in (unparsed_address null, GLA rate, PIN auth, etc.)
-
-**Next session worth doing:** drop equivalent CLAUDE.md files into the other HGPG repos in priority order: `hgpg-transaction-manager`, `brain-app`, `charlotte-new-construction-nextjs`, `south-charlotte-report`, `homegrown-property-group-site`. Each one calibrated to that repo's quirks.
-
----
-
-### Project status updates
-
-- `projects/cma-engine.md` — note the timeout fix + diagnostic patch + CLAUDE.md. Subject auto-fill now reliable.
-- `projects/transaction-manager.md` — no changes. CLAUDE.md to be added next session.
-- `projects/brain-app.md` — no changes today.
-
-### Pickup checklist for next session
-
-1. Decide which repo gets the next CLAUDE.md (TM is highest impact)
-2. Either ship the wrong-zip-fallback CMA improvement directly via Claude Code in the cma-tool repo, OR queue it for whenever
-3. Repeat MCP + GitHub PAT setup on Mac mini if/when next session starts there
+- Verify a real lead lands and the FUB push works end-to-end (need a test submission)
+- Consider whether to also rename "Home Selling Score" anywhere else in marketing/Sellers Guide nav (probably yes)
 
 ---
 
@@ -132,8 +68,8 @@ Dropped a CLAUDE.md into `hgpg-cma-tool/main` (commit `300018a`). Tells Claude C
 - Live at: `https://brain.homegrownpropertygroup.com`
 - Stack: Next.js 16.2.4, Tailwind v4, CodeMirror 6, Supabase Auth (magic link)
 - Single-user lock: `BRIAN_EMAIL=brian@homegrownpropertygroup.com` allow-list
-- GitHub auth: fine-grained PAT scoped to `HGPG1/hgpg-context`, contents:write only
-- Round-trip verified: edit file in browser, commit lands on `main` with author `brian@homegrownpropertygroup.com`
+- GitHub auth: fine-grained PAT scoped to `HGPG1/hgpg-context`, contents:write only (env var: `GITHUB_PAT`)
+- Round-trip verified: edit file in browser → commit lands on `main` with author `brian@homegrownpropertygroup.com`
 
 ### Infra changes that affect other apps
 - Resend custom SMTP wired into `HGPG Core` Supabase (project `ioypqogunwsoucgsnmla`)
@@ -141,35 +77,8 @@ Dropped a CLAUDE.md into `hgpg-cma-tool/main` (commit `300018a`). Tells Claude C
   - API key stored under "Supabase HGPG Core" in Resend
   - Rate limit went from 2/hr (Supabase default) to 30/hr (Resend default), can be raised
   - This affects ALL apps using this Supabase: TM, CMA, TC Concierge, brain-app
-- Supabase project renames for hygiene:
-  - `ioypqogunwsoucgsnmla` → "HGPG Core"
-  - `ngdrliyjtqcwhhfrbxao` → "HGPG FUB Integration" (verify)
-  - `wdheejgmrqzqxvgjvfee` → "HGPG Listing Reports + MLS" (verify)
-  - `fkxgdqfnowskflgbuxhm` → "HGPG Signature + Relocation" (verify)
-- Supabase `HGPG Core` redirect URLs added:
-  - `https://brain.homegrownpropertygroup.com/**`
-  - `http://localhost:3000/**`
-  - (Existing tools.hgpg entries left intact)
 
-### Bugs found and fixed mid-session
-- Magic link redirected to `tools.homegrownpropertygroup.com` (Supabase Site URL fallback), fixed by adding `/auth/callback` route handler that was missing from initial scaffold + pointing `emailRedirectTo` at it
-- Supabase free SMTP rate limit (2/hr) hit during testing, fixed permanently by switching to Resend custom SMTP
-
-### Project status updates
-- `projects/brain-app.md` — status now 🟢 SHIPPED (was 🟡)
-- `projects/hgpg-team-tools2.md` — Site URL in Supabase still points here for the broken app's eventual fix
-- `projects/transaction-manager.md` — no changes today, but TM benefits from Resend SMTP upgrade
-
-### Deferred / Phase 2 for brain-app
-- iPhone smoke test (CodeMirror + iOS soft keyboard scroll behavior)
-- Cooper Hewitt self-hosted (currently falling back to system sans)
-- File rename and delete
-- Diff view before save
-- Cross-file search
-
-### Pickup notes
-- Brain-app is live and working, use it for any future updates to `hgpg-context`
+### Pickup notes for next session
+- Brain-app is live and working — can now also be updated via `/api/external/write` (added 2026-05-08)
 - Resend API key is in 1Password ("Supabase HGPG Core SMTP")
-- Brain-app local dev: `cd ~/brain-app && npm run dev` on Mac mini (work machine)
-- Brain-app local on iMac: same setup, repo at `~/Developer/brain-app` if rebuilt, otherwise needs fresh `gh repo clone HGPG1/brain-app` + `npm install` + `cp env.example .env.local`
-- The `package-lock.json` may differ between iMac and Mac mini, push from whichever machine you most recently ran `npm install` on
+- Brain-app local dev: `cd ~/Developer/brain-app && npm run dev`
