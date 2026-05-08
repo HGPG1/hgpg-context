@@ -1,6 +1,6 @@
 # HGPG Context (Brain)
 
-Last updated: 2026-05-08 (refresh: brain audit + 3 new spec files)
+Last updated: 2026-05-08 (refresh: brain audit cleanup + 4 new spec files)
 
 ## Who
 
@@ -29,15 +29,14 @@ Status legend: 🟢 shipped & live · 🟡 active build · 🔵 planned/scoped �
 | Listing Report Portal | 🟢 GitHub auth resolved | `projects/listing-report-portal.md` |
 | Incentives Funnel | 🟢 live, Phase 2 deferred until 50+ leads | `projects/incentives-funnel.md` |
 | Claude Skills | 🟢 5 shipped May 1 | `projects/claude-skills.md` |
-| Signature + Marketing | (status TBD - verify in file) | `projects/signature-marketing.md` |
-| Deals Tracker | (status TBD - likely legacy/decommissioned) | `projects/deals-tracker.md` |
+| Signature + Marketing | 🟢 live, dark luxury editorial site + Property Marketing Analyzer | `projects/signature-marketing.md` |
 | Main Site SEO | 🟢 mobile PageSpeed 96/100 | `projects/main-site-seo.md` |
 | Sellers Guide | 🟢 live, rebrand complete + Home Grown Selling Score v2 shipped 2026-05-08 | `projects/sellers-guide.md` |
 | Home Grown Selling Score | 🟢 live 2026-05-08 (5x4 wizard, curved 0-80 score, lead capture at end) | `projects/sellers-guide.md` |
 | Sellers Guide Meta Pixel + CAPI | 🟢 shipped, Custom Conversion registration still pending | `projects/sellers-guide.md` |
-| Charlotte New Construction | 🟡 active build, /how-we-work + /incentives shipped | (no spec file - tracked in SESSION-HANDOFF) |
-| South Charlotte Report | 🟢 active content pipeline | (no spec file - tracked in SESSION-HANDOFF) |
-| Buyers Guide | 🟢 live, migrated Manus to React + Vite | (no spec file - tracked in SESSION-HANDOFF) |
+| Charlotte New Construction | 🟡 active build, /how-we-work + /incentives shipped | `projects/charlotte-new-construction.md` |
+| South Charlotte Report | 🟢 active content pipeline | `projects/south-charlotte-report.md` |
+| Buyers Guide | 🟢 live, migrated Manus to React + Vite | `projects/buyers-guide.md` |
 | FUB Lead Automation Rebuild | 🔵 planned, foundation ready | (no spec yet) |
 | Twilio A2P | ⚫ blocked on SMS consent checkbox | n/a |
 | DocuSign migration off zipForms | 🔵 workflow scoped, no build | `projects/docusign-migration.md` |
