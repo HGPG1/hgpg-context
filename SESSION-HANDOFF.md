@@ -2,7 +2,36 @@
 
 # Session Handoff
 
-## Most recent session: 2026-05-08 (late evening) — Bug 7 self-listing suffix fix shipped 🟢
+## Most recent session: 2026-05-08 (overnight) — Bugs 8+9 appraiser-grade comp selection shipped 🟢
+
+### What got built
+
+- **PR #29 — Bugs 8+9 (Fannie Mae B4-1.3-08 alignment):** https://github.com/HGPG1/hgpg-cma-tool/pull/29 — Replaces zip-only comp filter with a distance-tiered cascade and adds distance + 8-point compass direction display per comp.
+- **Cascade order:** Tier 1 same subdivision, Tier 2 within 1 mile, Tier 3 within 3 miles, Tier 4 zip-wide fallback. Each tier widens only when running closed-comp count is below 3 (the Fannie Mae minimum). Pendings + actives ride along for market-tempo signal but don't count toward the floor. Subjects without lat/lng (non-MLS subjects) skip tiers 2-3 and fall to tier 4.
+- **Confidence override:** Tier 4 forces PMV `confidence` to `"low"`, surfaced in the new tier banner on `/seller/adjust` and via the existing badge in `PmvCard`.
+- **No DB migration, no new external geocoder.** `subjectDetect` already pulls lat/lng from `mls_property` for MLS-matched subjects. `cma_reports.subject_summary` jsonb already round-trips optional `latitude` / `longitude` / `subdivision` on the Subject. PmvResult + WorkingSet additions land in existing jsonb columns.
+- **Compass direction:** `bearingDegrees` and `compassDirection` helpers added in `lib/cma/math.ts`. `RankedComp` gained a `direction: CompassDirection | null` field; `rankComps` populates it at rank time. `/seller/adjust` comp card now reads "0.32 mi NW" under the city line. Em-dash placeholder when either side lacks coords.
+
+### Decision points checked before coding
+
+- Geocoder: not provisioned. Not needed for the common case because `subjectDetect` returns MLS lat/lng. Non-MLS subjects rightly fall through to tier 4.
+- Postgres extensions: `cube` and `earthdistance` available on this Supabase tier but not installed. Not needed today because `searchComps` does post-filter haversine in JS over a `limit=200` SQL pull. Add the extension later if EXPLAIN ANALYZE shows the JS post-filter as a hot path.
+- `cma_reports` schema: no migration. Existing jsonb shape carries everything new.
+
+### Verification status
+
+- Production deploy for PR #29 expected READY within ~90s of the 19:19 UTC merge.
+- Live UI verification on the saved Candlestick / Redwine / Medlin reports still pending: open each on `/seller/adjust`, confirm the tier banner renders correctly when tier > 1, confirm distance + direction shown on every comp card, confirm the comp set tightens (Mill Race / Soft Shell / Gulf Creek should drop or rank behind in-radius comps for Candlestick).
+
+### Pickup notes (updated)
+
+- PR 4 (Bug 1, feature parity) **still paused awaiting Brian's go.** Comp SELECTION (PRs #28-#29) shipped before comp ADJUSTMENT (PR 4) per Brian's preferred ordering.
+- PR 5 (Bug 2, GLA / basement separation) and PR 6 (Bug 3, outlier symmetry) untouched.
+- Saved Candlestick / Redwine / Medlin drafts still hold pre-fix numbers in the database; re-saving via `/seller/adjust` is required to apply both the math fixes AND the new tier-aware comp selection.
+
+---
+
+## Earlier session: 2026-05-08 (late evening) — Bug 7 self-listing suffix fix shipped 🟢
 
 ### What got built
 
