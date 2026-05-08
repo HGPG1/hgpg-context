@@ -1,82 +1,97 @@
-<!-- Last Updated: 2026-05-08 (originally specced 2026-05-05) -->
+<!-- Last Updated: 2026-05-08 -->
 
 # NeverBounce Email Validation
 
-- **Status:** 🔵 Spec written, not built
-- **Live URL (target):** newconstruction.homegrownpropertygroup.com/incentives
-- **Repo:** HGPG1/charlotte-new-construction-nextjs
-- **Stack:** Next.js, Vercel functions
+- **Status:** 🟢 Live on `/incentives` (since 2026-05-05) AND on Home Grown Selling Score v2 (since 2026-05-08)
+- **Phase 2:** Rollout to remaining sites (TM, marketing analyzer, Signature, buyers guide) pending
 
-## Goal
+## What it does
 
-Real-time email validation on the `/incentives` form to prevent invalid or typo'd email addresses from reaching FUB. Today, common typo cases like `johnsmith@gmail.como` slip through and pollute downstream automation, email deliverability stats, and lead-scoring signals.
-
-## Requirements
-
-1. Integrate NeverBounce real-time validation API (`/single/check` endpoint)
-2. Validation fires on blur of the email input field, debounced 500ms
-3. Inline feedback under the field:
-   - Green check for valid
-   - Red X for invalid
-   - Yellow warning for risky (catchall, disposable, unknown)
-4. Hard-block form submission on `invalid` result
-5. Allow submission on `risky` result, but show warning text
-6. Store NeverBounce result code in form metadata sent to FUB (custom field) for later analysis
-7. API key in Vercel env vars, never client-side
-8. Validation runs server-side via a Vercel function — do NOT call NeverBounce from the browser
+Real-time email validation on lead capture forms to prevent invalid or typo'd email addresses from reaching FUB. Catches common typo cases (johnsmith@gmail.como), disposable emails, role accounts, and outright bogus addresses before they pollute downstream automation, deliverability stats, and lead-scoring signals.
 
 ## Architecture
 
-### Vercel function
+### Core endpoint
 
-New route at `/api/validate-email`:
+Server-side proxy at `/api/validate-email`:
 
 - Accepts: `{ email: string }`
-- Calls NeverBounce `/single/check` with the API key from env
-- Returns: `{ result: "valid" | "invalid" | "disposable" | "catchall" | "unknown", flags: string[], suggested_correction?: string }`
-- Caches by email for 24 hours (cheap memory map or Vercel KV) to avoid double-billing on form re-validation
+- Calls NeverBounce v4 `/single/check` with `address_info=1` (enables typo suggestions)
+- Returns: `{ result, suggested_correction, flags }`
+- 10s AbortController timeout
+- **Format-checks server-side BEFORE hitting NeverBounce** — saves API credits on obviously-malformed input
+- **Fail-open:** missing env var, timeout, or 5xx all return `{ result: "unknown" }` — form never breaks
 
-### Client-side
+### Client UX
 
-500ms debounced blur handler on the email input:
+- Debounced 500ms blur handler
+- Inline status under field (green check / yellow warning / red X)
+- Sequence counter to ignore stale responses if user re-edits
+- Typo correction button when NeverBounce returns a `suggested_correction`
+- Submit gate: hard-block on `invalid` + `disposable`, allow with warning on `catchall` + `unknown`
 
-- Fetch `/api/validate-email`
-- Render inline status with color-coded feedback
-- Set form-state `emailValidationStatus` so the submit handler can gate
+### Critical design pattern: UI permissive, analytics honest
 
-On submit:
+The typo case (`result: "invalid"` + `flags: ["spelling_mistake"]` with no suggestion) shows a yellow warning in the UI ("looks like a typo, please double-check") but sends raw `invalid` to FUB. Display state and analytical state are kept separate:
 
-- Re-validate if not already validated (prevents stale state)
-- Block if `result === "invalid"`, show error
-- Allow with warning if `result` is `disposable` / `unknown` / `catchall`
-- Submit with `neverbounce_result` field appended to FUB payload
+- `displayState` drives UI (idle/checking/valid/warning/error)
+- `rawResult` is what goes to FUB and Supabase
 
-### FUB integration
+This preserves the ability to filter FUB later for typo'd emails while not blocking real humans who fat-fingered.
 
-Append `neverbounce_result` to the existing `/incentives` form FUB payload. Field needs to exist in FUB before this ships or the API drops it silently.
+## Where it's live
 
-## Pre-build checklist
+### 🟢 newconstruction.homegrownpropertygroup.com `/incentives` (shipped 2026-05-05)
 
-- [ ] NeverBounce account created
-- [ ] API key in hand, added to Vercel as `NEVERBOUNCE_API_KEY`
-- [ ] FUB custom field created — recommend name `email_validation_status` (text type, on People)
-- [ ] Confirm whether existing `/incentives` form has any other validation that would conflict
+All 3 form variants (hero, card_modal, secondary). Code at `src/app/api/validate-email/route.ts` and `src/app/incentives/IncentivesClient.tsx`.
 
-## Phase 2 (deferred until 50+ leads through funnel)
+### 🟢 sellersguide.homegrownpropertygroup.com `/home-selling-score/` (shipped 2026-05-08)
 
-- Domain blocklist for industry/competitor emails (Stephen Cooley RE, KW, Compass, eXp, Realty One Group, etc.)
-- Decision needed: hard block vs. flag-and-allow for industry leads
-- Recommend flag-and-allow with a "industry_email" tag in FUB so they're routed to a separate sequence or excluded from automation
-- Research at 50-lead mark: what % were flagged risky? Did any convert? That informs the hard-block decision.
+Wired into the v2 lead capture form (5x4 wizard, lead capture at end). Code at `api/validate-email.js` (Vercel serverless function, ESM) and embedded JS in `public/public/public/home-selling-score/index.html`.
 
-## Cost estimate
+## Infrastructure
 
-- Setup: 2-4 hours dev time
-- NeverBounce API: ~$1-15/month depending on volume (their free tier covers 1k validations/month)
-- No recurring infrastructure cost (runs on existing Vercel)
+- **Vercel env var:** `NEVERBOUNCE_API_KEY` — Sensitive, Production + Preview only (NOT Dev). Same key shared across `charlotte-new-construction-nextjs` and `charlotte-sellers-guide-vercel` projects (set independently per project).
+- **FUB custom field:** `customEmailValidationStatus` (text, label "Email Validation Status", id 149)
+- **FUB auto-tags:** `Email-Invalid`, `Email-Disposable` (applied based on raw result code)
+- **Supabase columns** (sellers guide only, project `fkxgdqfnowskflgbuxhm`): `seller_assessments.email_validation_status` (text), `seller_assessments.email_validation_flags` (jsonb), partial index where status IS NOT NULL. Migration `seller_assessments_add_email_validation_2026_05_08`.
+
+## Phase 2: rollout to remaining sites
+
+When 50+ leads have flowed through `/incentives` and the score page, revisit:
+
+- What % of leads come through as invalid / disposable
+- Whether typo rate justifies a "review and find correct contact" agent task automation
+- Whether disposable rate is high enough to warrant triggering Suppress-From-Email tag automatically
+
+Sites still pending NeverBounce wiring:
+- **Transaction Manager** (TM) — staff form, lower volume but worth catching attorney typos
+- **Marketing Analyzer** (`marketinganalyzer.homegrownpropertygroup.com`) — single form, low effort
+- **Signature** (`signature.homegrownpropertygroup.com`) — admin endpoint
+- **Buyers Guide** — when the original Manus URL question is resolved
+
+Each site needs its own `NEVERBOUNCE_API_KEY` env var (per project), server-side route, and form-side validation UI. Pattern is reusable: copy `validate-email.js` from sellers-guide (Vercel serverless) or `validate-email/route.ts` from new construction (Next.js App Router) depending on the target's stack.
+
+Phase 2 also covers:
+- **Industry/competitor email blocklist** (Stephen Cooley RE, KW, Compass, eXp, Realty One Group). Decision needed: hard-block vs flag-and-allow. Recommendation: flag-and-allow with `industry_email` tag in FUB so they're routed to a separate sequence or excluded from automation.
+
+## Cost
+
+- NeverBounce API: ~$1-15/month depending on volume (free tier covers 1k validations/month)
+- No recurring infrastructure cost (runs on existing Vercel functions)
+
+## Key learnings
+
+- **`address_info=1` query param** is required for NeverBounce to populate `suggested_correction`. Without it, you get the `spelling_mistake` flag but no fix to apply.
+- **Random gibberish at @gmail.com often returns `valid`** — Gmail accepts mail at any address before bouncing. Use bogus DOMAINS for invalid testing, not bogus users at real domains.
+- **FUB doesn't expose custom field API names in UI** — use `GET /v1/customFields` to find them.
+- **FUB tags are created on demand** — no pre-setup needed before sending new tag strings via API.
+- **Vercel "Sensitive" env vars exclude Dev environment** — local `npm run dev` cannot test; must test on Preview deploys.
+- **Next.js service workers cache aggressively on Preview deploys** — requires unregister + hard reload (or incognito) to see new bundles.
+- **FUB Automations 2.0 has no "Custom Field Updated" trigger** — code-side tagging is the right approach when behavior needs to fire on field-write at lead creation.
 
 ## Pickup notes
 
-- This is a small, self-contained build — single PR, single migration if any (likely none, just the FUB field add)
-- The Vercel function is the security boundary. Keep the NeverBounce key server-only.
-- If we ever expand beyond `/incentives`, the same `/api/validate-email` route can be reused on any other form (Sellers Guide, sellersguide score, etc.) without changes.
+- Both sites are live and capturing validation results; let real volume build up before tuning thresholds
+- The pattern is genuinely reusable across all HGPG forms — copy + paste + change the FUB integration call
+- If NeverBounce credits start running low, the dashboard at `app.neverbounce.com` shows usage; auto-recharge can be enabled
