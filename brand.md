@@ -1,3 +1,5 @@
+<!-- Last Updated: 2026-05-08 -->
+
 # Brand
 
 ## Colors (official brand guide)
