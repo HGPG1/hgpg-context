@@ -2,6 +2,20 @@
 
 # Session Handoff
 
+## Last session: 2026-05-08 (overnight follow-up) — CMA cross-state comp deprioritization 🟢
+
+### What got built
+
+- **PR #30 — cross-state comp deprioritization:** https://github.com/HGPG1/hgpg-cma-tool/pull/30 — Charlotte metro straddles the NC/SC border, so the new 1-3 mile radius cascade (Bugs 8/9) routinely pulls comps from across the line. Underwriter pushback on cross-state comps (different effective property tax, income tax, school district, transfer-tax / deed-stamp regimes) means same-state comps are stronger absent a tie. Cross-state comps stay in the candidate pool but get a 0.05 similarity-score penalty in `rankComps` and a 0.75x weight multiplier on closed comps in `computePmv`. Pendings + actives keep their already-low weight (Bugs 5/6 already absorb the cross-state asking-price bias). New `stateForZip` helper in `lib/cma/geo.ts` covers the HGPG zip catalog with leading-digit fallback (28xxx NC / 29xxx SC). Comp card on `/seller/adjust` renders a "Cross-state" amber pill with the underwriter-context message in the tooltip.
+
+### Pickup notes for next CMA session
+
+- Cumulative session ship list (all live on `cma.homegrownpropertygroup.com`): #25 Bug 5 bounds invariant, #26 Bug 6 active weighting, #27 Bug 4 anchor sanity, #28 Bug 7 self-listing suffix tolerance, #29 Bugs 8+9 distance-tiered cascade + per-comp distance/direction, #30 cross-state deprioritization.
+- **PR 4 (Bug 1, feature parity) still untouched.** Resume there per the original ship order, then PR 5 (Bug 2, GLA / basement) and PR 6 (Bug 3, outlier symmetry).
+- All saved test reports (Candlestick `3a84f12c`, Redwine, Medlin, the original `8023175d` Candlestick) still hold pre-fix numbers in `cma_reports`. Re-saving each via `/seller/adjust` is required to apply the math, comp-set, and cross-state changes to the historical rows.
+
+---
+
 ## Last session: 2026-05-08 (PM) — Team Dashboard scaffolded + Tab 1 built 🟡
 
 ### What got built
