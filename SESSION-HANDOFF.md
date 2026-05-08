@@ -2,145 +2,56 @@
 
 # Session Handoff
 
-## Last session: 2026-05-08 (overnight follow-up) — CMA cross-state comp deprioritization 🟢
+## Most recent session: 2026-05-08, NeverBounce wired into Home Grown Selling Score 🟢
 
-### What got built
+### What shipped
 
-- **PR #30 — cross-state comp deprioritization:** https://github.com/HGPG1/hgpg-cma-tool/pull/30 — Charlotte metro straddles the NC/SC border, so the new 1-3 mile radius cascade (Bugs 8/9) routinely pulls comps from across the line. Underwriter pushback on cross-state comps (different effective property tax, income tax, school district, transfer-tax / deed-stamp regimes) means same-state comps are stronger absent a tie. Cross-state comps stay in the candidate pool but get a 0.05 similarity-score penalty in `rankComps` and a 0.75x weight multiplier on closed comps in `computePmv`. Pendings + actives keep their already-low weight (Bugs 5/6 already absorb the cross-state asking-price bias). New `stateForZip` helper in `lib/cma/geo.ts` covers the HGPG zip catalog with leading-digit fallback (28xxx NC / 29xxx SC). Comp card on `/seller/adjust` renders a "Cross-state" amber pill with the underwriter-context message in the tooltip.
+NeverBounce real-time email validation is live on the Home Grown Selling Score v2 lead form at `sellersguide.homegrownpropertygroup.com/home-selling-score/`. Mirrors the pattern shipped on `newconstruction.homegrownpropertygroup.com/incentives` 2026-05-05.
 
-### Pickup notes for next CMA session
+Three production deploys this session, all to `charlotte-sellers-guide-vercel`:
 
-- Cumulative session ship list (all live on `cma.homegrownpropertygroup.com`): #25 Bug 5 bounds invariant, #26 Bug 6 active weighting, #27 Bug 4 anchor sanity, #28 Bug 7 self-listing suffix tolerance, #29 Bugs 8+9 distance-tiered cascade + per-comp distance/direction, #30 cross-state deprioritization.
-- **PR 4 (Bug 1, feature parity) still untouched.** Resume there per the original ship order, then PR 5 (Bug 2, GLA / basement) and PR 6 (Bug 3, outlier symmetry).
-- All saved test reports (Candlestick `3a84f12c`, Redwine, Medlin, the original `8023175d` Candlestick) still hold pre-fix numbers in `cma_reports`. Re-saving each via `/seller/adjust` is required to apply the math, comp-set, and cross-state changes to the historical rows.
+1. **`7d86384`** , feat(score): wire NeverBounce email validation. New `api/validate-email.js` ESM proxy, inline status UI on the lead form, FUB forward of `email_validation_status` + `email_validation_flags`, Supabase persistence via `seller_assessments_add_email_validation_2026_05_08` migration (added `email_validation_status` text + `email_validation_flags` jsonb + partial index).
 
----
+2. **`3133a81`** , fix(score): re-validate on edit + drop Category Breakdown. Two fixes after Brian smoke-tested: (a) input handler now calls `scheduleNbCheck()` so corrections re-validate without re-tabbing, debounced 500ms inside the function. (b) Removed the Category Breakdown bars from results page entirely. The 80-cap curve made all-100% bars contradict the 80 score, score + tier + copy carry the message instead.
 
-## Last session: 2026-05-08 (PM) — Team Dashboard scaffolded + Tab 1 built 🟡
+3. **`b8b4e25`** (or whatever it gets), fix(score): clear inline display on setNbStatus so class rules win after idle. Sneaky bug, `setNbStatus("idle")` set `el.style.display = "none"` as an inline style. When the API later resolved with valid/warning/error, the className changed but the inline display:none won, hiding the result. Fix is to clear the inline display first, only re-apply for idle.
 
-### What got built
-- New repo scaffolded locally: `hgpg-team-dash` (Next.js 16, Tailwind v4, Supabase SSR auth, Recharts ready)
-- Spec committed to brain at `projects/team-dashboard.md` (commit f1582a1)
-- Tab 1 (Inventory + Showings) end-to-end:
-  - `/inventory` grid filtered by office key `CAR118249224`
-  - Status filter pills (Live / Closed 90 / All / Canceled+Expired)
-  - Sync freshness banner reading from `mls_sync_state.last_synced_at`
-  - `/inventory/[listingId]` drilldown with showing list, ListTrac platform views, key dates, banner when listing isn't onboarded into the Listing Report Portal
-- Magic link auth + email allow-list via `TEAM_EMAILS` env var
-- Brand-correct UI: Cooper Hewitt body, Sansita display, navy/steel/light-steel/off-white tokens, status pills (signature brown for Under Contract, navy for Active, etc.)
-- Production build verified clean, no warnings, all 9 routes resolved
-- Tarball at `/mnt/user-data/outputs/hgpg-team-dash.tar.gz` ready for Brian to download + push from Mac
+### Smoke test results (all passed, 2026-05-08)
 
-### Key data discoveries
-- **Office key** is `CAR118249224` — NOT R04075 (which is Canopy display ID, doesn't exist in the MLS Grid feed)
-- Active listings count at build: 3 Active, 1 Under Contract, 1 Pending, 42 Closed lifetime, 14 Canceled, 2 Expired
-- Active+UC+Pending: Society Hill Rd (Vessie listing, $200K), Lamington Dr ($625K Pending), Mallard Crossing ($295K), Butters Way ($689,999 UC), Stratton Farm Rd ($600K Active 405-day)
-- Address composition required — `unparsed_address` is null on most rows, build from `street_number + street_name + street_suffix`
-- mls_property `listing_id` has `CAR` prefix; `listings.mls_number` does not. Strip on join: `REPLACE(mls_property.listing_id, 'CAR', '') = listings.mls_number`
-- MLS Grid Media table exists but has zero rows synced (parked work item). Hero photos fall back to portal `listings.hero_photo_url` then placeholder
-- All 6 active HGPG members on office key: Brian, Ashley (×2 records), Brenda, Taylor, Lauren (closings), Vessie
+- Endpoint direct: `curl -X POST /api/validate-email` returns `{"result":"valid","flags":["has_dns","smtp_connectable"]}` for real email
+- Form: typo `someone@gmial.com` shows yellow warning (allows submit)
+- Form: edit-in-place re-validates after 500ms (after the inline display fix)
+- Form: real email shows green check
+- Form: bogus domain shows yellow "we couldn't fully verify" (the `unknown` result, fail-open behavior, intentional, leaving as-is)
+
+### Brain updates this session
+
+- `projects/neverbounce-validation.md` flipped to 🟢 live on /incentives + Home Grown Selling Score
+- `CONTEXT.md` row promoted, status updated, recently completed bullet added
+- `projects/sellers-guide.md` got a NeverBounce section + 3 new commit references
+- This SESSION-HANDOFF.md replaces the earlier CMA wrap
+
+### Vercel infra change
+
+- New env var `NEVERBOUNCE_API_KEY` in `charlotte-sellers-guide-vercel` project (Sensitive, Production + Preview, no Dev pull). Same key as the new construction project.
+
+### What's NOT yet done
+
+- Phase 2 NeverBounce rollout to TM, marketing analyzer, Signature, Buyers Guide, ~30 min/site each
+- Domain blocklist (Stephen Cooley, KW, Compass, etc.) deferred until 50+ leads gathered
+- Meta Custom Conversion registration for `ScoreCompleted` still pending in Meta Events Manager
 
 ### Pickup notes for next session
 
-**Step 1: Brian pushes the scaffolded repo from Mac**
+- The NeverBounce pattern is now well-tested across 2 sites. Phase 2 rollout is straightforward, copy `validate-email.js` to each project, wire blur+input handlers, add env var. Use sellers-guide as the reference, it has the bug fixes the new construction site doesn't yet have (sticky-hide fix, re-validate on edit). Worth backporting both fixes to charlotte-new-construction-nextjs at some point.
+- The Category Breakdown removal is a UX win, score circle + tier + copy → straight to lead form. Cleaner conversion path, less to misread.
+- FUB AI Agent smoke test status remains UNCLEAR. First action next session, check whether Viktor's Automations 2.0 work is done, query `fub_agent_message_drafts` for stale `pending_review` rows from 2026-05-07, ask Brian directly. Until resolved, `agent_enabled` stays false.
+- Don feedback on Home Grown Selling Score v2 still pending real-world data, let it run a few days.
+- PropStream Caller decision still parked, decommission vs revive vs extract-and-kill.
 
-    cd ~/Documents
-    tar -xzf ~/Downloads/hgpg-team-dash.tar.gz
-    cd hgpg-team-dash
-    gh repo create HGPG1/hgpg-team-dash --private --source=. --remote=origin
-    git add -A
-    git commit -m "feat: initial scaffold + Tab 1 inventory + showings"
-    git push -u origin main
+### Lessons learned this session
 
-**Step 2: Vercel project setup**
-- Import repo from GitHub at vercel.com/new under team `team_FietQPKCmnyioG2n0FdteQCV`
-- Env vars to set:
-  - `NEXT_PUBLIC_SUPABASE_URL` = `https://wdheejgmrqzqxvgjvfee.supabase.co`
-  - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = (from Supabase project HGPG Listing Reports + MLS)
-  - `TEAM_EMAILS` = `brian@homegrownpropertygroup.com,ashley@homegrownpropertygroup.com,brenda@homegrownpropertygroup.com,taylor@homegrownpropertygroup.com,closings@homegrownpropertygroup.com`
-- Add domain (proposed: `team.homegrownpropertygroup.com` — confirm with Brian; alternatives `office.` or `inside.`)
-
-**Step 3: Supabase Auth config**
-- Add `https://team.homegrownpropertygroup.com/**` and `http://localhost:3000/**` to redirect URLs on the `wdheejgmrqzqxvgjvfee` project
-- Confirm Resend SMTP is wired (it should be — same project as HGPG Core)
-
-**Step 4: Smoke test then build Tab 2**
-- Magic link round-trip from Brian's email
-- Verify all 5 active+UC+pending listings render with data
-- Verify Lamington drilldown shows showing data (it has portal row + ListTrac data)
-- Then start Tab 2 (Market Intelligence) build
-
-### Open follow-ups specific to team dashboard
-- **Vessie Lopez** appears on office key but isn't in the team roster. Confirm whether her listings should display unconditionally or be filtered out. Current build shows everything tied to `CAR118249224`.
-- **MLS Grid Media sync** still parked — until it runs, hero photos only appear for the ~7 listings already in the Listing Report Portal
-- **Subdomain choice** — `team`, `office`, or `inside`?
-
----
-
-## Locked queue (post Brain App + Pixel rollout)
-
-1. ⏳ Sellers guide Pixel QA — close out before treating as fully done:
-   - QA Path A: organic walkthrough of `/home-selling-score` confirming PageView + AssessmentStarted + Lead + ScoreCompleted in Test Events with browser+server dedup
-   - QA Path B: Meta-bypass walkthrough with `?utm_source=meta` confirming phone-required + skip 6-digit verify + FUB lead with meta-bypass tag
-   - Register ScoreCompleted as Custom Conversion in Events Manager (Lead category, scoped to URL contains home-selling-score)
-   - Wire Meta Lead Ads to FUB native integration for Instant Form path
-   - After QA passes: remove `META_TEST_EVENT_CODE` env var from Vercel
-2. 🔄 Team Dashboard — Tab 1 BUILT today, awaiting deploy. Tab 2 (Market Intelligence) is next session
-3. 🎯 Buyer Alerts — first piece of MLS Dashboard Suite (~4-5 hr) — still in queue but moved behind Team Dashboard
-4. 🔍 Off-market / Expireds Finder — (~5-6 hr, replaces external scraper)
-5. 🤖 FUB AI Agent rebuild — gated on Sendblue eval (signup, FUB integration test, sales demo, LoopMessage 2nd-sender quote, real spec)
-
-### Smaller open items
-- Signature Meta Pixel + CAPI (~30-45 min, copy buyers guide pattern)
-- MLS Grid Media kickoff (parked alongside .net→.com migration)
-
-### Parked
-- #3 hgpg-transaction-monitor (audit checklist required)
-- #6 deal notes UI (after CMA battle testing)
-- MLS Grid Media
-- #14 .net→.com migration
-- Listing Report Portal MLS enrichment (low ROI — portal stable since 2026-04-03, dashboard now covers the team-facing need anyway)
-
----
-
-## Prior session: 2026-05-08 (AM) — Strategic queue refresh + brain hygiene 🟢
-
-### What got done
-- Verified Pixel/CAPI rollout status across all consumer sites:
-  - ✅ charlotte-new-construction (original implementation)
-  - ✅ charlotte-buyers-guide (shipped 2026-04-29, full 6-event chain + dedup)
-  - ✅ charlotte-sellers-guide (shipped 2026-05-07, pixel ID 861295553661596, CAPI mirror, FUB UTM custom fields, AssessmentStarted + Lead + ScoreCompleted + QuizStarted + QuizCompleted, Meta-bypass path)
-  - ❌ Signature (still pending — small open item)
-  - ❌ TM + marketinganalyzer (intentionally skipped — internal/PIN-gated audiences)
-- Pulled forward the locked queue from the 2026-05-06 strategic review (was lost from prior handoff)
-
----
-
-## Prior session: 2026-05-06 — Brain App MVP shipped 🟢
-
-### What got built
-- New Vercel project: `brain-app` on team `team_FietQPKCmnyioG2n0FdteQCV`
-- New repo: `HGPG1/brain-app` (private)
-- Live at: `https://brain.homegrownpropertygroup.com`
-- Stack: Next.js 16.2.4, Tailwind v4, CodeMirror 6, Supabase Auth (magic link)
-- Single-user lock: `BRIAN_EMAIL=brian@homegrownpropertygroup.com` allow-list
-- GitHub auth: fine-grained PAT scoped to `HGPG1/hgpg-context`, contents:write only
-- Round-trip verified: edit file in browser → commit lands on `main` with author `brian@homegrownpropertygroup.com`
-
-### Infra changes that affect other apps
-- Resend custom SMTP wired into `HGPG Core` Supabase (project `ioypqogunwsoucgsnmla`)
-  - Sender: `noreply@homegrownpropertygroup.com`, name: HGPG
-  - Rate limit went from 2/hr (Supabase default) to 30/hr (Resend default), can be raised
-  - This affects ALL apps using this Supabase: TM, CMA, TC Concierge, brain-app
-- Supabase project renames for hygiene:
-  - `ioypqogunwsoucgsnmla` → "HGPG Core"
-  - `wdheejgmrqzqxvgjvfee` → "HGPG Listing Reports + MLS"
-  - `fkxgdqfnowskflgbuxhm` → "HGPG Signature + Relocation"
-  - `ngdrliyjtqcwhhfrbxao` → "HGPG FUB Integration"
-
-### Deferred / Phase 2 for brain-app
-- iPhone smoke test (CodeMirror + iOS soft keyboard scroll behavior)
-- Cooper Hewitt self-hosted (currently falling back to system sans)
-- File rename and delete
-- Diff view before save
-- Cross-file search
+- **Brand: no em dashes anywhere.** Got bitten on this in CONTEXT.md and SESSION-HANDOFF.md earlier today, applied a global strip across the brain. Pattern: write with hyphens, commas, parens, period breaks. Em dashes leak in via dashes typed on the Mac (auto-replace) and via Claude output, so worth a final em dash sweep before committing brain files.
+- **Inline styles vs classes for visibility toggles.** Setting `style.display = "none"` then later changing the className without clearing the inline style is a classic CSS specificity gotcha. Fix is either always clear the inline style first, or use class-only visibility (e.g., a `.hidden` class). Hit on the NeverBounce status line, fix shipped in commit `b8b4e25`.
+- **The `unknown` result from NeverBounce is correctly fail-open.** Bogus domain → `unknown` → yellow warning + allow. The cost of blocking real leads (where NB confidence is below threshold for whatever reason) is much higher than the cost of a bogus submission slipping through, since FUB tags + downstream filtering catch them anyway.
+- **Brain auto-write loop now mature.** Multiple sessions can run in parallel without stomping. Today, this NeverBounce session and a CMA session ran simultaneously; both wrote to brain via /api/external/write, no conflicts. SESSION-HANDOFF.md is still last-write-wins and that's fine, the project files are where state should live.
