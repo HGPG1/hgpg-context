@@ -2,7 +2,39 @@
 
 # FUB AI Agent
 
-- **Status:** 🟡 Sessions 1-5 shipped + session 6 partial. FUB email template **1156** now exists; Viktor's Automation 2.0 Send Email step can reference it by id. Manual dry-test + smoke test still pending Brian.
+- **Status:** 🟡 Sessions 1-5 shipped + session 6 stopping point. Template 1156 live, both FUB custom fields confirmed exact-name match, queue has 4 warm pending drafts. Awaiting Viktor's Automation 2.0 wire-up; smoke-test gate sequence then runs against that.
+
+## Session 6 (cont.) — 2026-05-09 (PM stopping point)
+
+What shipped:
+- **Pre-flight verification, both green.** GET `/v1/customFields` confirmed exact-name match for `customAgentDraftEmailBody` (id 157) and `customAgentDraftEmailSubject` (id 158); `customAgentDraftIMessageBody` (id 159) also present for the future iMessage path. Capitalization, prefix, casing all align with `lib/agent/fubAgentConstants.ts`. Supabase queue check confirmed 4 drafts in `pending_review`; top 3 by combined_score: Gerard (draft 7, score 37, scenario `v1.warm.viewed_listing_recent.email`), Seanna (draft 8, 37, same scenario), Jay (draft 9, 35, `v1.warm.seller_report_engaged.seller`). Anthony Scott is the 4th. No empty-queue blocker.
+- **Repo-root `CLAUDE.md` created** with a session-end checklist that codifies the brain-write workflow: at session end, push code to repo + push brain files via `POST https://brain.homegrownpropertygroup.com/api/external/write`, verify 2xx, do not use `_brain-pending/` as a default staging area. Includes a minimal env-driven helper snippet that reads the token from `BRAIN_WRITE_TOKEN`.
+- **`BRAIN_WRITE_TOKEN` moved to env var.** Real value appended to local `.env.local` (gitignored). Created `.env.local.example` with the variable name only (no value), shipped via repo. Added `!.env*.example` to `.gitignore` since the existing `.env*` rule was over-broad and would have ignored the example. Added `_brain-pending/` to `.gitignore` so the fallback staging dir never accidentally lands in git.
+- **`fub_cleanup/` decommissioned.** The April 2026 one-shot Python tool that cleaned up Texting Betty SMS action plans had a real FUB API key (suffix `wz1BQa`) sitting in plaintext in `fub_cleanup/.env` for ~2 weeks in an iCloud-synced directory. Verified against FUB Admin: Brian had already revoked it during an earlier FUB key cleanup, so the key was inert by the time it was caught. Local `fub_cleanup/.env` replaced with a `REVOKED before 2026-05-09` marker; `fub_cleanup/README.md` got a status banner. Whole `fub_cleanup/` directory now gitignored — audit CSVs from the 2026-04-24 run stay on disk as receipts but never reach the repo. Production FUB key (suffix `5j9xeR`, in `.env.local` and `.env.vercel.local`) is a separate value, untouched.
+- **Brain push pattern proven end-to-end** in this session — earlier today's AM micro-task pushed `projects/fub-ai-agent.md` and `SESSION-HANDOFF.md` directly to brain via the write API (200 on both, commits `b90d85a` and `ffcefd9`); CLAUDE.md now codifies this so future sessions don't drift back to `_brain-pending/`-as-default.
+
+What was confirmed during the session:
+- The `[-fieldname-]` template syntax FUB uses is stored byte-identical on round-trip — this was verified explicitly via GET `/v1/templates/1156`. No HTML escaping, no smart-quote rewriting. So any future templates we create via API don't need defensive encoding.
+- The same Basic + `X-System` headers used by `lib/agent/fubClient.ts` have scope to GET `/v1/customFields` and POST `/v1/templates`. No higher-scoped key needed for these admin paths.
+- Brain-app write API auto-stamps the author from the bearer token (currently `brian@homegrownpropertygroup.com`); per-file size limit is 1 MB and both files (~22 KB and ~9 KB) fit comfortably.
+
+Did not flip / out of scope:
+- `agent_enabled` still **false**. No outbound. Cron healthy and gated.
+- Smoke-test SQL not run (gated on Viktor finishing the Automation 2.0 wire-up).
+- iMessage shell still not built.
+- Hot tier / iMessage seller variants / cooldown re-touch templates: deferred until after smoke test.
+- Scoring sweep on the 4,340 unscored eligible leads: queued for after smoke test passes (keeps the queue fed past day 4 of the 10/day cap).
+
+Pickup hints for next session:
+- **Don't conflate "Viktor's done" with "ready to flip the switch."** There are 4 checkpoints between those two states, each with a kill switch:
+  1. Brian sends a manual test through the Automation (sets custom fields 157/158 by hand on a test person, saves, watches it fire). Confirms the Automation triggers on the tag and the merge tags resolve.
+  2. Confirm the email arrives, plaintext, with paragraph breaks intact and the merge tags fully resolved (not literal `[-...-]` text in the inbox).
+  3. Run `scripts/session-5-smoke-test.sql` Section A→B→C — synthetic Brian-only iMessage draft against fub_person_id 27764, exercises the agent code path end-to-end (draft generator → approve → push → cooldown → cleanup).
+  4. Push **one** real warm draft (Gerard, draft id 7, score 37) and monitor. This is the first real outbound.
+- If all 4 gates pass, *then* flip `agent_enabled = true` and ramp `daily_send_cap` 10 → 25 over week 1, watch reject rate.
+- Spec for Viktor: select template **id 1156** in Automation 2.0 → "Send Email" step picker, set type to plaintext, add a Step 2 "Remove tag `agent_draft_email_ready`" so the Automation doesn't re-fire on the same person.
+- Once smoke test passes, run a scoring sweep on the 4,340 unscored eligible leads to keep the queue fed past day 4.
+- Template library expansion (hot tier, iMessage seller variants, cooldown re-touch templates) deferred until smoke test passes.
 
 ## Session 6 (cont.) — 2026-05-09 (AM micro-task)
 
