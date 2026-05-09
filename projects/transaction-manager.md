@@ -1,4 +1,4 @@
-<!-- Last Updated: 2026-05-07 -->
+<!-- Last Updated: 2026-05-09 -->
 
 # Transaction Manager
 
@@ -119,15 +119,19 @@
 ## ReZEN APIs
 
 - **Arrakis:** `arrakis.therealbrokerage.com/api/v1` - uses `X-API-KEY` header
-- **Sherlock:** Returning 403 (open issue, likely API key scope)
+- **Sherlock:** ✅ 403 resolved (2026-05-09 status reconciliation confirmed working)
 
 ## Open items
 
-- **Resolve Sherlock 403** (likely API key scope issue)
-- **NC office routing:** Swap to NC office ID (in memory) when `txn.state === 'NC'` - not yet implemented
-- Flip `transaction-pdfs` bucket to **signed URLs**
-- Lamington duplicate cleanup
-- **$395 fee toggle** - parked build spec, refs commit b9fa0deb
+- **NC office routing** — swap to NC office ID `924dac0e-91f2-471d-80c4-f06d80fb6d94` when `txn.state === 'NC'`. Brian unsure if conditional swap is wired into ReZEN builder. Needs verification.
+- **transaction-pdfs bucket flip → private + signed URLs** — Claude Code task kicked off 2026-05-09. Spec covers `lib/conciergePdf.tsx` (3 lines: 38, 404, 416), `app/api/send-task-email/route.ts:495`, `app/api/rezen/push-document/route.ts:108`. Goal: private bucket + on-demand 7-day signed URLs at every read site, no lifecycle pruning. **Bucket usage is mixed-purpose long-term storage** (concierge magic-link PDFs read weeks/months later, source-PDF re-attach on `attach_source_pdfs` task templates fires days/weeks after intake), so blanket lifecycle policy ruled out.
+- **$395 fee toggle** — parked build spec, refs commit b9fa0deb. The underlying notes-append work for the 3-gate fee verification (contract distribution + mid-deal at under_contract+14 + settlement review) shipped 2026-05-05. Structural toggle still parked.
+
+### Closed items (2026-05-09 reconciliation)
+
+- ✅ Sherlock 403 resolved
+- ✅ Lamington duplicate cleanup verified (single row in DB: `a7ac15e6-bdfb-495a-8588-11e98692f905`)
+- ✅ Google Calendar OAuth integration shipped (calendar invites firing fine)
 
 ## Build patterns
 
