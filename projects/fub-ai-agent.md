@@ -2,7 +2,24 @@
 
 # FUB AI Agent
 
-- **Status:** 🟡 Sessions 1-5 shipped + session 6 stopping point. Template 1156 live, both FUB custom fields confirmed exact-name match, queue has 4 warm pending drafts. Awaiting Viktor's Automation 2.0 wire-up; smoke-test gate sequence then runs against that.
+- **Status:** 🟡 Sessions 1-5 shipped + session 6. **Viktor's Automation 2.0 setup is COMPLETE as of 2026-05-09 PM.** Template 1156 live, both FUB custom fields confirmed exact-name match, queue has 4 warm pending drafts. The 4-checkpoint smoke test gate sequence is the only remaining step before flipping `agent_enabled = true`.
+
+## Session 6 wrap-up — 2026-05-09 (PM status reconciliation)
+
+Brian confirmed Viktor's Automation 2.0 is fully wired and complete. The build is now sitting at the smoke-test gate.
+
+**Smoke test gate (unchanged from session 6 stopping point):**
+
+1. Manual test through the Automation — Brian sets custom fields 157/158 by hand on a test person, saves, watches it fire. Confirms tag-trigger fires + merge tags resolve.
+2. Confirm email arrives plaintext, paragraph breaks intact, merge tags fully resolved (not literal `[-...-]` text in inbox). HTML-mode collapse on `\n\n` is the most likely failure here.
+3. Run `scripts/session-5-smoke-test.sql` Section A→B→C — synthetic Brian-only iMessage draft against fub_person_id 27764, exercises agent code path end-to-end.
+4. Push **one** real warm draft (Gerard, draft id 7, score 37) and monitor. First real outbound.
+
+If all 4 pass → flip `agent_enabled = true`, ramp `daily_send_cap` 10 → 25 over week 1, watch reject rate.
+
+`agent_enabled` still false. Cron healthy and gated. 4 warm drafts ready (Gerard, Seanna, Jay, Anthony Scott). 4,340 unscored eligible leads queued for a scoring sweep after smoke test passes.
+
+**Recommendation for next session:** desktop, not mobile — multi-window watching (FUB, Automation log, TM agent queue, Supabase) makes the test cleaner.
 
 ## Session 6 (cont.) — 2026-05-09 (PM stopping point)
 
