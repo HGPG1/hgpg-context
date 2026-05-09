@@ -1,13 +1,17 @@
-<!-- Last Updated: 2026-05-08 -->
+<!-- Last Updated: 2026-05-09 -->
 
 # Charlotte New Construction
 
-- **Status:** 🟡 Active build
+- **Status:** 🟢 Live + serving Meta ad traffic (2026-05-09). Pixel/CAPI plumbing is load-bearing for ad spend.
 - **URL:** newconstruction.homegrownpropertygroup.com
 - **Repo:** HGPG1/charlotte-new-construction-nextjs
 - **Default branch:** `main`
 - **Stack:** Next.js (server-rendered), Vercel deployment
 - **Vercel team:** `team_FietQPKCmnyioG2n0FdteQCV`
+
+## Watch item
+
+Periodic Pixel/CAPI health checks in Meta Events Manager warranted, especially after any deploy. Silent break = wasted ad budget + bad attribution. Check every couple weeks.
 
 ## Purpose
 
