@@ -2,7 +2,55 @@
 
 # Session Handoff
 
-## Last session: 2026-05-09 (PM) — Status reconciliation + brain refresh 🟢
+## Last session: 2026-05-09 (PM late) — TM transaction-pdfs bucket flip code shipped 🟡 PR pending merge
+
+### What Claude Code shipped (branch `claude/transaction-pdfs-private-AqXkA`)
+
+- **`lib/storage/signTransactionPdfUrl.ts`** — new helper. 7-day default expiry. Accepts raw path or legacy public URL (extracts path). Returns null on error, never throws.
+- **`lib/conciergePdf.tsx`** — drops `getPublicUrl`. Persists storage path on `concierge_sessions.pdf_url` going forward. Returns freshly-signed URL to email-fanout callers.
+- **`app/concierge/[token]/page.tsx`** — signs `session.pdf_url` server-side on every page load before handing to seller/buyer wizards. Magic-link "Download Summary PDF" button works with on-the-fly signing.
+- **`app/api/rezen/push-document/route.ts`** — signs `doc.file_url` before passing to `emailDocumentToFileCabinet` (which does an HTTP fetch, so needs a fetchable URL).
+- **`migrations/20260509_flip_transaction_pdfs_bucket_private.sql`** — single `UPDATE storage.buckets SET public = false WHERE id = 'transaction-pdfs';`. **NOT yet applied.**
+
+### Audit findings — paths already private-bucket-safe (no change made)
+
+These paths already use service-role auth or server-side download, so they don't need signed URLs:
+
+- `app/api/send-task-email/route.ts:495` — uses `storage.download(path)` with service-role. Pulls bytes server-side, attaches to email. The original spec was wrong to flag this as needing re-signing; this path was already safe. (Important correction to the brief.)
+- `app/api/rezen/push-document/route.ts:108` cleanup — uses `storage.remove()` with service-role.
+- `scripts/tc-concierge-apps-script-v4.gs` — uses `/storage/v1/object/transaction-pdfs/...` (not `/object/public/`) with `Authorization: Bearer SUPABASE_SERVICE_KEY`.
+
+### What did NOT happen yet
+
+- **PR not opened.** Claude Code harness honored "do not create PRs unless asked." Brian needs to instruct it to open.
+- **Migration not applied.** Order matters: merge → wait for Vercel READY → apply migration via Supabase MCP. Applying earlier would 403 in-flight traffic running the prior public-URL code.
+- **Smoke test not run.**
+- **Brain not yet updated** with shipping status. (This entry is the update.)
+
+### The transaction_documents.file_url upload-side gap (known, fine)
+
+Upload code that writes `transaction_documents.file_url` is NOT in this repo — likely in tc-concierge Apps Script or a sibling Apps Script. Existing rows hold public URLs. The new helper `signTransactionPdfUrl()` extracts the path from a public URL and signs it, so **no backfill required**. Future enhancement: when the uploader is touched, prefer storing the storage path string going forward (helper accepts both shapes).
+
+### Pickup steps when ready to land
+
+1. Tell Claude Code: "Open the PR." Title from spec, body explains the three usage paths + audit findings + helper module.
+2. Review diff in GitHub UI — particularly `lib/conciergePdf.tsx` (most invasive change: drops `getPublicUrl`, persists path).
+3. Squash-merge.
+4. Wait for Vercel READY (~60-90s).
+5. Apply migration via Supabase MCP — single UPDATE on `storage.buckets`.
+6. Smoke test:
+   - Open existing `/concierge/{token}` link → click Download Summary PDF → should work
+   - On a recent deal with `attach_source_pdfs` task → click per-task Send Email → recipient gets PDF
+   - Hit old public URL `https://ioypqogunwsoucgsnmla.supabase.co/storage/v1/object/public/transaction-pdfs/<path>` → should 400/404 (confirms private)
+7. If smoke fails: rollback is `UPDATE storage.buckets SET public = true WHERE id = 'transaction-pdfs';` — flip back, fix bug, re-deploy.
+
+### Branch naming note
+
+Harness assigned `claude/transaction-pdfs-private-AqXkA`, not the spec's suggested `feat-transaction-pdfs-private`. Functionally identical.
+
+---
+
+## Prior session: 2026-05-09 (PM) — Status reconciliation + brain refresh 🟢
 
 ### What this session was
 
