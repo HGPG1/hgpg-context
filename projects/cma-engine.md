@@ -1,4 +1,4 @@
-<!-- Last Updated: 2026-05-07 -->
+<!-- Last Updated: 2026-05-09 -->
 
 # CMA Engine
 
@@ -101,8 +101,8 @@
 
 ## Open items
 
-- Awaiting Taylor stress test on real listings before declaring engine production-ready
-- MLS Grid auto-pull comps: pending Canopy MLS Bearer token from Bridgett Bouvier
+- Awaiting final stress test on real listings before declaring engine production-ready (Don and Taylor running real CMAs through it)
+- ✅ MLS Grid auto-pull comps: **integration deep / mature** as of 2026-05-09. Bridgett's Bearer token landed; `searchComps()` is the load-bearing primary data source for CMA comps.
 - Saved reports snapshot `ratesUsed` at save time; "Regenerate" re-runs AI narrative but does NOT recalculate math. To recalculate, must open Adjust screen for that specific report, confirm/change rate, save explicitly.
 
 ## Known constraints
