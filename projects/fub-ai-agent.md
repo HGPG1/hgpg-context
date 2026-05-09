@@ -1,8 +1,61 @@
-<!-- Last Updated: 2026-05-07 -->
+<!-- Last Updated: 2026-05-09 -->
 
 # FUB AI Agent
 
-- **Status:** 🟡 Sessions 1-5 shipped, gate still closed (no outbound messaging yet). Brian-as-client smoke test pending Viktor's FUB Automations 2.0.
+- **Status:** 🟡 Sessions 1-5 shipped + session 6 partial. FUB email template **1156** now exists; Viktor's Automation 2.0 Send Email step can reference it by id. Manual dry-test + smoke test still pending Brian.
+
+## Session 6 (cont.) — 2026-05-09 (AM micro-task)
+
+What shipped:
+- **FUB email template created via API.** `POST /v1/templates` returned **id 1156**, name `Agent Draft Outreach (System)`, subject `[-customAgentDraftEmailSubject-]`, body `[-customAgentDraftEmailBody-]`. Created at `2026-05-09T09:51:30Z` (UTC) / `2026-05-09T05:51:30-04:00` (ET, EDT). **Round-trip verified** via `GET /v1/templates/1156` — both merge tags came back byte-for-byte identical. No HTML escaping, no smart-quote rewriting, no merge-tag mangling.
+- **scripts/fub-email-shell.md** updated with a "Template created" footer block (id, timestamps, verification status, next-step note for Viktor).
+
+What this unblocks:
+- Viktor (or Brian) can now open Automation 2.0 → "Send Email" step → template picker → select template id **1156**. Subject and body auto-populate from the template; no copy-paste required.
+
+What was confirmed during the micro-task:
+- The standard repo FUB API auth pattern (Basic + `X-System: HGPG-FUB-Agent` / `X-System-Key: fub-agent-v1`) has scope to create templates. Same code path used by `lib/agent/fubClient.ts`.
+- FUB's template engine stores `[-fieldname-]` merge tags raw — no escaping on either POST or GET. The earlier worry about merge-tag mangling on round-trip was unfounded.
+
+Did not flip:
+- `agent_enabled` still false. No outbound. Per the micro-task scope.
+- Smoke-test SQL not run.
+- iMessage shell still not built.
+
+## Session 6 — 2026-05-08
+
+What shipped:
+- **FUB email shell artifact** at `scripts/fub-email-shell.md`. Specifies the exact merge-tag content for the FUB Automation 2.0 "Send Email" step (subject `[-customAgentDraftEmailSubject-]`, body `[-customAgentDraftEmailBody-]`, nothing else, since the agent's body already ends with `Brian` and FUB auto-appends the user-level signature). Includes a setup checklist for the Automation 2.0 (trigger, tag-removal step for idempotency, optional custom-field clear), user-level FUB requirements (CAN-SPAM-compliant signature, connected email, per-user daily send limit ≥ 10), a manual dry-test flow that runs before the smoke test SQL, and open questions for Viktor.
+- **scripts/README.md** updated to reference the new artifact and call it the prerequisite for `session-5-smoke-test.sql`.
+- **Critical gotcha documented loud:** the email step **must be plaintext, not HTML**. The agent writes plaintext with `\n` separators; HTML mode collapses them into one run-on paragraph. Most likely failure mode in the smoke test, so it's flagged at the top of the artifact.
+
+What was confirmed during the session:
+- **Smoke test never ran.** Database state proves it: 4 drafts in `pending_review` since 2026-05-07 02:31, no `fub_pushed_at` on any draft, no `draft_pushed` events, no `inbound_*` events, no `cron_flush_complete` events. Cron is healthy (firing nightly, correctly no-op'ing while `agent_enabled=false`; `cron_skipped` events at 07:00 UTC on 2026-05-07 + 2026-05-08).
+- **Viktor's FUB Automations 2.0 are built but missing the email shell.** Brian confirmed Viktor finished the trigger/tag wiring; gap was the Send Email action's subject/body content.
+
+Did not ship:
+- iMessage shell artifact (out of scope; LoopMessage didn't apply this session)
+- Code changes to `lib/agent/` (the gap is FUB-side configuration, not code)
+- Brain-app interested-inbound surfacing in queue UI (still session 6+ TODO)
+- Week 1 metrics dashboard (still session 6+ TODO)
+
+Current state:
+- `agent_enabled` still **false**. No outbound messages have ever been sent.
+- `daily_send_cap` = 10
+- 4 pending_review drafts from 2026-05-07 (Anthony Scott, Jay Miller, Seanna Mackey, Gerard Marmo). Keep or discard depending on whether Brian wants the smoke test to use a fresh draft or one of these.
+- 1 blocked draft (id=6, John Miller). Should be cleaned up; was Brian's earlier session 4 manual approve attempt that the gate correctly refused.
+- 0 optouts, 0 cooldowns
+- FUB email shell artifact ready to paste; iMessage path still untouched
+
+Open items for next session:
+- Brian or Viktor opens FUB Automation 2.0 → Send Email step → selects template **1156** (`Agent Draft Outreach (System)`), sets type to plaintext, enables the automation
+- Brian runs the manual dry-test flow at the bottom of `scripts/fub-email-shell.md` (subject "Test from agent", body with `\n\n` paragraph break) to verify plaintext newlines render correctly
+- If dry test passes, run `scripts/session-5-smoke-test.sql` Section A→B→C with Brian as the test recipient (fub_person_id 27764)
+- If smoke test passes, flip `agent_enabled = true`, watch the daily-flush cron handle real outbound, ramp `daily_send_cap` from 10 to 25 over week 1
+- Build iMessage shell (`scripts/fub-imessage-shell.md`) when LoopMessage work resumes
+- Build interested-inbound surfacing in queue UI
+- Build week-1 metrics dashboard at `/agent/metrics`
+- Set FUB UI visibility on custom fields 157/158/159 to admins-only (carryover from session 4)
 
 ## Session 5 — 2026-05-07
 
@@ -25,7 +78,7 @@ Schema-realism deviations from the prompt:
 - The prompt's `fub_agent_optouts` table already exists as `fub_agent_lead_optouts` (session 1, with the `_lead_` infix). Used the existing table; no new migration. Existing columns (`optout_source`, `optout_message`, `optout_confidence`, `detected_channel`, `notes`) are sufficient.
 - The prompt asked for cooldown ordering by `reviewed_at` in the cron — that column does not exist on `fub_agent_message_drafts`. Used `approved_at` (which does exist).
 
-Current state:
+Current state at end of session 5:
 - `agent_enabled` still **false**. No outbound messages have ever been sent.
 - `daily_send_cap` = 10
 - Cooldown reason enum: `voice_off | wrong_lead_type | wrong_signal_read | low_quality | other | hostile_reply | not_now_reply`
@@ -34,14 +87,6 @@ Current state:
 - Cron `agent-daily-flush` registered in vercel.json (no-op until `agent_enabled = true`)
 - Smoke test artifact lives in `scripts/`; not yet executed
 - Brian's FUB person id = **27764**, in `fub_agent_lead_exclusions` (pond:brian_excluded_contacts), phone 8039023700
-
-Open items for session 6:
-- Review smoke-test outcome with Brian (assumes Viktor has Automations live by then)
-- If smoke test is clean: plan first real outbound batch under the 10/day cap
-- Build "interested" inbound surfacing in the queue UI (currently logs only)
-- Week 1 metrics dashboard: pushes/day, opt-out rate, response classification breakdown, cooldown counts
-- Autonomous-mode evaluation criteria (what would have to be true to flip `auto_below_threshold = true`?)
-- Set FUB UI visibility on custom fields 157/158/159 to admins-only (carryover from session 4 — needs the FUB UI, not API)
 
 ## Session 4 — 2026-05-07
 
@@ -60,21 +105,6 @@ What shipped:
 - **Two FUB tags** scheduled to be created on first apply (FUB does not expose `/v1/tags` to our API key): `agent_draft_email_ready`, `agent_draft_imessage_ready`.
 - **Single source of truth** for FUB-side identifiers in `lib/agent/fubAgentConstants.ts`. Pusher and inbound stub both import from here.
 - **Schema additions** in `supabase/migrations/20260507_fub_agent_session_4.sql` (applied via Supabase MCP): cooldowns table + index, drafts.fub_pushed_at + reject_reason + reject_notes, drafts reject_reason check constraint, drafts.fub_pushed_at partial index, daily_send_cap value updated to 10.
-
-Current state:
-- `agent_enabled` still **false**. No outbound messages have ever been sent.
-- `daily_send_cap` = 10
-- 159 confidently classified leads (count from session 3.5)
-- 3 FUB custom fields configured (admin visibility pending UI step)
-- 2 FUB tags scheduled to appear on first apply
-
-Open items for session 5:
-- Confirm Brian's own FUB person ID
-- Wire FUB Automations 2.0 triggers for `agent_draft_email_ready` and `agent_draft_imessage_ready` tags
-- Brian-as-client smoke test: flip `agent_enabled` true on a single draft, verify FUB roundtrip, flip back to false
-- Build daily-cap flush cron at midnight ET that re-pushes approved-but-unpushed drafts
-- Wire the inbound classifier to `fub_agent_lead_optouts` (when class=opt_out) and to `fub_agent_lead_cooldowns` (when class=not_now or hostile)
-- Set FUB UI visibility on the three custom fields to admins-only
 
 ### Learnings captured in session 4
 
@@ -106,10 +136,11 @@ An AI-augmented lead nurture layer for HGPG. Scores Brian's eligible FUB leads u
 |---|---|
 | `fub_agent_leads` | Denormalized FUB person snapshots with eligibility flag |
 | `fub_agent_lead_scores` | Score history (one row per scoring run per lead) |
-| `fub_agent_message_templates` | Library with `{{slot}}` markers (session 2) |
-| `fub_agent_message_drafts` | Pending/approved/sent/discarded drafts (session 2) |
-| `fub_agent_lead_optouts` | Source of truth for opt-outs (session 3) |
+| `fub_agent_message_templates` | Library with `{{slot}}` markers (14 templates seeded as of session 3) |
+| `fub_agent_message_drafts` | Pending/approved/sent/discarded drafts |
+| `fub_agent_lead_optouts` | Source of truth for opt-outs (wired in session 5) |
 | `fub_agent_lead_exclusions` | Hard exclusions (sphere, opt-outs, cash investors) |
+| `fub_agent_lead_cooldowns` | Per-lead temporary cooldown windows (session 4) |
 | `fub_agent_config` | KV thresholds + master kill switch |
 | `fub_agent_log` | Full audit trail |
 
@@ -165,6 +196,7 @@ Lead universe pulled from FUB:
 - **Surface lives in TM** (not subdomain) - re-evaluate for v2 if multi-agent expansion warrants extraction to `agent.homegrownpropertygroup.com`
 - **One voice file (`brian-voice.md`) for v1**; swap to neutral HGPG team voice in v2
 - **Hot threshold stays at 40 even though no leads have crossed it.** Don't paper over reality with threshold tuning.
+- **FUB Automation 2.0 email step must be plaintext, not HTML** (decision made 2026-05-08). The agent writes plaintext bodies with `\n` separators; HTML mode collapses them. See `scripts/fub-email-shell.md`.
 
 ## Session 1 (complete)
 
@@ -206,23 +238,17 @@ When a draft is rejected:
 - Buyer/seller classifier rebuilt to fix mis-classification of stale leads
 - Verified working with seller templates end-to-end
 
-## Session 3 (in flight)
+## Session 3 (complete)
 
 - Sendblue connection sanity (live FUB integration test)
 - FUB Automations 2.0 setup for each (lead_type × stage × channel) combo
-- `lib/agent/fubPusher.ts` - write message body to FUB custom field, apply triggering tag
-- Inbound parser at `app/api/agent/sendblue-inbound/route.ts` - regex + LLM opt-out detection
-- Open the autonomous gate: `agent_enabled = true`, `auto_below_threshold = true`
-
-## Session 4 (planned, not started)
-
-- **Reject reason taxonomy:** if you reject with reason `'voice_off'`, that signals the template needs work; if `'wrong_lead'`, that lead gets excluded from agent forever
-- **Cooldown:** lead can't be re-drafted within N days of a rejection
-- **Hard exclusion on N rejections:** auto-add to `fub_agent_lead_exclusions` after 2-3 rejects
+- `lib/agent/fubPusher.ts` stub - write message body to FUB custom field, apply triggering tag (replaced in session 4)
+- Inbound parser at `app/api/agent/inbound/route.ts` - regex + LLM opt-out detection (full wiring in session 5)
+- Open the autonomous gate: `agent_enabled = true`, `auto_below_threshold = true`. DEFERRED until smoke test passes.
 
 ## Configuration reference
 
-`fub_agent_config` keys (current values as of 2026-05-07):
+`fub_agent_config` keys (current values as of 2026-05-08):
 
 | Key | Value | Notes |
 |---|---|---|
@@ -231,7 +257,7 @@ When a draft is rejected:
 | `hot_threshold` | `40` | Score ≥ this requires human approval - locked |
 | `warm_threshold` | `30` | Score ≥ this is eligible to send |
 | `llm_confidence_floor` | `0.4` | LLM intent score not credited below this |
-| `daily_send_cap` | `50` | Max messages queued in 24h window |
+| `daily_send_cap` | `10` | Max messages queued in 24h window |
 | `voice_file` | `"brian-voice.md"` | Voice profile for LLM drafting |
 | `scoring_version` | `"v1"` | Current scoring engine version |
 
@@ -245,28 +271,4 @@ When a draft is rejected:
 - DB-level filtering matters for batch processing - `.not('fub_person_id', 'in', recently_scored_ids)` beats in-memory filtering
 - The LLM intent reads are genuinely useful beyond just scoring - `specific_friction` field is a brief on each lead
 - No-history short-circuit saves money - leads with zero notes/emails/texts get synthetic low-confidence response without firing Haiku
-
----
-
-## Session 6 pickup status (added 2026-05-08)
-
-**Smoke test status: UNCLEAR.**
-
-Session 5 (2026-05-07) shipped the agent-daily-flush cron, daily-cap config, queue UI header, and inbound classifier wiring. SESSION-HANDOFF after session 5 noted "smoke test pending Automations" — meaning Brian needed Viktor to finish the FUB Automations 2.0 work on his side before the end-to-end smoke test could run.
-
-When session 6 starts, the first action should be to:
-
-1. Check FUB to see if Viktor has shipped the Automations 2.0 work that consumes the agent's draft fields
-2. Check `fub_agent_message_drafts` in TM Supabase for any rows in `pending_review` status that have been sitting since 2026-05-07
-3. Ask Brian directly whether the smoke test was run — Brian may have done it without writing it up
-
-Until that's resolved:
-- Treat `agent_enabled` as still `false` (master kill switch closed)
-- Do not assume any production messaging has gone out
-- Do not start session 6 build work until smoke test outcome is known
-
-If smoke test ran and passed: flip `agent_enabled` to `true`, ramp daily_send_cap from 10 to 25 over the first week, monitor reject rate.
-
-If smoke test ran and failed: capture the specific failure mode in a new "Session 5 smoke test issues" block before scoping session 6.
-
-If smoke test never ran: figure out the blocker (Viktor capacity, FUB Automations build still pending, etc.) and either resolve it or scope around it.
+- Plaintext bodies vs HTML email rendering is the most likely smoke-test failure mode (session 6 finding) - if FUB Automation 2.0 sends as HTML, the agent's `\n\n` paragraph breaks collapse into a run-on. Always send plaintext.
