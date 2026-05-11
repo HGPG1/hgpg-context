@@ -2,9 +2,83 @@
 
 # FUB AI Agent
 
-- **Status:** 🔴 Sessions 1-6 shipped. Smoke test attempted 2026-05-11, CP4 failed on FUB platform constraints. `agent_enabled = false`. Architecture redesign required before any further outbound. Session 7 needs: multi-field paragraph stitching + revert of the HTML body conversion shipped this morning.
+- **Status:** 🟡 Operational with caveats. Session 7 architecture redesign shipped end-to-end (multi-field paragraph stitching). Real outbound verified to Jesse Hernandez 11323. Two follow-ups parked for session 8: seller template paragraph too long (3/3 seller drafts blocked), buyer template voice-clone problem (4/4 buyer drafts near-identical). agent_enabled=false until session 8 lands those fixes.
+
+## Session 7 wrap-up — 2026-05-11
+
+### What shipped
+
+**Architecture redesign complete.** Email body now split across 4 FUB custom fields (Body=para1 + Para2 + Para3 + Para4, IDs 157/160/161/162) with newline-based paragraph stitching in Template 1156. The platform constraints discovered in Session 6 (256-char silent truncation, API-side HTML escaping) are no longer load-bearing.
+
+**Phases completed in order:**
+1. Audit + schema migration: paragraphs text[] column on fub_agent_message_drafts with CHECK constraint via fub_agent_paragraphs_valid() IMMUTABLE function, NOT VALID so historical rows are exempt. body column now NULLABLE.
+2. Reverted commit 6a1fa72 cleanly (revert commit 76ba8a2). lib/agent/emailFormat.ts and scripts/backfill-html-email-bodies.ts deleted.
+3. Hard-deleted 3 pending drafts (Gerard #7, Seanna #8, Anthony #10) that had <br><br> contamination. Jay #9 migrated in place as audit row, status='approved' preserved.
+4. Created 3 new FUB custom fields via POST /v1/customFields: id 160 (Para2), 161 (Para3), 162 (Para4). Note: these were created with hideIfEmpty=false vs. field 157's hideIfEmpty=true. Cosmetic only; can normalize later.
+5. Code refactor (commit 504f116): 9 files. lib/agent/fubAgentConstants.ts adds Para2-4 + FUB_CF_AGENT_DRAFT_EMAIL_BODY_FIELDS tuple + per-paragraph cap. lib/agent/paragraphs.ts NEW (splitBodyToParagraphs, validateParagraphs, padParagraphsToFubFields). draftGenerator.ts splits rendered body, validates against 250-char cap, inserts with block_reason on failure. fubPusher.ts writes 4 fields with empty-string padding so stale paragraphs from prior longer drafts get cleared on FUB person record. Edit route re-splits + re-validates, clears block_reason on success. Queue UI renders paragraphs individually with per-paragraph char counts, amber warning banner + disabled Approve when block_reason=paragraph_too_long. types.ts updated for nullable body + paragraphs field. log.ts added draft_created_with_block + fub_push_blocked event types.
+6. Template 1156 update done via FUB UI: 4 merge tokens (%custom_agent_draft_email_body% + Para2 + Para3 + Para4) separated by actual newlines typed via Enter. Critical correction from spec: <br><br> separators do NOT work because FUB's Automation 2.0 Send Email step delivers as plaintext (or mail client picks plaintext alternative), so <br> arrives as literal text. Newlines work in both plaintext and HTML modes.
+7. Pre-flight test against FUB person 27764 (Brian-in-Sphere) confirmed all 4 paragraphs render with breaks, no truncation, no escaped HTML.
+8. Production verification: generated draft 17 for Jesse Hernandez (FUB 11323) via cron path, manually approved via queue UI, email landed in Jesse's inbox via Automation 2.0. Audit chain clean: lead_classified → draft_created → gate_check → draft_approved → fub_push_success in 532ms.
+
+**Constraint-violation bug found and patched same-session (commit c8f0d51).** During Phase 7 verification, regenerated drafts for John Miller 23316 and Jay Miller 24825 failed at DB insert with "violates check constraint paragraphs_length_check". Root cause: draftGenerator.ts always inserted the paragraphs array even when validateParagraphs returned not-ok. The CHECK rejected the row and the lead disappeared from anywhere visible. Fix: insert paragraphs=null when blockReason is set. block_reason still populated for queue UI surfacing.
+
+### Learnings captured in session 7
+
+1. **FUB Automation 2.0 Send Email step delivers as plaintext (or the plaintext-alternative wins), NOT HTML.** The session 7 spec assumed `<br><br>` between template merge tokens would render as line breaks. In practice the recipient sees literal `<br><br>` text. Real newlines (typed via Enter in the FUB template editor) work in both plaintext and HTML modes. This is a permanent platform truth: never put HTML in FUB email templates for the agent.
+2. **FUB UI Merge Fields dropdown produces `%snake_case%` syntax, not the camelCase API field names.** Field 157 API name is `customAgentDraftEmailBody`, but the merge token in templates is `%custom_agent_draft_email_body%`. Don't try to type merge tokens — use the dropdown.
+3. **Postgres CHECK constraints cannot contain subqueries directly, but CAN call IMMUTABLE functions that contain subqueries.** First migration attempt with `SELECT max(length(p)) FROM unnest(paragraphs)` in the CHECK clause failed with `cannot use subquery in check constraint`. Wrapping in `CREATE FUNCTION ... LANGUAGE sql IMMUTABLE` then using the function in the CHECK works. Saved as `fub_agent_paragraphs_valid(text[])`.
+4. **NOT VALID is the right tool for adding constraints when historical rows might violate them.** `ADD CONSTRAINT ... CHECK (...) NOT VALID` enforces all future INSERT/UPDATE without scanning existing rows. Used for paragraphs_length_check because Jay's audit draft (status=approved, body=423 chars from CP4) would have been rejected by a regular CHECK.
+5. **The kill switch (agent_enabled=false) blocks BOTH cron AND manual approve.** Earlier session work treated agent_enabled as cron-only, but the outboundGate checks it on every send. To do verification sends with agent_enabled=false, flip it true momentarily, do the send, flip back to false. Better design than what I initially assumed; correct safety behavior.
+6. **The generator's structured paragraph output already existed.** Templates have `\n\n` paragraph separators baked into their body strings. splitBodyToParagraphs(rendered.body) just splits on those. No prompt rewriting needed; the generator was always producing paragraph-structured content, we just weren't storing it as an array.
+
+## Session 8 backlog (parked for next session)
+
+### Issue 1: Seller template `v1.warm.seller_report_engaged.seller` paragraph 3 is 252 chars (over the 250 cap, before slot-fill)
+
+3 of 3 seller drafts attempted with this template have blocked on paragraph_too_long: John Miller 23316 (draft 19), Jay Miller 24825 (draft 21), Tamela Karnazes 13307 (draft 22). Same paragraph, same overflow, every time.
+
+The offending paragraph is hardcoded template prose:
+
+```
+The number on the report is a solid starting point but it doesn't know what your home actually shows like or what's trading on your specific block. If you're getting closer to listing, or just want a real PMV before you decide, happy to walk through it.
+```
+
+That's 252 chars literal. Slots in this template (`{{first_name}}`, `{{recency_phrase}}`) don't even land in this paragraph — it's the template body itself that's too long.
+
+**Fix:** edit the template body in the DB (fub_agent_message_templates row where scenario = 'v1.warm.seller_report_engaged.seller'). Either split into two paragraphs on the period after "specific block" OR trim ~10 chars of filler. Same fix likely applies across other seller templates that haven't been exercised yet; sweep all seller templates and validate each paragraph against 250 chars at template-load time.
+
+### Issue 2: Buyer template `v1.warm.viewed_listing_recent.email` is producing voice-clone drafts
+
+5 buyer drafts generated this session (Gerard, Seanna, Anthony, Sam, plus Gerard regen): same template, same paragraphs, near-identical content. Only variables are first_name and a 1-3 word time phrase ("recently" / "a few days ago" / "last week"). Reads like a mail-merge if anyone receives multiple agent emails over a few weeks.
+
+**Root cause:** the template has 1-2 LLM-fillable slots and a large amount of hardcoded text. The LLM's slot fill is essentially Mad Libs.
+
+**Fix options for session 8:**
+- (a) Expand slot count in buyer templates so more of the body is LLM-generated (more variation, but harder to keep voice consistent)
+- (b) Create 3-4 buyer template variants in the `v1.warm.viewed_listing_recent` family so selectTemplate's priority cascade can rotate them randomly per draft
+- (c) Just accept the cloning since daily_send_cap=10 limits exposure across recipients — unlikely two recipients compare emails
+
+Recommend (b) — write 3 alternate phrasings of the same scenario, store as separate scenarios, and add a random pick step in selectTemplate when multiple scenarios match.
+
+### Issue 3: hideIfEmpty inconsistency on Para fields
+
+Field 157 (Body) has hideIfEmpty=true. Fields 160/161/162 (Para2/3/4) have hideIfEmpty=false. Means empty Para2-4 will show as empty fields in the FUB person profile UI, where Body hides itself when empty. Cosmetic; not blocking. Normalize via PATCH /v1/customFields/{id} if it bothers you.
+
+### Test rig housekeeping
+
+- Agent Test - Brian (FUB ID 31924) was deleted during session 7. Test rig now uses FUB ID 27764 (real Brian person, in Sphere stage, pond 9 which is POND_BRIAN_EXCLUDED so never picked up by agent). Keep this as the test rig going forward.
+- Person 27764 has a stale tag `agent_draft_email_` (trailing underscore, no "ready" suffix). Probably from earlier session work. Safe to leave or clean up.
+
+### Queue state at session 7 end (9 drafts in flight)
+
+- Drafts 14, 16, 18, 20: buyer template `viewed_listing_recent`, clean, ready to approve. Same template; pick at most one or two if approving. (Or wait for session 8 template diversity fix.)
+- Drafts 19, 21, 22: seller template `seller_report_engaged`, blocked on paragraph_too_long. Surfaced in queue with amber warning + disabled Approve. Need session 8 template fix OR manual edit.
+- Draft 23: seller template `listing_thinking`, clean. Jesse Hernandez, same lead that received the verification send. Skip (probably reject) since he just got the other email.
+- Draft 17: Jesse's approved+sent verification draft. Real outbound. Audit row.
 
 ## Session 7 entry — 2026-05-11 (smoke test attempted, CP4 failed)
+
+[Original session 7 kickoff entry preserved below — describes the CP4 failure that motivated this whole session]
 
 ### What happened
 
@@ -15,21 +89,6 @@ Ran the 4-checkpoint smoke test gate end-to-end. Three of four passed cleanly. C
 
 Jay received a confusing email at 10:56 AM ET (14:56 UTC). Brian sent a personal recovery email from his own account within 10 minutes. Damage contained.
 
-### Checkpoint results
-
-- ✅ **CP1 PASS** (10:35 ET) — Viktor's Automation 2.0 trigger fires on `agent_draft_email_ready` tag. Test person "Agent Test - Brian" (FUB ID 31924) created with email BrianMcCarron@icloud.com.
-- ✅ **CP2 PASS** (~10:50 ET, with caveats) — Initial CP2 failed with literal `[-customAgentDraftEmailSubject-]` text in delivered email. Root cause: the `[-camelCase-]` merge syntax from session 6 was stored byte-for-byte through `POST/GET /v1/templates` but FUB never renders that syntax. Fix: opened Template 1156 in FUB UI, re-inserted merge fields via the "Merge Fields" dropdown which substituted `%custom_agent_draft_email_subject%` and `%custom_agent_draft_email_body%`. Subsequent test with HTML body typed into custom field rendered with paragraph breaks.
-- ✅ **CP3 PASS** (10:42 ET) — Smoke test SQL `scripts/session-5-smoke-test.sql` Section A → B → C executed via Supabase MCP. Test draft id 11 inserted, Brian's record temporarily flipped, then fully restored. Final state byte-identical to pre-test baseline across all 7 verification columns. Audit log empty because direct-SQL test bypasses agent code path.
-- ❌ **CP4 FAIL** (10:56 ET) — Jay Miller draft id 9 pushed successfully (sub-2-second approve → push → FUB chain confirmed in audit log: `gate_check` → `draft_approved` → `fub_push_success`). Delivered email was unreadable due to 256-char truncation + HTML escape.
-
-### What shipped today
-
-**`lib/agent/emailFormat.ts`** (commit `6a1fa72`) — `formatEmailBodyForFub()` helper that HTML-escapes `&`, `<`, `>` then converts `\n\n` to `<br><br>` and `\n` to `<br>`. Applied in `lib/agent/fubPusher.ts` for `channel === 'email'` drafts only. **This must be reverted in Session 7** — the conversion is counterproductive because FUB escapes the result on write regardless.
-
-**`scripts/backfill-html-email-bodies.ts`** (commit `6a1fa72`) — one-shot Node 25 `--experimental-strip-types` runner that backfilled drafts 7, 8, 9, 10 from plaintext `\n\n` to `<br><br>`. **Also must be reverted** — Session 7 needs the inverse migration to put `\n\n` back, OR discard the 3 still-pending drafts (Gerard #7, Seanna #8, Anthony #10) and regenerate them post-architecture-fix.
-
-**Template 1156 fixed in FUB UI** — merge fields re-inserted via Merge Fields dropdown. Now correctly uses `%snake_case%` syntax. Subject and body render correctly when underlying custom field values are valid.
-
 ### Diagnostic confirmation via FUB MCP (read after CP4 failure)
 
 Pulled Jay's record via `getPerson(24825)` to see what FUB actually stored:
@@ -37,55 +96,6 @@ Pulled Jay's record via `getPerson(24825)` to see what FUB actually stored:
 - `customAgentDraftEmailBody`: 255 chars, ends mid-word ("doesn't know wha"). The `<br><br>` we sent is stored as `&lt;br&gt;&lt;br&gt;`. Both problems confirmed.
 - `customAgentDraftEmailSubject`: "More than a number on the report?" — stored correctly (under 256, no HTML).
 - Tags: `agent_email_sent` (Automation 2.0 step 2 fired), plus the lead's existing tags. `agent_draft_email_ready` was already removed by the Automation's tag-removal step.
-
-### Learnings captured in session 7
-
-5. **FUB merge syntax for templates is `%snake_case%` at render time, not `[-camelCase-]` at storage time.** The session 6 round-trip-verification was insufficient because storing the literal characters through `POST/GET /v1/templates` doesn't prove rendering. FUB's UI Merge Fields dropdown is the source of truth for what merge syntax actually renders. Future template work via API must include a render-test (actual Automation invocation against a real test person + inbox check) before being considered shipped.
-
-6. **FUB text custom fields are 256-char hard limited and silently truncate on API write.** No 400, no warning, no truncation flag in the response. Pusher needs defensive `LENGTH(value) <= 256` check before write, log `block_reason='value_too_long'` event, surface in queue UI for manual edit. The 256 limit applies to ALL text custom field writes, not just our 157/158/159.
-
-7. **FUB API HTML-escapes text custom field values on write but FUB UI does not.** Two write paths, two storage behaviors. Conclusion: HTML cannot be sent through API-written custom fields and survive into rendered emails. Multi-field paragraph stitching (Option A) is the path — store each paragraph in its own custom field as plaintext, use literal `<br><br>` in the template BODY between merge tokens. The literal `<br>` in the template body is HTML (not a merge value), so it doesn't get escaped.
-
-8. **TM has no `npm run typecheck` script** — only `lint`. Direct `./node_modules/.bin/tsc --noEmit` works. Future Claude Code prompts should say "run tsc" not "run npm run typecheck."
-
-## Session 7 redesign spec (for the next build session)
-
-### What needs to change
-
-**Database:**
-- Add `fub_agent_message_drafts.body_paragraphs jsonb` column, OR migrate the existing `body` column to store an array of paragraph strings
-- Backfill or discard the 3 still-pending drafts (Gerard #7, Seanna #8, Anthony #10) — they're currently in HTML format and will need re-conversion or regeneration
-
-**FUB-side:**
-- Create 3-4 additional text custom fields via `POST /v1/customFields`:
-  - `customAgentDraftEmailPara2` (id TBD)
-  - `customAgentDraftEmailPara3` (id TBD)
-  - `customAgentDraftEmailPara4` (id TBD)
-- Update Template 1156 body via FUB UI:
-  - Merge field 1 (existing `customAgentDraftEmailBody` — keep this as paragraph 1)
-  - Literal `<br><br>` between
-  - Merge field 2 (`customAgentDraftEmailPara2`)
-  - Literal `<br><br>` between
-  - Etc.
-  - The literal `<br><br>` in the template body IS HTML and renders correctly because it's not a merge value
-- Repeat for iMessage template if/when iMessage path is built (LoopMessage is plaintext-native so this may not be needed)
-
-**Agent code:**
-- Revert `lib/agent/emailFormat.ts` and its application in `fubPusher.ts` (commit `6a1fa72`)
-- Refactor `lib/agent/draftGenerator.ts` to emit body as an array of paragraphs:
-  - Each paragraph under 250 chars (target — leaves 6 chars of FUB headroom for safety)
-  - Templates need adjustment so generated content naturally breaks into paragraphs
-  - Voice file (`brian-voice.md`) constraint: paragraphs are SHORT in Brian's voice anyway, this should be a small lift
-- Refactor `lib/agent/fubPusher.ts` to write each paragraph to its respective custom field
-- Add defensive length check: refuse to push if any paragraph > 250 chars, log `block_reason='paragraph_too_long'`, surface in queue UI for manual edit
-- For drafts with fewer paragraphs than there are fields, write empty string to unused fields (FUB will render nothing, no orphan whitespace)
-
-### Verification sequence for Session 7
-
-1. Run all redesign on Agent Test - Brian (FUB ID 31924) FIRST with multi-paragraph synthetic content
-2. Verify all paragraphs render with correct breaks, no truncation, no escaped HTML
-3. Then re-run real CP1-CP4 against Gerard or Seanna (or fresh draft)
-4. Then flip `agent_enabled = true` and ramp daily cap as originally planned
 
 ## Session 6 wrap-up — 2026-05-09 (PM status reconciliation)
 
@@ -108,7 +118,7 @@ FUB email template created via API. `POST /v1/templates` returned id 1156. Round
 
 ## Session 6 — 2026-05-08
 
-FUB email shell artifact at `scripts/fub-email-shell.md`. Critical gotcha (now superseded): the email step "must be plaintext, not HTML." This guidance was based on incorrect assumption about FUB's template editor having a plaintext mode — it does not. Email templates are HTML-only.
+FUB email shell artifact at `scripts/fub-email-shell.md`. Critical gotcha (now superseded): the email step "must be plaintext, not HTML." This guidance was based on incorrect assumption about FUB's template editor having a plaintext mode — it does not. Email templates are HTML-only. (Session 7 update: the email is DELIVERED as plaintext regardless of how the template is constructed in the editor. The "plaintext" instinct was right; the implementation path was wrong.)
 
 ## Session 5 — 2026-05-07
 
@@ -127,7 +137,7 @@ FUB pusher, reject taxonomy with 5-class enum, cooldown table, daily cap default
 
 An AI-augmented lead nurture layer for HGPG. Scores Brian's eligible FUB leads using a hybrid rules + LLM intent engine, drafts personalized messages, and uses FUB Automations 2.0 (with Sendblue for iMessage) to do the actual sending. The agent does the *thinking* (who, what, when). FUB does the *sending*.
 
-## Architecture (v1 — currently broken, see session 7)
+## Architecture (v2 - session 7 multi-field paragraph stitching)
 
 - Embedded in TM repo (`HGPG1/hgpg-transaction-manager`) under `lib/agent/` and `app/agent/`
 - Supabase: `ioypqogunwsoucgsnmla` (HGPG Core)
@@ -135,6 +145,7 @@ An AI-augmented lead nurture layer for HGPG. Scores Brian's eligible FUB leads u
 - LLM: Anthropic Haiku 4.5 via `AGENT_ANTHROPIC_API_KEY`
 - Auth: gated to `brian@homegrownpropertygroup.com`
 - Cron: `/api/agent/cron` + `/api/cron/agent-daily-flush`
+- Email body split across 4 FUB custom fields (160/161/162 added 2026-05-11) to dodge FUB's 256-char silent truncation. FUB Template 1156 stitches the 4 paragraphs with newlines (NOT `<br>` tags - those render as literal text in delivered email).
 
 ## Tables (8 fub_agent_* tables, RLS-locked to service role)
 
@@ -143,7 +154,7 @@ An AI-augmented lead nurture layer for HGPG. Scores Brian's eligible FUB leads u
 | `fub_agent_leads` | Denormalized FUB person snapshots |
 | `fub_agent_lead_scores` | Score history |
 | `fub_agent_message_templates` | Template library |
-| `fub_agent_message_drafts` | Pending/approved/sent/discarded/blocked drafts |
+| `fub_agent_message_drafts` | Pending/approved/sent/discarded/blocked drafts. paragraphs text[] added 2026-05-11; body NULLABLE. |
 | `fub_agent_lead_optouts` | Source of truth for opt-outs |
 | `fub_agent_lead_exclusions` | Hard exclusions |
 | `fub_agent_lead_cooldowns` | Per-lead temporary cooldown windows |
@@ -154,7 +165,7 @@ An AI-augmented lead nurture layer for HGPG. Scores Brian's eligible FUB leads u
 
 | Key | Value |
 |---|---|
-| `agent_enabled` | `false` (flipped back at 15:02 UTC) |
+| `agent_enabled` | `false` (flipped on briefly during session 7 Phase 7 verification, flipped back) |
 | `auto_below_threshold` | `false` |
 | `hot_threshold` | `40` |
 | `warm_threshold` | `30` |
@@ -163,14 +174,28 @@ An AI-augmented lead nurture layer for HGPG. Scores Brian's eligible FUB leads u
 | `voice_file` | `brian-voice.md` |
 | `scoring_version` | `v1` |
 
+## FUB custom fields
+
+| ID | API Name | Label | Purpose |
+|---|---|---|---|
+| 157 | customAgentDraftEmailBody | Agent Draft Email Body | Paragraph 1 (was full body pre-session-7) |
+| 158 | customAgentDraftEmailSubject | Agent Draft Email Subject | Email subject |
+| 159 | customAgentDraftIMessageBody | Agent Draft IMessage Body | iMessage body (single field, plaintext via LoopMessage) |
+| 160 | customAgentDraftEmailPara2 | Agent Draft Email Para2 | Paragraph 2 (session 7) |
+| 161 | customAgentDraftEmailPara3 | Agent Draft Email Para3 | Paragraph 3 (session 7) |
+| 162 | customAgentDraftEmailPara4 | Agent Draft Email Para4 | Paragraph 4 (session 7) |
+
 ## Pilot scope
 
-Brian-only v1. Buyer-only v1 (sellers in v2, though Jay was a seller draft test).
+Brian-only v1. Buyer-only v1 (sellers in v2, though Jay was a seller draft test). Seller templates exist but session 7 surfaced that seller template `seller_report_engaged` has a too-long paragraph; awaiting session 8 fix.
 
-## Open items going into session 7
+## Open items going into session 8
 
-- Revert HTML body conversion + backfill
-- Multi-field paragraph stitching architecture
+- Fix seller template `v1.warm.seller_report_engaged.seller` paragraph 3 (252 chars hardcoded, blocks 100% of drafts using this template)
+- Sweep all seller templates and validate each paragraph ≤ 250 chars at template-load time (consider a one-shot script that runs once over the template table)
+- Add buyer template variation to break the voice-clone problem
+- Decide whether to flip `agent_enabled=true` for sustained operation OR keep it manual-approve-only for week 1 ramp
+- Scoring sweep on 4,340 unscored eligible leads (still deferred from session 6)
 - Hot tier templates, iMessage seller variants, cooldown re-touch templates (still deferred)
-- Scoring sweep on 4,340 unscored eligible leads (deferred until architecture proven)
-- FUB UI visibility on custom fields 157/158/159 to admins-only (still carryover from session 4)
+- FUB UI visibility on custom fields 157-162 to admins-only (still carryover from session 4)
+- Normalize hideIfEmpty across fields 157 vs 160/161/162 (cosmetic)
