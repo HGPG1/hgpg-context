@@ -112,8 +112,9 @@
 - `lib/conciergePdf.tsx` persists storage path instead of public URL
 - `app/concierge/[token]/page.tsx` signs server-side on every page load
 - `app/api/rezen/push-document/route.ts` signs before email fanout
-- Bucket confirmed `public = false` in HGPG Core (verified 2026-05-11)
-- **Repo hygiene gap:** migration file `20260509_flip_transaction_pdfs_bucket_private.sql` was not committed alongside PR #7. Bucket was flipped via dashboard/MCP. Backfill commit pending on Brian's Mac to make repo source-of-truth.
+- Bucket flipped via Supabase MCP on 2026-05-09 (`schema_migrations` version `20260509173839`). Bucket `public = false` confirmed 2026-05-11.
+- 2026-05-11: idempotent re-apply via MCP (`schema_migrations` version `20260511210146`) — no-op since already private, recorded for clarity.
+- **Repo file pending:** `supabase/migrations/20260509_flip_transaction_pdfs_bucket_private.sql` staged in 2026-05-11 session; commit from Brian's Mac is the last loose thread.
 
 ### deals -> transactions migration (DONE 2026-05-01)
 
@@ -133,11 +134,11 @@
 ## Open items
 
 - **$395 fee toggle** — parked build spec, refs commit b9fa0deb. The underlying notes-append work for the 3-gate fee verification (contract distribution + mid-deal at under_contract+14 + settlement review) shipped 2026-05-05. Structural toggle still parked.
-- **Migration file backfill** (`supabase/migrations/20260509_flip_transaction_pdfs_bucket_private.sql`) — repo hygiene only, bucket already private. Content staged in 2026-05-11 session; commit pending from Brian's Mac.
+- **Migration file backfill** (`supabase/migrations/20260509_flip_transaction_pdfs_bucket_private.sql`) — repo hygiene only. DB ledger and bucket state both correct. Commit pending from Brian's Mac.
 
 ### Closed items
 
-- ✅ **transaction-pdfs bucket flipped to private** (verified 2026-05-11). Code on main, bucket private, signed URLs flowing. Migration file backfill is the only loose thread.
+- ✅ **transaction-pdfs bucket flipped to private** (verified 2026-05-11). Code on main, bucket private, DB ledger correct since 2026-05-09. Only repo file commit remains.
 - ✅ **NC office routing verified wired** (2026-05-11). Code at `app/api/rezen/create-transaction/route.ts:160` does `state === "NC" ? REZEN_OFFICE_ID_NC : REZEN_OFFICE_ID` with fallback, applied via `setOwnerInfo`. Both env vars confirmed set on Vercel Production. NC office ID `924dac0e-91f2-471d-80c4-f06d80fb6d94` not hardcoded — pulled from env, which is the right pattern.
 - ✅ Sherlock 403 resolved (2026-05-09)
 - ✅ Lamington duplicate cleanup verified (single row in DB: `a7ac15e6-bdfb-495a-8588-11e98692f905`)
