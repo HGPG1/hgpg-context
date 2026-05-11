@@ -2,7 +2,7 @@
 
 # Sellers Guide
 
-**Status:** 🟢 SHIPPED + AD-READY. Outstanding: FUB Automation 2.0 on `sellers-guide-2026` tag (not yet built); sitemap.xml domain bug (SEO impact, not ad-blocking).
+**Status:** 🟢 SHIPPED + AD-READY. Outstanding: FUB Automation 2.0 on `sellers-guide-2026` tag (not yet built).
 
 ## URLs
 
@@ -22,7 +22,7 @@
 - `/market-heatmap/`
 - `/thank-you/`
 
-7 pages total. No `/process/`, `/pricing/`, `/about/`, `/contact/`, or `/blog/` — those routes don't exist (and aren't linked from anywhere on the site, so no broken nav).
+7 pages total. No `/process/`, `/pricing/`, `/about/`, `/contact/`, or `/blog/` — those routes don't exist and aren't linked from anywhere on the site.
 
 ## Stack
 
@@ -83,6 +83,7 @@ Tables:
 
 ## Recent build history (most recent first)
 
+- 2026-05-11 — `fix(seo)`: replace stale sellers.* domain with canonical sellersguide.* across sitemap, robots, OG tags, and JSON-LD schemas (8 files)
 - 2026-05-11 — `feat(fub-lead)`: return FUB person object; submit.js persists `fub_person_id`
 - 2026-05-11 — `fix(assessment/submit)`: await FUB forward + writeback fub_event_id (was fire-and-forget killed by lambda teardown)
 - 2026-05-11 — `fix(score)`: add missing Pixel block + delegate fireFbqEvent to hgpgTrack for browser+CAPI dedup
@@ -108,14 +109,18 @@ End-to-end test from `?utm_source=meta&utm_campaign=preflight-final-20260511`:
 - ✅ Stage = Lead, Source = "Sellers Guide 2026", Assigned to Brian
 - ✅ NeverBounce ran and persisted `email_validation_status` + flags
 - ✅ Meta-bypass flow: no 6-digit email verify step shown for utm_source=meta traffic
+- ✅ Sitemap.xml, canonical tags, OG tags, JSON-LD schemas all serve canonical domain (verified live 2026-05-11)
+- ✅ Zero instances of stale `sellers.` domain anywhere on live site
 
 ## Outstanding
 
 ### Before scaling ad spend
 - 🟡 **FUB Automation 2.0 not built yet** on `sellers-guide-2026` tag. Leads land in FUB tagged correctly but no automatic drip/assignment fires. Manual follow-up required until Automation is configured. Acceptable for initial ad launch (want eyes on first leads anyway) but blocks scaling.
 
-### SEO (not ad-blocking)
-- 🟡 **Sitemap.xml lists wrong domain.** `public/public/public/sitemap.xml` declares URLs under `https://sellers.homegrownpropertygroup.com/...` but the canonical production domain is `https://sellersguide.homegrownpropertygroup.com/...`. The `sellers.` subdomain does not resolve (no DNS). Google reads sitemap as canonical declaration — currently pointing search engines at non-existent URLs. Fix: find/replace `sellers.homegrownpropertygroup.com` → `sellersguide.homegrownpropertygroup.com` in sitemap source. Resubmit in Google Search Console after deploy.
+### SEO follow-through (not ad-blocking)
+- Resubmit sitemap in Google Search Console: https://sellersguide.homegrownpropertygroup.com/sitemap.xml
+- Request indexing for `/` and `/home-selling-score/` in GSC URL Inspection
+- These steps accelerate Google's reindex of the corrected canonical domain. Without them, Google will eventually recrawl but with significant lag.
 
 ### Cleanup later
 - "Phase 1 ads test markers" left in code from 2026-05-05 CAPI commit — flag for cleanup post-launch
@@ -126,4 +131,3 @@ End-to-end test from `?utm_source=meta&utm_campaign=preflight-final-20260511`:
 - `fub_event_id` column name is legacy; value is the FUB person ID (FUB Events API returns the person, not a separate event entity, because FUB dedups on email)
 - 4 domains aliased on Vercel: `sellersguide.homegrownpropertygroup.com` is canonical
 - Test data from 2026-05-11 QA cleaned out of `seller_assessments`; FUB persons 31927 and 31928 deleted manually
-- Site has 7 routes only (see "Routes that exist" above). Earlier session notes referenced `/process/` and `/pricing/` as broken — those routes simply don't exist and nothing links to them. No bug, just incomplete site scope.
