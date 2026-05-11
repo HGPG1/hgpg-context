@@ -2,7 +2,60 @@
 
 # FUB AI Agent
 
-- **Status:** 🟡 Operational with caveats. Session 7 architecture redesign shipped end-to-end (multi-field paragraph stitching). Real outbound verified to Jesse Hernandez 11323. Two follow-ups parked for session 8: seller template paragraph too long (3/3 seller drafts blocked), buyer template voice-clone problem (4/4 buyer drafts near-identical). agent_enabled=false until session 8 lands those fixes.
+- **Status:** 🟢 Operational. Session 8 (2026-05-11) shipped seller template fixes for all 3 templates with too-long paragraphs. Production pipeline verified end-to-end in session 7. agent_enabled=false; can flip true any time. Buyer template voice-clone issue still parked (session 9).
+
+## Session 8 — 2026-05-11 (template paragraph length sweep)
+
+### What shipped
+
+Three seller-track email templates had paragraph 3 over the 250-char cap, baked into the template body before any slot fill. Found via a 1-query sweep across all active templates, fixed via three UPDATE statements through Supabase MCP. No code change required — pure data.
+
+- **Template 9** `v1.warm.seller_report_engaged.seller` — para 3 was 252 chars. Dropped "actually" and "specific" as filler words. New para 3 = 235 chars.
+- **Template 2** `v1.warm.long_dormant_buyer.email` — para 3 was 252 chars. Dropped "straight up" and "actually". New para 3 = 231 chars.
+- **Template 11** `v1.warm.long_dormant_seller.seller` — para 3 was 286 chars (worst offender). Tightened "still thinking about a sale" → "still thinking about selling", "did life take you a different direction" → "did life take you elsewhere", dropped "actually" and "probably", removed "in the area". New para 3 = 222 chars.
+
+After fixes, regenerated drafts for John Miller (23316), Jay Miller (24825), Rachel Delmore (24498) — all 3 inserted clean with no block_reason. Paragraph 3 lengths now sit at 235/235/175 chars respectively.
+
+### Sweep query for future reference
+
+This query catches any active template paragraph over the cap. Worth re-running before any new templates ship:
+
+```sql
+SELECT 
+  t.id, t.scenario, t.channel, t.lead_type,
+  para.ordinality as para_num,
+  length(para.paragraph) as para_len,
+  left(para.paragraph, 80) as preview,
+  CASE 
+    WHEN length(para.paragraph) > 250 THEN 'OVER CAP'
+    WHEN length(para.paragraph) > 230 THEN 'tight - risky after slot fill'
+    ELSE 'ok'
+  END as status
+FROM fub_agent_message_templates t
+CROSS JOIN LATERAL unnest(string_to_array(t.body, E'\n\n')) WITH ORDINALITY AS para(paragraph, ordinality)
+WHERE t.active = true
+ORDER BY length(para.paragraph) DESC;
+```
+
+After session 8 fixes, the worst paragraph across all 14 active templates is 235 chars — comfortable 15-char headroom under the 250 cap. Worth flagging template 13 paragraph 2 at 223 chars and template 10 paragraph 2 at 222 chars as "tight" — those have less than ~30 chars of headroom for slot fills like `{{last_outreach_phrase}}`. If those start blocking, the same trim approach applies.
+
+### Pattern recognition for future template work
+
+All three offending paragraphs followed the same structure: two complete thoughts joined into one paragraph by a sentence boundary. The trim path (drop 2-4 filler words) preserves voice better than splitting into 2 paragraphs, because splitting would push the template over the 4-paragraph max. **Rule of thumb for template authors:** if a paragraph has both an offer and a clarification, those usually want to be two adjacent sentences with light filler-word density rather than a single dense paragraph.
+
+## Session 8 backlog (parked for session 9)
+
+### Issue 2: Buyer template `v1.warm.viewed_listing_recent.email` produces voice-clone drafts
+
+[Carried over from session 7 backlog, no change in scope. 5 buyer drafts in queue right now (14, 16, 18, 20) are all near-identical content. Lean toward path (b): 3-4 phrasing variants of viewed_listing_recent with random pick in selectTemplate.]
+
+### Issue 3: hideIfEmpty inconsistency on Para fields
+
+[Carried over.]
+
+### Decide agent_enabled flip strategy
+
+[Carried over. Templates are now clean, code is solid, real outbound verified. Probably ready to flip true with daily_send_cap=10 for week 1 once buyer template diversity lands.]
 
 ## Session 7 wrap-up — 2026-05-11
 
