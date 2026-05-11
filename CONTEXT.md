@@ -16,7 +16,7 @@ See `team.md` for full roster.
 
 ## What's active right now
 
-- **Sellers Guide** (sellersguide.homegrownpropertygroup.com) - ad-ready pending QA pass, see `projects/sellers-guide.md`
+- **Sellers Guide** (sellersguide.homegrownpropertygroup.com) - ad-ready and QA-passed, awaiting FUB Automation 2.0 build before scaling spend. See `projects/sellers-guide.md`
 - **CMA Engine** (cma.homegrownpropertygroup.com) - active build, see `projects/cma-engine.md`
 - **Transaction Manager** (closings.homegrownpropertygroup.com) - lifecycle tool, see `projects/transaction-manager.md`
 - **TC Concierge** (tc.homegrownpropertygroup.com) - intake, live with Don running real deals
@@ -30,6 +30,8 @@ See `team.md` for full roster.
 - Main site SEO push (mobile PageSpeed 96/100)
 - Buyers guide migration from Manus to React + Vite
 - Sellers guide Meta Pixel + CAPI + Home Grown Selling Score v2 (2026-05-05 through 05-07)
+- Sellers guide end-to-end ad-readiness QA + 4 production bug fixes (2026-05-11)
+- Sellers guide canonical domain corrected sitewide (8 files, was stale `sellers.` subdomain). GSC sitemap resubmitted, homepage + /home-selling-score/ indexing requested. (2026-05-11)
 
 ## Known blockers / pending
 
@@ -39,7 +41,7 @@ See `SESSION-HANDOFF.md` for current scratchpad.
 - Sherlock 403 on Transaction Manager (likely API key scope)
 - .net Google Workspace migration to .com (do not proactively remind)
 - GitHub PAT exposed in chat history needs rotation
-- Sellers guide ad QA pass before Meta spend turns on (5 items, see `projects/sellers-guide.md`)
+- **FUB Automation 2.0 on `sellers-guide-2026` tag not yet built** - blocks ad scaling. Initial paid-traffic launch is fine without it (manual eyes on first leads anyway). See `projects/sellers-guide.md`
 
 ## Where to look next
 
