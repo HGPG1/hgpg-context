@@ -2,21 +2,24 @@
 
 # Session Handoff
 
-## Last session: 2026-05-11 — Brain drift cleanup
+## Last session: 2026-05-11 — Brain drift cleanup (round 2)
 
 ### What got done
-- Confirmed Sherlock 403 on Transaction Manager is resolved (was already marked closed in `projects/transaction-manager.md` on 2026-05-09, but CONTEXT.md still listed it as a blocker).
-- Brian noted the fix was likely security/auth related but did not have specifics. No root-cause logged — if it recurs, start with API key scope.
-- `CONTEXT.md` updated: Sherlock moved from blockers to recently completed. Last-updated bumped to 2026-05-11.
+- **Sherlock 403** on Transaction Manager confirmed resolved (was already marked closed in `projects/transaction-manager.md` on 2026-05-09, but CONTEXT.md still listed it as a blocker). Fix was likely security/auth related — no specifics logged; if it recurs, start with API key scope.
+- **Mac Mini GitHub auth / Listing Report Portal** confirmed resolved (project file already had status 🟢 Live, GitHub auth blocker resolved as of 2026-05-06 favicon push). CONTEXT.md still flagged it.
+- `CONTEXT.md` updated: both items moved from blockers to recently completed. Last-updated bumped to 2026-05-11.
+
+### Open thread
+- `~/Downloads/fix-admin-page.sh` was flagged on the Listing Report Portal project file as possibly having unpushed UI changes (SocialPostsManager dark navy headings, MagicLinkCard regenerate placement, admin section reorder, zero-value stat hiding). Not verified this session. Check next time the portal is touched.
 
 ### Pickup notes for next session
-- Brain index is now in sync with project files. Worth a periodic reconciliation pass like this — drift creeps in when project files get updated but CONTEXT.md doesn't.
-- Most natural pickups still on the board:
-  - GitHub auth on Mac Mini (still blocks Listing Report Portal)
-  - Exposed GitHub PAT rotation (security hygiene)
-  - `transaction-pdfs` bucket flip to private — PR not yet opened on branch `claude/transaction-pdfs-private-AqXkA` (see `projects/transaction-manager.md` for full order of operations)
-  - CMA Engine MLS Grid auto-pull (active build)
-  - NC office routing verification in ReZEN builder (open item in TM)
+- Brain index now in sync with project files. Drift creeps in when project files update but CONTEXT.md does not — periodic reconciliation passes are worth doing.
+- Remaining items on the board:
+  - **Exposed GitHub PAT rotation** (security hygiene)
+  - **`transaction-pdfs` bucket flip to private** — PR not yet opened on branch `claude/transaction-pdfs-private-AqXkA` (see `projects/transaction-manager.md` for full order of operations)
+  - **CMA Engine MLS Grid auto-pull** (active build)
+  - **NC office routing verification** in ReZEN builder (open item in TM)
+  - **.net Google Workspace migration to .com** (do not proactively remind)
 
 ---
 
@@ -37,15 +40,8 @@
   - API key stored under "Supabase HGPG Core" in Resend
   - Rate limit went from 2/hr (Supabase default) to 30/hr (Resend default), can be raised
   - This affects ALL apps using this Supabase: TM, CMA, TC Concierge, brain-app
-- Supabase project renames for hygiene:
-  - `ioypqogunwsoucgsnmla` → "HGPG Core"
-  - `ngdrliyjtqcwhhfrbxao` → "HGPG FUB Integration" (verify)
-  - `wdheejgmrqzqxvgjvfee` → "HGPG Listing Reports + MLS" (verify)
-  - `fkxgdqfnowskflgbuxhm` → "HGPG Signature + Relocation" (verify)
-- Supabase `HGPG Core` redirect URLs added:
-  - `https://brain.homegrownpropertygroup.com/**`
-  - `http://localhost:3000/**`
-  - (Existing tools.hgpg entries left intact)
+- Supabase project renames for hygiene
+- Supabase `HGPG Core` redirect URLs added for `brain.homegrownpropertygroup.com/**` and `http://localhost:3000/**`
 
 ### Deferred / Phase 2 for brain-app
 - iPhone smoke test (CodeMirror + iOS soft keyboard scroll behavior)
