@@ -16,12 +16,12 @@ See `team.md` for full roster.
 
 ## What's active right now
 
-- **FUB AI Agent** (in TM at `/agent`) - 🔴 PAUSED. Smoke test attempted 2026-05-11, CP4 failed on FUB platform constraints (256-char custom field limit + HTML escape on API writes). Architecture redesign needed before resuming. See `projects/fub-ai-agent.md`.
+- **Sellers Guide** (sellersguide.homegrownpropertygroup.com) - ad-ready pending QA pass, see `projects/sellers-guide.md`
 - **CMA Engine** (cma.homegrownpropertygroup.com) - active build, see `projects/cma-engine.md`
-- **Transaction Manager** (closings.homegrownpropertygroup.com) - lifecycle tool, see `projects/transaction-manager.md`. PR #7 merged 2026-05-09: transaction-pdfs bucket privatized with signed-URL reads.
+- **Transaction Manager** (closings.homegrownpropertygroup.com) - lifecycle tool, see `projects/transaction-manager.md`
 - **TC Concierge** (tc.homegrownpropertygroup.com) - intake, live with Don running real deals
 - **Listing Report Portal** (reports.homegrownpropertygroup.com) - blocked on GitHub auth, see `projects/listing-report-portal.md`
-- **Brain App** (brain.homegrownpropertygroup.com) - 🟢 SHIPPED 2026-05-06. Web editor for this repo, magic-link auth, write API live.
+- **Brain App** (brain.homegrownpropertygroup.com) - shipped 2026-05-06, see `projects/brain-app.md`
 - **Claude skills** - five new skills shipped May 1 (objection-handler, referral-request-writer, showing-feedback-summarizer, offer-comparison-analyzer, market-update-writer)
 
 ## Recently completed
@@ -29,17 +29,17 @@ See `team.md` for full roster.
 - IDX Broker migration (Ylopo cancelled, Showcase IDX cancelled, FUB lead routing done)
 - Main site SEO push (mobile PageSpeed 96/100)
 - Buyers guide migration from Manus to React + Vite
-- Sellers guide rebrand to brand colors
+- Sellers guide Meta Pixel + CAPI + Home Grown Selling Score v2 (2026-05-05 through 05-07)
 
 ## Known blockers / pending
 
 See `SESSION-HANDOFF.md` for current scratchpad.
 
-- FUB AI Agent architecture redesign (session 7 priority)
 - GitHub auth not configured on Mac Mini (blocks Listing Report Portal pushes)
 - Sherlock 403 on Transaction Manager (likely API key scope)
 - .net Google Workspace migration to .com (do not proactively remind)
 - GitHub PAT exposed in chat history needs rotation
+- Sellers guide ad QA pass before Meta spend turns on (5 items, see `projects/sellers-guide.md`)
 
 ## Where to look next
 
