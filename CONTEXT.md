@@ -16,12 +16,11 @@ See `team.md` for full roster.
 
 ## What's active right now
 
-- **Sellers Guide** (sellersguide.homegrownpropertygroup.com) - ad-ready and QA-passed, awaiting FUB Automation 2.0 build before scaling spend. See `projects/sellers-guide.md`
+- **FUB AI Agent** (embedded in TM) - 🟡 operational with caveats. Session 7 multi-field paragraph stitching architecture shipped 2026-05-11, real outbound verified, agent_enabled=false. Two template fixes parked for session 8. See `projects/fub-ai-agent.md`.
 - **CMA Engine** (cma.homegrownpropertygroup.com) - active build, see `projects/cma-engine.md`
 - **Transaction Manager** (closings.homegrownpropertygroup.com) - lifecycle tool, see `projects/transaction-manager.md`
 - **TC Concierge** (tc.homegrownpropertygroup.com) - intake, live with Don running real deals
 - **Listing Report Portal** (reports.homegrownpropertygroup.com) - blocked on GitHub auth, see `projects/listing-report-portal.md`
-- **Brain App** (brain.homegrownpropertygroup.com) - shipped 2026-05-06, see `projects/brain-app.md`
 - **Claude skills** - five new skills shipped May 1 (objection-handler, referral-request-writer, showing-feedback-summarizer, offer-comparison-analyzer, market-update-writer)
 
 ## Recently completed
@@ -29,9 +28,7 @@ See `team.md` for full roster.
 - IDX Broker migration (Ylopo cancelled, Showcase IDX cancelled, FUB lead routing done)
 - Main site SEO push (mobile PageSpeed 96/100)
 - Buyers guide migration from Manus to React + Vite
-- Sellers guide Meta Pixel + CAPI + Home Grown Selling Score v2 (2026-05-05 through 05-07)
-- Sellers guide end-to-end ad-readiness QA + 4 production bug fixes (2026-05-11)
-- Sellers guide canonical domain corrected sitewide (8 files, was stale `sellers.` subdomain). GSC sitemap resubmitted, homepage + /home-selling-score/ indexing requested. (2026-05-11)
+- Sellers guide rebrand to brand colors
 
 ## Known blockers / pending
 
@@ -41,7 +38,6 @@ See `SESSION-HANDOFF.md` for current scratchpad.
 - Sherlock 403 on Transaction Manager (likely API key scope)
 - .net Google Workspace migration to .com (do not proactively remind)
 - GitHub PAT exposed in chat history needs rotation
-- **FUB Automation 2.0 on `sellers-guide-2026` tag not yet built** - blocks ad scaling. Initial paid-traffic launch is fine without it (manual eyes on first leads anyway). See `projects/sellers-guide.md`
 
 ## Where to look next
 
