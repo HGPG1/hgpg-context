@@ -1,6 +1,6 @@
 # HGPG Context (Brain)
 
-Last updated: 2026-05-09 (PM status reconciliation across all projects)
+Last updated: 2026-05-11 (NC Incentives lead quality audit, ads paused)
 
 ## Who
 
@@ -35,7 +35,7 @@ Status legend: 🟢 shipped & live · 🟡 active build · 🔵 planned/scoped �
 | Sellers Guide | 🟢 live, rebrand complete + Home Grown Selling Score v2 shipped 2026-05-08 | `projects/sellers-guide.md` |
 | Home Grown Selling Score | 🟢 live 2026-05-08 (5x4 wizard, curved 0-80 score, lead capture at end) | `projects/sellers-guide.md` |
 | Sellers Guide Meta Pixel + CAPI | 🟢 shipped, Custom Conversion registration still pending | `projects/sellers-guide.md` |
-| Charlotte New Construction | 🟢 live + serving Meta ads 2026-05-09, Pixel/CAPI load-bearing | `projects/charlotte-new-construction.md` |
+| Charlotte New Construction | 🟡 site live, Meta ads PAUSED 2026-05-11 (lead quality fix in HGPG-Ads), Pixel/CAPI load-bearing | `projects/charlotte-new-construction.md` |
 | South Charlotte Report | 🟢 active content pipeline | `projects/south-charlotte-report.md` |
 | Buyers Guide | 🟡 rebuild well under way (was 🟢 live on Manus→React+Vite) | `projects/buyers-guide.md` |
 | NC Scout / Incentive Concierge | 🟢 live, dashboard hide-failed-syncs follow-up scoped | `projects/nc-scout.md` |
@@ -47,6 +47,7 @@ Status legend: 🟢 shipped & live · 🟡 active build · 🔵 planned/scoped �
 
 ## Recently completed (latest first)
 
+- **2026-05-11 NC Incentives Meta campaign lead quality audit.** Pulled 16 FUB leads via MCP, ran geo audit on socialData. ~94% out-of-market (NJ/VA/NY/PA/TX/CA), only 1 confirmed in-market (Tammy Flores, FUB 31833). Real in-market CPL = ~$318, not the $12 Meta reports. Root cause: Housing Special Ad Category strips standard targeting levers + default "People in or recently in" location type. Ads paused pending creative-led fix in HGPG - Ads project. Variant C "Choice" ($50K OR rate) decisively wins on quality metrics, $4.63 CPL, 2.60% CTR, 33% LP-to-lead, Above avg rankings, keep this pattern for Variant D creative. Full audit lives in `projects/charlotte-new-construction.md`.
 - **2026-05-09 PM session reconciled status across all projects** (this update). Closed: Sherlock 403, Lamington duplicate cleanup, Google Calendar OAuth, FUB API key swap, Suna teardown, Closing Concierge teardown verified. Scope cuts: Meta Pixel rollout to Marketing Analyzer + TM both NOT NEEDED.
 - **TM transaction-pdfs bucket flip → private + signed URLs** kicked off as Claude Code task 2026-05-09. Spec covers conciergePdf rehydrated URLs, send-task-email rehydrate, and rezen push-document delete path.
 - **MLS Grid auto-pull comps integration mature** in CMA Engine. Bridgett's Bearer token landed; primary data source for `searchComps()`.
