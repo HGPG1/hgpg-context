@@ -5,7 +5,7 @@
 ## Last session: 2026-05-11 — Sellers Guide ad-readiness QA + 4 bugs fixed 🟢
 
 ### Outcome
-Sellers Guide is **ad-ready**. End-to-end QA verified Pixel + CAPI dedup, NeverBounce, FUB ingestion with full tag set, UTM attribution, fub_event_id round-trip, and canonical domain everywhere. Started believing it was launch-ready; found 4 production bugs along the way and fixed them all.
+Sellers Guide is **ad-ready and QA-verified**. End-to-end QA confirmed Pixel + CAPI dedup, NeverBounce, FUB ingestion with full tag set, UTM attribution, fub_event_id round-trip, and canonical domain everywhere. Google Search Console sitemap resubmitted + homepage and /home-selling-score/ manually indexed. Started the session believing the funnel was launch-ready; found and fixed 4 production bugs along the way.
 
 ### Four bugs fixed today
 
@@ -40,21 +40,31 @@ Sellers Guide is **ad-ready**. End-to-end QA verified Pixel + CAPI dedup, NeverB
 - NeverBounce ran and persisted result
 - Meta-bypass flow worked (no 6-digit verify step)
 
-### Outstanding before scaling ad spend
+### SEO follow-through completed
 
-- **FUB Automation 2.0 not built** on `sellers-guide-2026` tag. Leads land tagged correctly but no automatic drip/assignment fires. Initial ad launch is fine (want manual eyes on first leads anyway), but blocks scaling.
-- Resubmit sitemap in Google Search Console + URL-inspect homepage and /home-selling-score/ to speed up Google's reindex of canonical domain.
+- Google Search Console: new property `sellersguide.homegrownpropertygroup.com` auto-verified
+- Sitemap resubmitted: `sitemap.xml` → Success, 6 pages found
+- URL Inspection + Request Indexing fired for:
+  - https://sellersguide.homegrownpropertygroup.com/
+  - https://sellersguide.homegrownpropertygroup.com/home-selling-score/
+- Old `sellers.` property in GSC left alone (no DNS, will self-cleanup over time)
 
 ### Data cleanup completed
 
 - Removed 4 QA test rows from `seller_assessments`
 - Brian manually deleted FUB persons 31927 and 31928
 
+### Outstanding before scaling ad spend
+
+- **FUB Automation 2.0 not built** on `sellers-guide-2026` tag. Leads land tagged correctly but no automatic drip/assignment fires. Initial ad launch is fine (want manual eyes on first leads anyway), but blocks scaling.
+
+### Meta ads brief prompt drafted
+
+A complete Meta ads campaign brief is in this session's chat history — full context baked in, works for freelancer/agency/GPT recipient. Covers brand, audience (Housing Special Ad Category compliance), creative direction, budget split ($300-500/mo: 60% Conversions / 40% Traffic), 4-week test plan, KPIs. Reuse when ready to launch ads.
+
 ### Pickup notes for next session
 
 - **Build FUB Automation 2.0** on `sellers-guide-2026` tag — drip cadence + agent assignment. Unblocks ad scale.
-- Set up Meta ad campaigns. Destination URLs must bake `?utm_source=meta&utm_medium=paid-social&utm_campaign=<name>` into ad creative.
-- Brian has a Meta-ads brief prompt drafted in chat history — reuse for whoever builds the campaigns.
-- 5-minute SEO follow-through in Google Search Console (sitemap resubmit + URL inspect)
+- Set up Meta ad campaigns using the brief from chat history. Destination URLs must bake `?utm_source=meta&utm_medium=paid-social&utm_campaign=<name>` into ad creative.
 - Phase 1 ads test markers in code (per 5/5 Pixel commit) — clean up post-launch
 - `marketing.md` in brain repo was NOT updated this session — when ads go live, document campaign IDs, ad set structure, and budget there
