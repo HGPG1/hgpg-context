@@ -2,43 +2,57 @@
 
 # Session Handoff
 
-## Last session: 2026-05-11 — Brain audit: sellers guide state caught up to reality 🟡
+## Last session: 2026-05-11 — Sellers Guide ad-readiness QA 🟢 PASSED + 3 production bugs fixed
 
-### What this session was
-Brian asked "are we ready for ads on the sellers guide" and CONTEXT.md gave a stale answer ("recently completed - rebrand to brand colors"). Pulled live state from Vercel commit history + Supabase to reconstruct what actually shipped between 5/2 and 5/7.
+### Outcome
+Sellers Guide is **ad-ready**. End-to-end QA from `?utm_source=meta` URL verified: Pixel + CAPI dedup, NeverBounce, FUB ingestion with full tag set, UTM custom-field attribution, fub_event_id round-trip. Started the session believing this had all shipped clean; found 3 production bugs in the process and fixed them all.
 
-### What actually shipped (was not in brain)
-- **2026-05-02** — Header/footer pattern matched to buyers guide. Contact-an-Agent lead-capture modal (writes to `/api/fub-lead`, tags `sellers-guide-2026`, `website-lead`, `home-score-contact`)
-- **2026-05-04** — Schema/AEO enrichment across all 7 pages. SEO meta length fixes.
-- **2026-05-05** — **Meta Pixel + CAPI shipped.** Pixel `861295553661596`. Server-side CAPI mirror `api/meta/capi.js` with shared `event_id` dedup. Events: `AssessmentStarted`, `Lead`, `ScoreCompleted`, `QuizStarted`, `QuizCompleted`. `utm_source=meta` bypasses 6-digit verify (paid-traffic-friendly path).
-- **2026-05-06** — CAPI converted to ESM (`fix(capi): convert to ESM for type:module`). FUB UTM custom field bug fixed (use `customXXX` API names, not labels).
-- **2026-05-07** — **Home Grown Selling Score v2** shipped. 46-item wizard replaced with 5×4 single-page flow. New `/api/assessment/submit` writes `seller_assessments` + forwards to FUB. NeverBounce email validation wired. Score curve recalibrated to cap at 80 ("Market Ready" 85+ intentionally unreachable). Category Breakdown dropped from results. Email re-validates on edit.
+### Three bugs fixed today
 
-### Lead capture is live
-Supabase project `fkxgdqfnowskflgbuxhm` (Signature + Relocation, NOT HGPG Core):
+1. **Score page had no Pixel init** (commits `~5627dd2`)
+   - `/home-selling-score/` is the primary conversion funnel — Lead/AssessmentStarted/ScoreCompleted fire there
+   - Page had event-firing helpers but never loaded `fbevents.js` and never called `fbq('init', ...)`
+   - Every browser-side Pixel event was a silent no-op (the `if (typeof window.fbq === "function")` check was failing closed)
+   - Fix: added the same Pixel `<head>` block from `/index.html` and rewrote `fireFbqEvent` to delegate to `window.hgpgTrack` so it fires browser + CAPI with shared event_id
 
-- `seller_assessments`: 6 rows, latest 2026-05-07
-- `seller_assessment_ratings`: 238 rows, latest 2026-05-07
-- `seller_verification_codes`: 15 rows
+2. **`/api/assessment/submit` FUB call was fire-and-forget** (commits `~5627dd2`)
+   - Handler used `fetch(...).catch(...)` without `await`
+   - On Vercel serverless, lambda teardown killed the in-flight FUB POST before completion
+   - Result: every v2 lead returned 200 to the user but never reached FUB. All 5 existing rows from 5/2-5/7 had `fub_event_id=null`.
+   - Fix: awaited the FUB fetch. Now ~2-3s response time but lead reliably reaches FUB.
 
-### Ad-readiness verdict
-Technically wired. **Not yet QA'd post-CAPI-ESM-fix.** Before spend:
+3. **`/api/fub-lead` discarded FUB's response body** (commit `527bb7b`)
+   - Returned `{success: true}` even though FUB returned the person object with `id`
+   - Caller had no way to record the FUB person ID for cross-system lookup
+   - Fix: parse FUB response, return `{ success, fub_person_id, fub_person, fub_status }`. `/api/assessment/submit` then writes the person ID back to `seller_assessments.fub_event_id`.
 
-1. Verify in Meta Events Manager that `Lead` events appearing browser+server with working dedup
-2. End-to-end test from `?utm_source=meta` URL — bypass works, FUB lead lands with right tags + populated UTM custom fields
-3. Confirm `sellers-guide-2026` tag fires the intended FUB Automation 2.0
-4. Spot-check NeverBounce rejection path
-5. Spot-check Contact-an-Agent modal lead (separate code path)
+### QA result (single-pass, real submission from phone with utm_source=meta)
 
-### Brain updates committed this session
-- `projects/sellers-guide.md` — NEW, full state doc
-- `CONTEXT.md` — sellers guide moved out of "Recently completed" into "Active right now"
+- Lead in DB: `schema_version=v2-2026-05-07`, `tier_name=Solid Bones`, `email_validation_status=catchall`, all 4 UTMs + `metaBypass: true` in `utms_json`, `fub_event_id=31928`, `fub_posted_at` populated
+- FUB person 31928 landed with tags: `sellers-guide-2026`, `website-lead`, `home-selling-score`, `meta-bypass`, `utm:meta`. Stage=Lead, Source=Sellers Guide 2026.
+- Meta Test Events: PageView, ScoreCompleted, Lead all processed with shared `event_id` (browser side visible; CAPI side firing per Vercel logs at matching timestamps; single row per event_id in Test Events = dedup working)
+- NeverBounce ran and persisted result
+- Meta-bypass flow worked (no 6-digit verify step)
 
-### Process note for future sessions
-CONTEXT.md drifted ~1 week behind actual shipped state. The Brain App write API is live at `https://brain.homegrownpropertygroup.com/api/external/write` — Claude can write directly. **Default behavior going forward:** when a session ships material changes to a project, Claude proactively updates the relevant `projects/*.md` AND bumps CONTEXT.md status in the same session, not at the next ad-hoc audit.
+### Outstanding before scaling ad spend
+
+- **FUB Automation 2.0 not built** on `sellers-guide-2026` tag. Leads land tagged correctly but no automatic drip/assignment fires. Initial ad launch is fine (want manual eyes on first leads anyway), but blocks scaling. **Next session: build the Automation.**
+- `/process/` and `/pricing/` routes return 404. If nav anywhere on the sellers guide links to them, audit before sending paid traffic.
+- "Phase 1 ads test markers" comments left in code from 5/5 CAPI commit — cleanup later, not blocking.
+
+### Data cleanup completed
+
+- Removed 4 QA test rows from `seller_assessments` (Brian+test, Brian+qaverify, Brian+pid, Brian+momotest)
+- Brian manually deleted FUB persons 31927 and 31928
+
+### Process note
+
+This session is exactly why the "Brain Updates Are Default" rule was added at start of session. CONTEXT.md was a week stale; sellers-guide had no project file; the score page Pixel was broken in production for an unknown number of days. Going forward Claude proactively writes brain updates at end of every material-change session, unprompted.
 
 ### Pickup notes for next session
-- Run the 5-step ad QA checklist above
-- After QA green, set up Meta ad campaigns pointing at sellersguide.homegrownpropertygroup.com with `utm_source=meta` baked into the destination URLs
-- Phase 1 ads test markers left in code (per 5/5 Pixel commit) — clean up post-launch
-- `marketing.md` was not touched this session — when ads go live, document campaign IDs, ad set structure, and budget there
+
+- **Build FUB Automation 2.0** on `sellers-guide-2026` tag — drip cadence + agent assignment + whatever else you want. This unblocks ad scale.
+- After Automation is built, set up Meta ad campaigns. Destination URLs should bake `?utm_source=meta&utm_medium=<paid|organic-test>&utm_campaign=<campaign-name>` into ad creative.
+- Phase 1 ads test markers in code (per 5/5 Pixel commit) — clean up post-launch
+- `marketing.md` in brain repo was NOT updated this session — when ads go live, document campaign IDs, ad set structure, and budget there
+- Consider auditing `/process/` and `/pricing/` route 404s before spend
