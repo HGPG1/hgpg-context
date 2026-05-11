@@ -16,11 +16,14 @@ See `team.md` for full roster.
 
 ## What is active right now
 
-- **CMA Engine** (cma.homegrownpropertygroup.com) - active build, awaiting Taylor stress test, see `projects/cma-engine.md`
 - **Transaction Manager** (closings.homegrownpropertygroup.com) - lifecycle tool, ongoing Don feedback batches, see `projects/transaction-manager.md`
-- **TC Concierge** (tc.homegrownpropertygroup.com) - intake, live with Don running real deals
+- **TC Concierge** (tc.homegrownpropertygroup.com) - email intake, Don running real deals, see `projects/tc-concierge.md`
+- **CMA Engine** (cma.homegrownpropertygroup.com) - awaiting Taylor stress test, see `projects/cma-engine.md`
 - **Listing Report Portal** (reports.homegrownpropertygroup.com) - live, see `projects/listing-report-portal.md`
-- **Brain App** (brain.homegrownpropertygroup.com) - live MVP, see `projects/brain-app.md`
+- **Brain App** (brain.homegrownpropertygroup.com) - live, see `projects/brain-app.md`
+- **FUB AI Agent** (embedded in TM at `/agent`) - operational, `agent_enabled=false`, decision pending on flip strategy, see `projects/fub-ai-agent.md`
+- **Sellers Guide** (sellersguide.homegrownpropertygroup.com) - shipped + ad-ready, FUB Automation 2.0 pending, see `projects/sellers-guide.md`
+- **Buyers Guide** - live capturing leads, see `projects/buyers-guide.md`
 - **Claude skills** - five new skills shipped May 1 (objection-handler, referral-request-writer, showing-feedback-summarizer, offer-comparison-analyzer, market-update-writer)
 
 ## Recently completed
@@ -32,6 +35,11 @@ See `team.md` for full roster.
 - Sherlock 403 on Transaction Manager resolved (2026-05-11 reconciliation)
 - Listing Report Portal GitHub auth blocker resolved (2026-05-06 favicon push)
 - Brain App MVP shipped (2026-05-06)
+- Brain App Phase 1.5 UX polish shipped (2026-05-06)
+- Brain App Write API shipped (2026-05-08)
+- FUB AI Agent Session 7-9: paragraph stitching architecture, template paragraph length sweep, buyer template diversity (2026-05-11)
+- Sellers Guide Home Grown Selling Score v2 shipped (2026-05-07)
+- Sellers Guide Meta Pixel + CAPI + FUB Events API ingestion (2026-05-05 through 2026-05-11)
 - Resend SMTP wired into HGPG Core Supabase (30/hr vs 2/hr default)
 - IDX Broker migration (Ylopo cancelled, Showcase IDX cancelled, FUB lead routing done)
 - Main site SEO push (mobile PageSpeed 96/100)
@@ -43,6 +51,11 @@ See `team.md` for full roster.
 See `SESSION-HANDOFF.md` for current scratchpad.
 
 - $395 fee toggle structural build parked (TM)
+- TC Concierge absorption into TM deferred (current architecture stable)
+- Listing Report Portal DB pruning parked (~15GB, 8-10GB reclaim estimated)
+- FUB AI Agent flip strategy decision pending (`agent_enabled=true` vs sustained manual-approve)
+- FUB AI Agent scoring sweep on 4,340 unscored eligible leads (deferred)
+- Sellers Guide: FUB Automation 2.0 on `sellers-guide-2026` tag not yet built (blocks ad-spend scaling)
 - .net Google Workspace migration to .com (do not proactively remind)
 
 ## Where to look next
