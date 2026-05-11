@@ -2,7 +2,35 @@
 
 # Session Handoff
 
-## Last session: 2026-05-11 — Brain drift cleanup (round 2)
+## Last session: 2026-05-11 — CMA Enhancement 1 shipped (autosave on /seller/adjust + presented flip on PDF export)
+
+### What got built
+- `/seller/adjust` now autosaves on every edit (rate, feature rate, line toggle, condition tier, agent-include, swap). 500ms debounce, 3-attempt exponential-backoff retry (250/500/1000ms), re-arms on the next edit if all retries are exhausted.
+- New `Draft — Saving / Saved HH:MM / Save failed` banner under the page eyebrow. Always visible while on /seller/adjust.
+- First save on a fresh CMA INSERTs and captures the returned id back into the WorkingSet; subsequent autosaves UPDATE the same row. Continue-to-Packet now flushes the in-flight save instead of running its own duplicate.
+- Seller, buyer, and appraiser packet pages each flip `cma_reports.status` from `draft` → `presented` after a successful PDF download. `presented` stays canonical for the post-packet value (matches existing `CmaReportStatus` enum + History UI dropdown).
+- No schema migration. `cma_reports` already had `status text NOT NULL DEFAULT 'draft'` and an open RLS policy in HGPG Core (`ioypqogunwsoucgsnmla`) — writes worked already, only the autosave loop was missing.
+
+### Shipped
+- PR #34 (`feat-autosave-adjust`) merged. Commit `701ed86`. Vercel deploy `dpl_46pzX7iRwpYmrVETWzWrVcignX6t` READY in 29s. Live at cma.homegrownpropertygroup.com.
+
+### Project-file dual location of cma_reports — record for future sessions
+- `cma_reports` lives in HGPG Core Supabase (`ioypqogunwsoucgsnmla`), NOT the MLS project (`wdheejgmrqzqxvgjvfee`). The CMA app uses both: MLS for comp search via `searchComps()`, Core for reports + adjustment defaults. Browser autosave uses the `NEXT_PUBLIC_SUPABASE_URL` env var on Vercel, which points at Core. Local `.env` / `.env.local` set the server-side `SUPABASE_URL` to MLS for the IDX cache; don't be fooled into thinking that's the reports DB.
+- RLS on `cma_reports` is wide open (`cma_reports_open_all`, `cmd=ALL`, `USING true`, `WITH CHECK true`). PIN-auth gates access at the app layer.
+
+### Open thread
+- Hardcoded test: open Cressingham 5022 draft, bump a slider, confirm banner cycles Saving → Saved within 1-2s, reload, verify the slider sticks. Then click Export PDF and confirm `cma_reports.status` flips draft → presented (visible in History dropdown).
+- `beforeunload` prompt is best-effort only. Browsers don't await async work on unload — if a tab is killed mid-debounce (within 500ms of the last edit), the in-progress edit may not land. The autosave covers everything older than 500ms.
+- 43 existing rows in `cma_reports` are all `status='draft'` even though many have completed narratives. Per session decision, NOT backfilling them to `presented` — the historical drafts were saved by Continue-to-Packet but never had a PDF exported, so `draft` is honest.
+
+### Pickup notes for next session
+- If autosave starts thrashing under network instability, look at `app/seller/adjust/page.tsx` — `inFlightRef`, `retryAttemptRef`, and the `editVersion` counter together gate concurrency.
+- The Continue-to-Packet handler now awaits an in-flight save before navigating. If it ever hangs, check the `while (inFlightRef.current)` loop — it sleeps 50ms per tick.
+- New code uses `compIdOf` from `lib/cma/adjustments.ts` for keying `pqsByCompId` lookups. Verified identical to the `compIdOf` in `lib/cma/pqs.ts` — both stringify `listingID ?? idxID ?? address`.
+
+---
+
+## Earlier session: 2026-05-11 — Brain drift cleanup (round 2)
 
 ### What got done
 - **Sherlock 403** on Transaction Manager confirmed resolved (was already marked closed in `projects/transaction-manager.md` on 2026-05-09, but CONTEXT.md still listed it as a blocker). Fix was likely security/auth related — no specifics logged; if it recurs, start with API key scope.
