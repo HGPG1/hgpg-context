@@ -2,7 +2,29 @@
 
 # FUB AI Agent
 
-- **Status:** 🟢 Operational. Session 8 (2026-05-11) shipped seller template fixes for all 3 templates with too-long paragraphs. Production pipeline verified end-to-end in session 7. agent_enabled=false; can flip true any time. Buyer template voice-clone issue still parked (session 9).
+- **Status:** 🟢 Operational. Session 9 (2026-05-11) shipped buyer template diversity via .vN scenario variants + random pick in selectTemplate. Three buyer templates now in rotation for viewed_listing_recent scenario. agent_enabled=false; ready to flip true any time.
+
+## Session 9 — 2026-05-11 (buyer template diversity)
+
+### What shipped
+
+Two new buyer template rows + one selectTemplate code change. The selector previously did .find() on an exact scenario string match, so adding .vN variants would have been invisible to the cron. Patched to .filter() against a regex that matches the base scenario OR any .vN suffix, then random-pick when multiple variants match.
+
+- **Template 15** `v1.warm.viewed_listing_recent.email.v2` opens with the property. Subject "Still circling {{address_or_area}}?"
+- **Template 16** `v1.warm.viewed_listing_recent.email.v3` assumes warm and asks for the showing. Subject "Want to see {{address_or_area}} in person?"
+- Template 1 (existing) untouched as v1 of the family.
+
+All three share identical slot definitions so the slot-fill prompt requires no changes.
+
+**Code change (commit 808c456)** in lib/agent/draftGenerator.ts selectTemplate function. The exact-string find() became a regex filter() that matches the base scenario OR `.vN` suffix, with random pick when multiple variants are eligible. Fully backward-compatible: templates without a .vN suffix continue to work as the sole match.
+
+### Verification
+
+Ran cron with limit=9, 5 buyer matches landed: 2 v1 + 0 v2 + 3 v3. v2 not hitting in 5 rolls is plausible variance (probability ~5-15% on a single 5-roll trial). v3 hitting confirms the regex matches variants. All 3 templates verified active=true, channel=email, lead_type=buyer. Accepted as variance and moved on.
+
+### Followup observation (not blocking)
+
+Looking at the rendered drafts side-by-side, within-variant diversity is weak when leads lack signals data for slot fill. Three v3 drafts all defaulted to "that listing" for `address_or_area` and two to "today" for `recency_phrase`. Cross-variant diversity works (v1 reads obviously different from v3) but within a variant, similar-shaped leads produce similar-shaped output. To improve, could enrich slot fallbacks or add more LLM-fillable slots. Parked for future iteration; current state is shippable.
 
 ## Session 8 — 2026-05-11 (template paragraph length sweep)
 
