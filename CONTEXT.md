@@ -19,12 +19,13 @@ See `team.md` for full roster.
 - **CMA Engine** (cma.homegrownpropertygroup.com) - active build, see `projects/cma-engine.md`
 - **Transaction Manager** (closings.homegrownpropertygroup.com) - lifecycle tool, see `projects/transaction-manager.md`
 - **TC Concierge** (tc.homegrownpropertygroup.com) - intake, live with Don running real deals
-- **Listing Report Portal** (reports.homegrownpropertygroup.com) - blocked on GitHub auth, see `projects/listing-report-portal.md`
+- **Listing Report Portal** (reports.homegrownpropertygroup.com) - live, see `projects/listing-report-portal.md`
 - **Claude skills** - five new skills shipped May 1 (objection-handler, referral-request-writer, showing-feedback-summarizer, offer-comparison-analyzer, market-update-writer)
 
 ## Recently completed
 
-- Sherlock 403 on Transaction Manager resolved (2026-05-11)
+- Sherlock 403 on Transaction Manager resolved (2026-05-11 reconciliation)
+- Listing Report Portal GitHub auth blocker resolved (verified 2026-05-06 favicon push)
 - Brain App MVP shipped (brain.homegrownpropertygroup.com)
 - Resend SMTP wired into HGPG Core Supabase (30/hr vs 2/hr default)
 - IDX Broker migration (Ylopo cancelled, Showcase IDX cancelled, FUB lead routing done)
@@ -36,9 +37,9 @@ See `team.md` for full roster.
 
 See `SESSION-HANDOFF.md` for current scratchpad.
 
-- GitHub auth not configured on Mac Mini (blocks Listing Report Portal pushes)
 - .net Google Workspace migration to .com (do not proactively remind)
 - GitHub PAT exposed in chat history needs rotation
+- `transaction-pdfs` bucket flip to private — PR not yet opened on branch `claude/transaction-pdfs-private-AqXkA`
 
 ## Where to look next
 
