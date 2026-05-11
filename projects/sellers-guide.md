@@ -2,7 +2,7 @@
 
 # Sellers Guide
 
-**Status:** 🟢 SHIPPED + AD-READY. Outstanding: FUB Automation 2.0 on `sellers-guide-2026` tag (not yet built).
+**Status:** 🟢 SHIPPED + AD-READY. Outstanding: FUB Automation 2.0 on `sellers-guide-2026` tag (not yet built); sitemap.xml domain bug (SEO impact, not ad-blocking).
 
 ## URLs
 
@@ -11,6 +11,18 @@
 - Vercel project: `prj_2vnp0o6qfBdjNWaZsagIyUugEnrN` (team `team_FietQPKCmnyioG2n0FdteQCV`)
 - Output dir: `public/public/public/`
 - Local clone: `~/Documents/charlotte-sellers-guide-vercel` on Mac mini
+
+## Routes that exist (confirmed 2026-05-11)
+
+- `/` (homepage)
+- `/home-selling-score/` (Home Grown Selling Score, primary conversion funnel)
+- `/quiz/`
+- `/neighborhoods/`
+- `/compare/`
+- `/market-heatmap/`
+- `/thank-you/`
+
+7 pages total. No `/process/`, `/pricing/`, `/about/`, `/contact/`, or `/blog/` — those routes don't exist (and aren't linked from anywhere on the site, so no broken nav).
 
 ## Stack
 
@@ -97,15 +109,21 @@ End-to-end test from `?utm_source=meta&utm_campaign=preflight-final-20260511`:
 - ✅ NeverBounce ran and persisted `email_validation_status` + flags
 - ✅ Meta-bypass flow: no 6-digit email verify step shown for utm_source=meta traffic
 
-## Outstanding before scaling spend
+## Outstanding
 
+### Before scaling ad spend
 - 🟡 **FUB Automation 2.0 not built yet** on `sellers-guide-2026` tag. Leads land in FUB tagged correctly but no automatic drip/assignment fires. Manual follow-up required until Automation is configured. Acceptable for initial ad launch (want eyes on first leads anyway) but blocks scaling.
+
+### SEO (not ad-blocking)
+- 🟡 **Sitemap.xml lists wrong domain.** `public/public/public/sitemap.xml` declares URLs under `https://sellers.homegrownpropertygroup.com/...` but the canonical production domain is `https://sellersguide.homegrownpropertygroup.com/...`. The `sellers.` subdomain does not resolve (no DNS). Google reads sitemap as canonical declaration — currently pointing search engines at non-existent URLs. Fix: find/replace `sellers.homegrownpropertygroup.com` → `sellersguide.homegrownpropertygroup.com` in sitemap source. Resubmit in Google Search Console after deploy.
+
+### Cleanup later
+- "Phase 1 ads test markers" left in code from 2026-05-05 CAPI commit — flag for cleanup post-launch
 
 ## Known notes
 
-- "Phase 1 ads test markers" left in code from 2026-05-05 CAPI commit — flag for cleanup post-launch
-- Database lives in Signature/Relocation Supabase, not HGPG Core
-- `/process/` and `/pricing/` are 404 — if nav links point there, dead ends. Audit nav before ad spend if copy references those pages.
+- Database lives in Signature/Relocation Supabase, not HGPG Core. If we ever consolidate, this needs to come along.
 - `fub_event_id` column name is legacy; value is the FUB person ID (FUB Events API returns the person, not a separate event entity, because FUB dedups on email)
 - 4 domains aliased on Vercel: `sellersguide.homegrownpropertygroup.com` is canonical
 - Test data from 2026-05-11 QA cleaned out of `seller_assessments`; FUB persons 31927 and 31928 deleted manually
+- Site has 7 routes only (see "Routes that exist" above). Earlier session notes referenced `/process/` and `/pricing/` as broken — those routes simply don't exist and nothing links to them. No bug, just incomplete site scope.
