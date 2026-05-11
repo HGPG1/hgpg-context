@@ -2,7 +2,28 @@
 
 # Session Handoff
 
-## Last session: 2026-05-11 — Brain reconciliation + transaction-pdfs cleanup
+## Last session: 2026-05-11 — CMA Engine: 4 PRs shipped today (Enhancement 1 + Bugs 6/12/13 + Bug 14)
+
+### What shipped today (cma.homegrownpropertygroup.com)
+
+Four PRs landed in sequence as Brian re-ran Cressingham / Candlestick / Tyndale and surfaced new bugs:
+
+- **PR #34 — Enhancement 1: autosave on /seller/adjust + flip status to 'presented' on PDF export.** Every edit (rate, feature, line toggle, condition tier, agent-include, swap) bumps an `editVersion` counter; a 500ms-debounced effect writes via the existing `saveCmaReport` path. 3-attempt exponential backoff. "Draft — Saving / Saved HH:MM / Save failed" banner under the page eyebrow. Seller / buyer / appraiser packet pages each flip `cma_reports.status` from draft → presented after successful PDF download. No schema migration.
+- **PR #35 — Math bundle: Bugs 6 / 12 / 13.** Bug 6: pair-symmetry pass added to outlier detection — flagged comp + unflagged near-twin (within 5%, same side of anchor, similarity within 0.10) get pair-penalized at 0.5x or both unflagged based on cluster median vs anchor distance. Bug 12: singleton-outlier weight cap — closed comp with adjustedPrice >50% above OR >40% below other-Sold median + similarity <0.65 + ≥1 quality flag → cap at 0.25x. Bug 13: time-of-sale appreciation tier — new `appreciationRatePerYear` rate, +halfRate% (91-180 d) or +fullRate% (181-365 d) on raw price; >365 d auto-excluded via new `stale-sale` flag.
+- **PR #36 — Bug 14: appreciation default 5% → 3% + narrative mislabel fix.** Bug 13's 5% default inflated Cressingham PMV from $659K to $704K (+7%) — too aggressive for Charlotte metro 2025 (Indian Land Q4 2024: +2.9% YoY; Lancaster County Jul 2025: -1.1% YoY). Lowered to 3.0% with submarket-tuning guidance in the rates panel. Separately, the seller and buyer LLM prompts were hallucinating "newer vintage" attribution because they only saw adjustment totals + a prose-y rates list mentioning "build-vintage delta" — fixed by recomputing per-comp adjustment lines via `computeAdjustmentsBatch` and embedding them under each comp in the prompt, plus explicit `ADJUSTMENT ATTRIBUTION` rules in both system prompts (no "newer vintage" unless the Year built line actually fired non-zero).
+
+### Live state
+- All four deploys READY in 29-41s. Engine bug queue from the original 13-bug sweep is now drained. Bug 14 is a calibration tune, not a queue regression.
+- Cressingham re-run after Bug 14 should produce PMV ~$680-685K (default 3%) or ~$660K (agent zeros the rate for Lancaster). Per-comp narratives correctly say "sold N months ago, before recent market changes" instead of "newer vintage".
+
+### Pickup notes for next session
+- **Submarket-specific appreciation tuning is a workflow item, not a bug.** The 3.0% default is a sensible Charlotte-metro center, but Fort Mill / Waxhaw NC stay hot (4-5% may be right) and Lancaster County / eastern Union are flat-to-cooling (0-2% or zero). When a CMA looks high or low after the Bug 13 line lands, first ask: "is the appreciation rate calibrated for this submarket?" before re-investigating engine math. Pulling a current Redfin / Movoto / Rocket Homes YoY figure for the specific zip is the right move before publishing.
+- **`cma_reports` lives in HGPG Core (`ioypqogunwsoucgsnmla`), NOT MLS (`wdheejgmrqzqxvgjvfee`).** Easy mistake to make. The CMA app uses both projects: MLS for comp search, Core for reports + adjustment defaults.
+- **`'presented'` is canonical for the post-packet status,** not `'published'`. Existing enum: `draft | presented | archived`. Future spec language using "published" generically should resolve to "presented" in this codebase.
+
+---
+
+## Earlier session: 2026-05-11 — Brain reconciliation + transaction-pdfs cleanup
 
 ### What got done
 
