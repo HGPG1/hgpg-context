@@ -1,4 +1,4 @@
-<!-- Last Updated: 2026-05-08 -->
+<!-- Last Updated: 2026-05-11 -->
 
 # Session Handoff
 
@@ -51,6 +51,7 @@
 
 ### Deferred / Phase 2 for brain-app
 
+- **Multi-token auth for `/api/external/write`** (added 2026-05-11). Today the endpoint compares against a single `BRAIN_WRITE_TOKEN` env var, so the local dev token = the Claude session token = the Vercel prod token. Add support for a comma-separated list of valid tokens (e.g., `BRAIN_WRITE_TOKEN` for master + `BRAIN_WRITE_TOKEN_CLAUDE` for chat sessions) so individual tokens can be rotated independently without disturbing local dev or breaking active automations. Minimal change in the validation function: `validTokens.some(t => timingSafeEqual(...))`. Lets us share session-scoped tokens in chat without exposing the master.
 - iPhone smoke test deeper pass (CodeMirror + iOS soft keyboard scroll behavior in real-world editing)
 - Cooper Hewitt self-hosted (currently falling back to system sans, not on Google Fonts)
 - File rename and delete
