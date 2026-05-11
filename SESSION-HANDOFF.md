@@ -2,7 +2,39 @@
 
 # Session Handoff
 
-## Last session: 2026-05-11 — Brain reconciliation + NC office verification
+## Last session: 2026-05-11 — CMA Engine: Enhancement 1 (autosave) + Math bundle Bugs 6/12/13 shipped
+
+### What shipped today
+
+**Enhancement 1 — autosave on /seller/adjust + flip to 'presented' on PDF export.** PR #34, commit `701ed86`. Every edit (rate, feature, line toggle, condition tier, agent-include, swap) bumps an `editVersion` counter; a 500ms-debounced effect writes via the existing `saveCmaReport` path. 3-attempt exponential backoff (250/500/1000ms). "Draft — Saving / Saved HH:MM / Save failed" banner under the page eyebrow. Seller / buyer / appraiser packet pages each flip `cma_reports.status` from draft → presented after successful PDF download. No schema migration (status column already had DEFAULT 'draft').
+
+**Math bundle — Bugs 6 / 12 / 13.** PR #35, commit `00e41d4`. All three fixes in `lib/cma/{outlierFlag,pmv,adjustments,flags,types,adjustment-defaults}.ts`.
+
+- **Bug 6 — outlier symmetry.** New third detector pass after `removeCounterClusters`: scan each remaining flag for an unflagged near-twin (adjustedPrice within 5%, same side of weighted anchor, similarity within 0.10). If cluster median >25% from anchor → both pair-penalized at 0.5x weight (kept in math, NOT auto-excluded). If ≤25% → unflag original (both treated as legit signal). Counter-cluster wins.
+- **Bug 12 — singleton-outlier weight cap.** Closed comp triggers when ALL THREE: adjustedPrice >50% above OR >40% below other-Sold median; similarity < 0.65; at least one quality flag (long-market DOM>90, PQS<50, sqft-mismatch>25%, pool-mismatch, cross-state). Caps weight at 0.25 (NOT full exclusion).
+- **Bug 13 — time-of-sale appreciation.** New `appreciationRatePerYear` rate (default 5.0%, surfaced in the rates panel). Closed comps get +halfRate% (91-180d) or +fullRate% (181-365d) on raw price; >365d auto-excluded via new `stale-sale` flag.
+
+### Live state
+
+- cma.homegrownpropertygroup.com running both changes. Vercel deploys: Enhancement 1 `dpl_46pzX7iRwpYmrVETWzWrVcignX6t` (29s build), Math bundle `dpl_3unG6moCGWASarFpzHct2diXq32R` (36s build). Both READY.
+- Engine bug queue from the original 13-bug sweep is now fully drained. Remaining CMA work is enhancements (autosave already shipped) and quality-of-life items.
+- 99.99% of `mls_property` closed rows have `close_date` (1,647,147 of 1,647,282). Bug 13's data dependency is met cleanly — no fallback to `listing_contract_date` needed.
+
+### Smoke test queue for Brian
+
+- Cressingham 5022 / Candlestick 6022: bump a slider, confirm autosave banner cycles Saving → Saved within 1-2s, reload, slider sticks.
+- Candlestick re-run: 2915 Cutter Court (Woodhall) should now fire singleton-outlier, weight 0.75 → 0.25, PMV compresses from $1.02M toward $970-985K.
+- Bug 6 verification: Soft Shell pair from May 7 run is no longer asymmetric.
+- Stale-sale: any closed comp >365 days old shows "Excluded from math · stale sale".
+
+### Critical project knowledge added to /memory
+
+- **`cma_reports` lives in HGPG Core (`ioypqogunwsoucgsnmla`), NOT MLS (`wdheejgmrqzqxvgjvfee`).** The CMA app uses both projects: MLS for comp search, Core for reports + adjustment defaults. Browser autosave uses `NEXT_PUBLIC_SUPABASE_URL` pointed at Core. Easy to query the wrong DB and conclude tables are missing.
+- **`'presented'` is canonical for the post-packet status,** not `'published'`. The existing `CmaReportStatus = 'draft' | 'presented' | 'archived'` enum stands. Any future spec language using 'published' generically should resolve to 'presented' in this codebase.
+
+---
+
+## Earlier session: 2026-05-11 — Brain reconciliation + NC office verification
 
 ### What got done
 
