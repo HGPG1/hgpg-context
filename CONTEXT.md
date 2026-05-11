@@ -24,7 +24,10 @@ See `team.md` for full roster.
 
 ## Recently completed
 
-- Sherlock 403 on Transaction Manager resolved (2026-05-11 reconciliation)
+- NC office routing in ReZEN builder verified wired (2026-05-11). Code at `app/api/rezen/create-transaction/route.ts:160` does `state === "NC" ? REZEN_OFFICE_ID_NC : REZEN_OFFICE_ID`. Both env vars confirmed set on Vercel Production.
+- Exposed GitHub PAT closed out (2026-05-11). Superseded by fine-grained brain-app PAT scoped to `hgpg-context`, contents:write only. Old broad-scope token no longer in active use.
+- CMA Engine MLS Grid auto-pull confirmed mature (2026-05-09 in project file). `searchComps()` is load-bearing primary data source. Brain index was stale, now in sync.
+- Sherlock 403 on Transaction Manager resolved (2026-05-11 reconciliation, likely security/auth fix)
 - Listing Report Portal GitHub auth blocker resolved (verified 2026-05-06 favicon push)
 - Brain App MVP shipped (brain.homegrownpropertygroup.com)
 - Resend SMTP wired into HGPG Core Supabase (30/hr vs 2/hr default)
@@ -37,9 +40,8 @@ See `team.md` for full roster.
 
 See `SESSION-HANDOFF.md` for current scratchpad.
 
+- **transaction-pdfs bucket flip to private** - PR not yet opened on branch `claude/transaction-pdfs-private-AqXkA`. See `projects/transaction-manager.md` for full order of operations.
 - .net Google Workspace migration to .com (do not proactively remind)
-- GitHub PAT exposed in chat history needs rotation
-- `transaction-pdfs` bucket flip to private — PR not yet opened on branch `claude/transaction-pdfs-private-AqXkA`
 
 ## Where to look next
 
