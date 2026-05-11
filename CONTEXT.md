@@ -16,20 +16,22 @@ See `team.md` for full roster.
 
 ## What is active right now
 
-- **CMA Engine** (cma.homegrownpropertygroup.com) - active build, see `projects/cma-engine.md`
-- **Transaction Manager** (closings.homegrownpropertygroup.com) - lifecycle tool, see `projects/transaction-manager.md`
+- **CMA Engine** (cma.homegrownpropertygroup.com) - active build, awaiting Taylor stress test, see `projects/cma-engine.md`
+- **Transaction Manager** (closings.homegrownpropertygroup.com) - lifecycle tool, ongoing Don feedback batches, see `projects/transaction-manager.md`
 - **TC Concierge** (tc.homegrownpropertygroup.com) - intake, live with Don running real deals
 - **Listing Report Portal** (reports.homegrownpropertygroup.com) - live, see `projects/listing-report-portal.md`
+- **Brain App** (brain.homegrownpropertygroup.com) - live MVP, see `projects/brain-app.md`
 - **Claude skills** - five new skills shipped May 1 (objection-handler, referral-request-writer, showing-feedback-summarizer, offer-comparison-analyzer, market-update-writer)
 
 ## Recently completed
 
-- NC office routing in ReZEN builder verified wired (2026-05-11). Code at `app/api/rezen/create-transaction/route.ts:160` does `state === "NC" ? REZEN_OFFICE_ID_NC : REZEN_OFFICE_ID`. Both env vars confirmed set on Vercel Production.
-- Exposed GitHub PAT closed out (2026-05-11). Superseded by fine-grained brain-app PAT scoped to `hgpg-context`, contents:write only. Old broad-scope token no longer in active use.
-- CMA Engine MLS Grid auto-pull confirmed mature (2026-05-09 in project file). `searchComps()` is load-bearing primary data source. Brain index was stale, now in sync.
-- Sherlock 403 on Transaction Manager resolved (2026-05-11 reconciliation, likely security/auth fix)
-- Listing Report Portal GitHub auth blocker resolved (verified 2026-05-06 favicon push)
-- Brain App MVP shipped (brain.homegrownpropertygroup.com)
+- transaction-pdfs bucket flipped to private (fully aligned 2026-05-11). Bucket private since 2026-05-09, code on main via PR #7, DB ledger recorded, repo migration file committed (`2eb9794`).
+- NC office routing in ReZEN builder verified wired (2026-05-11)
+- Exposed GitHub PAT closed out (2026-05-11) — superseded by fine-grained brain-app PAT
+- CMA Engine MLS Grid auto-pull confirmed mature (2026-05-09 in project file)
+- Sherlock 403 on Transaction Manager resolved (2026-05-11 reconciliation)
+- Listing Report Portal GitHub auth blocker resolved (2026-05-06 favicon push)
+- Brain App MVP shipped (2026-05-06)
 - Resend SMTP wired into HGPG Core Supabase (30/hr vs 2/hr default)
 - IDX Broker migration (Ylopo cancelled, Showcase IDX cancelled, FUB lead routing done)
 - Main site SEO push (mobile PageSpeed 96/100)
@@ -40,7 +42,7 @@ See `team.md` for full roster.
 
 See `SESSION-HANDOFF.md` for current scratchpad.
 
-- **transaction-pdfs bucket flip to private** - PR not yet opened on branch `claude/transaction-pdfs-private-AqXkA`. See `projects/transaction-manager.md` for full order of operations.
+- $395 fee toggle structural build parked (TM)
 - .net Google Workspace migration to .com (do not proactively remind)
 
 ## Where to look next
