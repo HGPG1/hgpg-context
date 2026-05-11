@@ -106,6 +106,15 @@
 - PDF + deal-page button, firm-agnostic
 - Sensitive fields routed directly to attorney
 
+### transaction-pdfs bucket flipped private (PR #7, commit e45e3c8, merged ~2026-05-09)
+
+- `lib/storage/signTransactionPdfUrl.ts` helper (7-day expiry, accepts path or legacy public URL, never throws)
+- `lib/conciergePdf.tsx` persists storage path instead of public URL
+- `app/concierge/[token]/page.tsx` signs server-side on every page load
+- `app/api/rezen/push-document/route.ts` signs before email fanout
+- Bucket confirmed `public = false` in HGPG Core (verified 2026-05-11)
+- **Repo hygiene gap:** migration file `20260509_flip_transaction_pdfs_bucket_private.sql` was not committed alongside PR #7. Bucket was flipped via dashboard/MCP. Backfill commit pending on Brian's Mac to make repo source-of-truth.
+
 ### deals -> transactions migration (DONE 2026-05-01)
 
 - `hgpg-deals-tracker` decommissioned
@@ -123,11 +132,12 @@
 
 ## Open items
 
-- **transaction-pdfs bucket flip → private + signed URLs** — 🟡 **Code shipped to branch `claude/transaction-pdfs-private-AqXkA`** as of 2026-05-09 PM late. PR not yet opened, migration not yet applied. Branch contains: new helper `lib/storage/signTransactionPdfUrl.ts` (7-day expiry, accepts path or legacy public URL, never throws), `lib/conciergePdf.tsx` rewrite (drops `getPublicUrl`, persists storage path), `app/concierge/[token]/page.tsx` (server-side sign on every page load), `app/api/rezen/push-document/route.ts` (signs file_url before email-fanout), and migration `20260509_flip_transaction_pdfs_bucket_private.sql` (single UPDATE flipping bucket to private). Audit confirmed `send-task-email/route.ts:495` already uses `storage.download(path)` server-side and is private-bucket-safe — original spec was wrong to flag it. `tc-concierge-apps-script-v4.gs` already uses non-public storage path with service-role auth. **Order of operations when landing:** open PR → review → squash-merge → wait for Vercel READY → apply migration via Supabase MCP → smoke test. Migration BEFORE deploy would 403 in-flight traffic. Rollback is `UPDATE storage.buckets SET public = true WHERE id = 'transaction-pdfs';`. Upload code that writes `transaction_documents.file_url` lives outside this repo (likely tc-concierge Apps Script); helper handles legacy public URLs so no backfill required.
 - **$395 fee toggle** — parked build spec, refs commit b9fa0deb. The underlying notes-append work for the 3-gate fee verification (contract distribution + mid-deal at under_contract+14 + settlement review) shipped 2026-05-05. Structural toggle still parked.
+- **Migration file backfill** (`supabase/migrations/20260509_flip_transaction_pdfs_bucket_private.sql`) — repo hygiene only, bucket already private. Content staged in 2026-05-11 session; commit pending from Brian's Mac.
 
 ### Closed items
 
+- ✅ **transaction-pdfs bucket flipped to private** (verified 2026-05-11). Code on main, bucket private, signed URLs flowing. Migration file backfill is the only loose thread.
 - ✅ **NC office routing verified wired** (2026-05-11). Code at `app/api/rezen/create-transaction/route.ts:160` does `state === "NC" ? REZEN_OFFICE_ID_NC : REZEN_OFFICE_ID` with fallback, applied via `setOwnerInfo`. Both env vars confirmed set on Vercel Production. NC office ID `924dac0e-91f2-471d-80c4-f06d80fb6d94` not hardcoded — pulled from env, which is the right pattern.
 - ✅ Sherlock 403 resolved (2026-05-09)
 - ✅ Lamington duplicate cleanup verified (single row in DB: `a7ac15e6-bdfb-495a-8588-11e98692f905`)
