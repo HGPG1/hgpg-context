@@ -4,60 +4,88 @@
 
 ## Where we are
 
-**Sessions 7 + 8 (2026-05-11) shipped.** Multi-field paragraph stitching architecture live and verified. All 3 seller templates with paragraph-too-long issues fixed via DB UPDATE — no code change needed. End-to-end pipeline working. agent_enabled=false in safe state, ready to flip true any time.
+**Sessions 7 + 8 + 9 (2026-05-11) shipped.** FUB AI Agent is feature-complete for v1 buyer-only Brian-only pilot:
+- Multi-field paragraph stitching architecture live (session 7)
+- All 3 seller templates with too-long paragraphs fixed (session 8)
+- Buyer template diversity via .vN variants + random pick (session 9)
 
-Status: 🟢 Operational. One non-blocking quality issue parked for session 9:
-- Buyer template `v1.warm.viewed_listing_recent.email` produces voice-clone drafts. 5 of 5 buyer drafts in session 7 were near-identical, only varying by first name and a 1-3 word time phrase.
+agent_enabled=false in safe state. Ready to flip true for sustained operation.
 
-## Session 7 + 8 summary
+Status: 🟢 Operational, feature-complete v1.
 
-- Architecture: paragraphs text[] column + CHECK constraint, FUB Para2/3/4 fields (160/161/162), Template 1156 with newline separators, draftGenerator/fubPusher/edit-route/queue-UI all refactored
-- Real outbound verified: Jesse Hernandez 11323 received the test email via full production pipeline
-- Bug fix: draftGenerator was inserting paragraphs array even on validation failure, hitting DB CHECK. Patched to insert paragraphs=null when blockReason set
-- Template fixes: templates 9, 2, 11 all had paragraph 3 over the 250 cap. Trimmed filler words, all 3 now pass
+## Today's commits
 
-## TM repo state
+**TM (HGPG1/hgpg-transaction-manager) main:**
+- 504f116 - multi-field paragraph stitching architecture
+- c8f0d51 - constraint-violation bug fix (paragraphs=null on blockReason)
+- 808c456 - selectTemplate matches base scenario + .vN variants
 
-- Branch: main
-- HEAD: c8f0d51 (fub agent: insert with paragraphs=null when blockReason set)
-- Deploy: closings.homegrownpropertygroup.com READY
-- Working tree clean
-- Stale Claude Code branches still on origin (cosmetic)
+**Brain (HGPG1/hgpg-context) main:**
+- 74f81c7 - session 7 SESSION-HANDOFF
+- 7f10686 - session 7 project file
+- 61572e1 - CONTEXT.md update
+- bd600f3 - session 8 project file entry
+- f18eed0 - session 8 SESSION-HANDOFF
+- bd02910 - session 9 project file entry
+- (this commit) - session 9 SESSION-HANDOFF
 
-## Brain repo state
+**Templates touched in Supabase (`ioypqogunwsoucgsnmla`):**
+- Templates 2, 9, 11 — paragraph 3 trimmed under 250-char cap
+- Templates 15, 16 — new buyer variants inserted
 
-- Branch: main
-- HEAD: bd600f3 (session 8 - template paragraph length sweep)
+## Open queue (post-session-9)
 
-## Open queue (8 drafts in flight)
+agent_enabled=false. Nothing going out without manual approve.
 
-agent_enabled=false so nothing is going out without manual approve.
+| Draft | Lead | Template | Notes |
+|---|---|---|---|
+| 17 | Jesse Hernandez | seller:listing_thinking | approved + sent (Phase 7 verification, real outbound) |
+| 23 | Jesse Hernandez | seller:listing_thinking | dupe with 17 - reject |
+| 24 | John Miller | seller:seller_report_engaged | clean |
+| 25 | Jay Miller | seller:seller_report_engaged | clean |
+| 26 | Rachel Delmore | seller:listing_thinking | clean |
+| 27 | Gerard Marmo | buyer:viewed_listing_recent.v3 | Brian in active manual convo - reject |
+| 28 | Seanna Mackey | buyer:viewed_listing_recent.v3 | clean |
+| 29 | Anthony Scott | buyer:viewed_listing_recent.v1 | clean |
+| 30 | Tamela Karnazes | seller:seller_report_engaged | clean |
+| 31 | Sam Russell | buyer:viewed_listing_recent.v3 | clean |
+| 32 | Jason Smith | seller:listing_thinking | newly classified seller |
+| 33 | Leigh Waldrep | seller:listing_thinking | newly classified seller |
+| 34 | Chris Smith | buyer:viewed_listing_recent.v1 | newly classified buyer |
+| 35 | Tracy Shrum | seller:seller_report_engaged | clean |
 
-| Draft | Lead | Status | Template | Notes |
-|---|---|---|---|---|
-| 14 | Seanna Mackey | pending_review | buyer:viewed_listing_recent | clean, ready |
-| 16 | Anthony Scott | pending_review | buyer:viewed_listing_recent | clean, ready — same template as 14/18/20 |
-| 17 | Jesse Hernandez | approved+sent | seller:listing_thinking | Phase 7 verification send, real outbound |
-| 18 | Sam Russell | pending_review | buyer:viewed_listing_recent | clean, ready |
-| 20 | Gerard Marmo | pending_review | buyer:viewed_listing_recent | clean. Brian in active manual convo - probably reject |
-| 23 | Jesse Hernandez | pending_review | seller:listing_thinking | dupe with 17 - reject |
-| 24 | John Miller | pending_review | seller:seller_report_engaged | NEW post-template-fix, clean |
-| 25 | Jay Miller | pending_review | seller:seller_report_engaged | NEW post-template-fix, clean |
-| 26 | Rachel Delmore | pending_review | seller:listing_thinking | NEW, clean |
+12 fresh pending drafts ready for queue review. Good test rig for Don when he starts using the queue UI.
 
-Session 7 had drafts 19/21/22 stuck on paragraph_too_long. Those got deleted in session 8 and regenerated as 24/25/26 against the fixed templates.
+## Pick up here (session 10 priorities)
 
-## Pick up here (session 9 priorities)
+Decision time. Three paths:
 
-1. **Buyer template diversity.** Write 3-4 phrasing variants of `viewed_listing_recent` so selectTemplate can rotate them. Either: (a) 3-4 new scenario rows with random pick, or (b) more LLM-fillable slots in existing template. Lean (a) — cleaner, easier to audit.
-2. **Decide agent_enabled flip strategy.** Templates clean, code solid, pipeline verified. Realistically ready for week 1 ramp at daily_send_cap=10 with manual approve.
-3. **Optional sweep.** Re-run the template paragraph-length sweep query (in projects/fub-ai-agent.md session 8 entry) before any new template ships.
+1. **Flip agent_enabled=true and start the manual-approve ramp.** All technical work is done. Daily cap is 10. Don could start reviewing the queue tomorrow morning. Optionally also flip auto_below_threshold=true to let high-confidence drafts auto-approve.
 
-## Critical context (carry forward)
+2. **Build the Don-facing dashboard first.** Currently the queue UI is the only interface. A summary view (drafts this week, approve rate, reject reasons, response signal) would help Don and Brian see whether the agent is working.
 
-- agent_enabled blocks BOTH cron AND manual approve via outboundGate.checkOutboundGate. Flip true for sends, flip back to false when done if not yet in production ramp.
-- FUB Automation 2.0 delivers email as plaintext. NEVER use `<br>` in templates. Real newlines work in plaintext and HTML modes.
-- FUB UI Merge Fields dropdown produces `%snake_case%` tokens. Don't type tokens, use the dropdown.
-- Test rig: FUB person 27764 (real Brian in Sphere stage, pond 9 = excluded). Agent Test - Brian (31924) deleted.
-- gerardmarmo@yahoo.com (FUB 23552): Brian in active manual conversation. Reject any agent drafts targeting him.
-- Template paragraph sweep query lives in projects/fub-ai-agent.md "Session 8" entry. Run before shipping new templates.
+3. **Backfill scoring on 4,340 unscored eligible leads.** This 10x+ the candidate pool and is the biggest single lever for "more drafts" volume. Currently the pool feels small because most leads don't have a score yet.
+
+## Critical context to carry forward
+
+- agent_enabled blocks BOTH cron AND manual approve via outboundGate. Flip true for sends.
+- FUB Automation 2.0 delivers email as plaintext (or mail clients pick plaintext). NEVER use `<br>` in templates - real newlines only.
+- FUB UI Merge Fields dropdown produces `%snake_case%` tokens. Don't type them.
+- Test rig: FUB person 27764 (Brian in Sphere, pond 9 excluded).
+- gerardmarmo@yahoo.com (FUB 23552) - Brian in active manual conversation. Reject any agent drafts targeting him.
+- Template paragraph sweep query lives in projects/fub-ai-agent.md "Session 8" entry.
+- Variant naming convention: `v1.warm.scenario_name.channel` (base) + `.v2`/`.v3`/... for variants. Selector matches all .vN suffixes via regex and random-picks.
+
+## Backlog (post-v1)
+
+- More buyer/seller template variants (only viewed_listing_recent has variants; other scenarios still single-template)
+- Hot tier templates (score >= 40 → distinct templates)
+- iMessage seller variants
+- Cooldown re-touch templates (second-attempt copy)
+- 4,340 unscored eligible leads scoring sweep
+- Don/Brian-facing dashboard
+- FUB UI custom fields 157-162 visibility to admins-only
+- Normalize hideIfEmpty across fields 157 vs 160/161/162 (cosmetic)
+- Stale tag cleanup on person 27764 (`agent_draft_email_` trailing underscore)
+- Drop body column after deprecation window
+- v2 features: brokerage oversight expansion (Ashley/Brenda/Taylor + Don unified queue), tier-based behavior, smart channel pick, production inbound classifier
