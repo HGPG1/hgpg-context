@@ -2,75 +2,43 @@
 
 # Session Handoff
 
-## Last session: 2026-05-11 — FUB AI Agent smoke test attempted, CP4 failed on architecture 🔴
+## Last session: 2026-05-11 — Brain audit: sellers guide state caught up to reality 🟡
 
-### What happened
+### What this session was
+Brian asked "are we ready for ads on the sellers guide" and CONTEXT.md gave a stale answer ("recently completed - rebrand to brand colors"). Pulled live state from Vercel commit history + Supabase to reconstruct what actually shipped between 5/2 and 5/7.
 
-Ran the 4-checkpoint smoke test gate. CP1, CP2, CP3 passed. CP4 (first real outbound, Jay Miller draft id 9) revealed two foundational FUB constraints that break the current architecture:
+### What actually shipped (was not in brain)
+- **2026-05-02** — Header/footer pattern matched to buyers guide. Contact-an-Agent lead-capture modal (writes to `/api/fub-lead`, tags `sellers-guide-2026`, `website-lead`, `home-score-contact`)
+- **2026-05-04** — Schema/AEO enrichment across all 7 pages. SEO meta length fixes.
+- **2026-05-05** — **Meta Pixel + CAPI shipped.** Pixel `861295553661596`. Server-side CAPI mirror `api/meta/capi.js` with shared `event_id` dedup. Events: `AssessmentStarted`, `Lead`, `ScoreCompleted`, `QuizStarted`, `QuizCompleted`. `utm_source=meta` bypasses 6-digit verify (paid-traffic-friendly path).
+- **2026-05-06** — CAPI converted to ESM (`fix(capi): convert to ESM for type:module`). FUB UTM custom field bug fixed (use `customXXX` API names, not labels).
+- **2026-05-07** — **Home Grown Selling Score v2** shipped. 46-item wizard replaced with 5×4 single-page flow. New `/api/assessment/submit` writes `seller_assessments` + forwards to FUB. NeverBounce email validation wired. Score curve recalibrated to cap at 80 ("Market Ready" 85+ intentionally unreachable). Category Breakdown dropped from results. Email re-validates on edit.
 
-1. **FUB custom fields silently truncate at ~255 chars on API write.** Jay's body was 423 chars; FUB stored 255 of them, cut off mid-word ("doesn't know wha"). No 400 error, no warning — POST returned 200, our pusher logged `fub_push_success`, the email went out with a truncated body.
+### Lead capture is live
+Supabase project `fkxgdqfnowskflgbuxhm` (Signature + Relocation, NOT HGPG Core):
 
-2. **FUB API HTML-escapes text custom field values on write.** Our `<br><br>` got stored as `&lt;br&gt;&lt;br&gt;` in field 157, then rendered as literal `<br><br>` text in the delivered email. This is the OPPOSITE behavior from when HTML is typed into a custom field via the FUB UI's HTML editor (which we proved in CP2). API writes get escaped; UI writes don't.
+- `seller_assessments`: 6 rows, latest 2026-05-07
+- `seller_assessment_ratings`: 238 rows, latest 2026-05-07
+- `seller_verification_codes`: 15 rows
 
-Jay received a confusing email at 10:56 AM ET. Brian sent a personal recovery email from his own account immediately after. Damage mitigated.
+### Ad-readiness verdict
+Technically wired. **Not yet QA'd post-CAPI-ESM-fix.** Before spend:
 
-`agent_enabled` flipped back to false at 15:02 UTC. No further outbound possible until Session 7 ships the redesign.
+1. Verify in Meta Events Manager that `Lead` events appearing browser+server with working dedup
+2. End-to-end test from `?utm_source=meta` URL — bypass works, FUB lead lands with right tags + populated UTM custom fields
+3. Confirm `sellers-guide-2026` tag fires the intended FUB Automation 2.0
+4. Spot-check NeverBounce rejection path
+5. Spot-check Contact-an-Agent modal lead (separate code path)
 
-### Today's checkpoint results
+### Brain updates committed this session
+- `projects/sellers-guide.md` — NEW, full state doc
+- `CONTEXT.md` — sellers guide moved out of "Recently completed" into "Active right now"
 
-- ✅ **CP1 PASS** — Viktor's Automation 2.0 trigger fires on `agent_draft_email_ready` tag
-- ✅ **CP2 PASS** (with caveats — see learnings) — Merge fields render when inserted via FUB UI Merge Fields dropdown, NOT via the literal `[-camelCase-]` syntax that was assumed to work based on round-trip storage verification
-- ✅ **CP3 PASS** — Smoke test SQL Section A → B → C ran cleanly via Supabase MCP. Brian's record (fub_person_id 27764) fully restored byte-identical post-test
-- ❌ **CP4 FAIL** — Architecture problem, not bug. Jay's draft pushed successfully (sub-2-second approve→push→FUB chain), but delivered email was unreadable
+### Process note for future sessions
+CONTEXT.md drifted ~1 week behind actual shipped state. The Brain App write API is live at `https://brain.homegrownpropertygroup.com/api/external/write` — Claude can write directly. **Default behavior going forward:** when a session ships material changes to a project, Claude proactively updates the relevant `projects/*.md` AND bumps CONTEXT.md status in the same session, not at the next ad-hoc audit.
 
-### What shipped today
-
-- **`lib/agent/emailFormat.ts`** — `formatEmailBodyForFub()` HTML escape + `\n\n` → `<br><br>` converter (commit `6a1fa72`). **MUST BE REVERTED in Session 7** — the `<br>` tags get re-escaped by FUB on write, making the conversion worse than useless.
-- **`scripts/backfill-html-email-bodies.ts`** — one-shot backfill that converted 4 pending drafts (ids 7, 8, 9, 10) from plaintext `\n\n` to `<br><br>` HTML breaks. **Also must be reverted** when Session 7 rolls back the email format helper. The 3 still-pending drafts (Gerard #7, Seanna #8, Anthony #10) currently have `<br>` in their bodies — those bodies need re-conversion back to plaintext, OR the drafts need to be discarded and regenerated.
-- **Template 1156 fixed in FUB UI** — merge field placeholders re-inserted via the FUB Merge Fields dropdown. Subject and body now correctly reference `%custom_agent_draft_email_subject%` and `%custom_agent_draft_email_body%`. The original `[-camelCase-]` syntax from session 6 was discovered to be cosmetic — stored fine, never rendered.
-- **PR #7 verified in prod** — bucket privatization migration confirmed applied: `storage.buckets.transaction-pdfs.public = false`. Signed-URL flow for transaction-pdfs is live.
-
-### Pickup notes for Session 7
-
-The agent build is paused at "approved-but-architecturally-broken." Don't touch it without a redesign first. Session 7 needs to:
-
-1. **Revert `lib/agent/emailFormat.ts` HTML conversion.** The `<br>` approach was wrong. FUB escapes on write regardless of channel.
-2. **Re-backfill drafts 7/8/10** from `<br><br>` back to plaintext `\n\n`, OR discard them and regenerate. Pick before coding.
-3. **Spec the multi-field paragraph stitching redesign** (Option A from today's analysis):
-   - Create 3-4 additional FUB custom fields: `customAgentDraftEmailPara2`, `Para3`, `Para4` (text type)
-   - Update Template 1156 in FUB UI to stitch paragraphs with literal `<br><br>` BETWEEN merge tokens (literal `<br>` in template body is HTML, not escaped; merge values stay plaintext per-paragraph)
-   - Refactor `lib/agent/draftGenerator.ts` to emit body as an array of paragraphs, each under 256 chars (target 200 chars per paragraph to leave headroom)
-   - Refactor `lib/agent/fubPusher.ts` to write each paragraph to its respective custom field
-   - Add `fub_agent_message_drafts.body_paragraphs jsonb` column (or rename `body` and migrate)
-   - Add defensive length check in pusher: refuse to push if any paragraph > 250 chars, log `block_reason='paragraph_too_long'`, surface in queue UI
-4. **Verify the redesign on Agent Test - Brian (FUB ID 31924) FIRST** before any real lead. New CP1-CP4 sequence with multi-field draft.
-5. **Then resume the 4-checkpoint smoke test** against Gerard or Seanna once architecture proven.
-
-### Jay status
-
-- Draft id 9 status = 'approved', fub_pushed_at = 14:56:17 UTC
-- FUB record shows `agent_email_sent` tag applied (Automation 2.0 step 2 fired correctly)
-- `agent_draft_email_ready` tag was likely removed by the Automation (tag-removal step)
-- Brian sent recovery email from personal account at ~15:05 UTC (manual, outside agent path)
-- Leave draft 9 in 'approved' status as audit trail. Do NOT mutate it.
-
-### Other state
-
-- `agent_enabled = false` (confirmed via MCP at session end)
-- `pushed_today_total = 1` (Jay's truncated email)
-- 3 pending drafts still in queue, all with HTML breaks (need re-backfill or discard)
-- 4 unscored eligible leads pool = 4,340 (unchanged)
-- TM main = commit `6a1fa72` (HTML body fix that needs reverting)
-- Brain main = needs updating with this handoff
-
-### Brain updates pending in this push
-
-- `projects/fub-ai-agent.md` — full Session 7 entry with today's smoke test failure analysis
-- `SESSION-HANDOFF.md` — this file
-- `CONTEXT.md` — date bump to 2026-05-11, FUB AI Agent line updated
-
-### Don't forget
-
-- Update FUB custom fields 157/158/159 visibility to admin-only in FUB UI (carryover from session 4 — still not done)
-- The `--experimental-strip-types` Node 25 backfill script pattern that Claude Code used is a reusable pattern for future one-shot data migrations
-- TM repo has no `npm run typecheck` script — just `lint`. Future Claude Code prompts should say "run tsc directly"
+### Pickup notes for next session
+- Run the 5-step ad QA checklist above
+- After QA green, set up Meta ad campaigns pointing at sellersguide.homegrownpropertygroup.com with `utm_source=meta` baked into the destination URLs
+- Phase 1 ads test markers left in code (per 5/5 Pixel commit) — clean up post-launch
+- `marketing.md` was not touched this session — when ads go live, document campaign IDs, ad set structure, and budget there
