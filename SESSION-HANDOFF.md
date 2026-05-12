@@ -2,7 +2,38 @@
 
 # Session Handoff
 
-## Last session: 2026-05-12 — Narrative cache shipped
+## Last session: 2026-05-12 — Narrative cache freshness bug closed
+
+PR #43 (`polish-narrative-cache-fix`) — merged + deployed (READY, `dpl_BGQSLDhaghgjM37fBZcvKTEA3BhV`).
+
+**The bug:** PR #42's caching effectively shipped **zero** savings. Brian re-tested Candlestick and the LLM was firing on every view. Verified directly on row `7cb7ef75`: `narrative_generated_at` 12:34:31 ET, then the PR #34 PDF-export status flip (draft → presented) bumped `updated_at` to 12:36:19 ET — 108 seconds later — without touching `narrative_generated_at`. By the time of this fix **all 47 narrative-bearing rows in HGPG Core were stale**.
+
+**Root cause:** `cma_reports_set_updated_at` only bumped `narrative_generated_at` when the narrative column itself changed. Several legitimate UPDATEs bumped `updated_at` without touching narrative:
+- PR #34 PDF-export status flip from the packet page
+- Manual status changes from /history (presented → archived, etc.)
+- Any future label edit (agent_name, subject_address)
+
+Each landed `narrative_generated_at < updated_at` on the row → `loadCachedNarrative` correctly marked it stale → regen on every reopen.
+
+**The fix (trigger, not call-sites):** per Brian's stop-and-ask, fixed the trigger as a single point rather than every UPDATE call site. New rules in `cma_reports_set_updated_at`:
+
+| Update kind | `narrative_generated_at` |
+|---|---|
+| Math changed (`subject_summary`/`comps`/`adjustments`/`pmv`/`dom`/`pqs`) | leave alone → stale signal (intentional) |
+| Narrative changed | stamp fresh |
+| Neither changed, row already has narrative (status flip, label edit) | bump along with `updated_at` → cache stays valid |
+
+`BEFORE UPDATE`, so all three checks run in the same row write. Handles every current AND future UPDATE call site without per-site discipline.
+
+**Live DB state:**
+- Smart trigger applied to HGPG Core (`ioypqogunwsoucgsnmla`) via Supabase MCP. Migration at `supabase/migrations/20260512_cma_reports_trigger_smart_freshness.sql`.
+- Backfill UPDATE ran on the 47 stale rows → **0 stale / 47 fresh / 5 null** (unchanged). Cache genuinely working now.
+
+Update for [[project_cma_dual_supabase]] context: future writers to `cma_reports` don't need to remember to bump `narrative_generated_at` — the trigger handles it based on which columns actually changed.
+
+---
+
+## Previous session: 2026-05-12 — Narrative cache shipped
 
 PR #42 (`polish-narrative-cache`) — merged + deployed (READY, `dpl_FVoBSUsoKis1thj6ngdfcDZyYhQq`).
 
