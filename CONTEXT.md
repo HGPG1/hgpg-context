@@ -18,7 +18,7 @@ See `team.md` for full roster.
 
 - **Transaction Manager** (closings.homegrownpropertygroup.com) - lifecycle tool, ongoing Don feedback batches, see `projects/transaction-manager.md`
 - **TC Concierge** (tc.homegrownpropertygroup.com) - email intake, Don running real deals, see `projects/tc-concierge.md`
-- **CMA Engine** (cma.homegrownpropertygroup.com) - awaiting Taylor stress test, see `projects/cma-engine.md`
+- **CMA Engine** (cma.homegrownpropertygroup.com) - production-ready, 20-PR sweep complete (engine math + autosave + mobile + addresses + narrative cache), awaiting real-world agent reps, see `projects/cma-engine.md`
 - **Listing Report Portal** (reports.homegrownpropertygroup.com) - live, see `projects/listing-report-portal.md`
 - **Brain App** (brain.homegrownpropertygroup.com) - live, see `projects/brain-app.md`
 - **FUB AI Agent** (embedded in TM at `/agent`) - operational, `agent_enabled=false`, decision pending on flip strategy, see `projects/fub-ai-agent.md`
