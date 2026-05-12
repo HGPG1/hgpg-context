@@ -13,7 +13,7 @@
 
 ## Current state (2026-05-12)
 
-Engine math sweep complete after three days of intensive bug work (2026-05-07 through 2026-05-12). Math is appraisal-grade per Fannie Mae URAR Form 1004 standards. UX is mobile-responsive. Narrative caching means re-views are instant. Three real-world test properties (Candlestick, Cressingham, Tyndale) verified across three price tiers and three market temperatures.
+Engine math sweep complete after three days of intensive bug work (2026-05-07 through 2026-05-12). Math is appraisal-grade per Fannie Mae URAR Form 1004 standards. UX is mobile-responsive with hamburger drawer. Narrative caching means re-views are instant. Comp search persists across navigation. Three real-world test properties (Candlestick, Cressingham, Tyndale) verified across three price tiers and three market temperatures.
 
 **The tool is ready for Brenda, Ashley, Taylor to use on real listings.** Pending stress test by Taylor and real-world workflow feedback from agents.
 
@@ -40,6 +40,7 @@ Engine math sweep complete after three days of intensive bug work (2026-05-07 th
 | #41 | Polish — Address normalization (canonical from MLS structured parts; mls_subject_detect_v2 RPCs return parts) |
 | #42 | Polish — Narrative caching (narrative_generated_at column + trigger + loadCachedNarrative) |
 | #43 | Polish — Smart freshness trigger so non-math UPDATEs preserve narrative cache |
+| #44 | Polish — Top-of-page back links on all packet/adjust pages + Auto-Find comp search persistence with subject-changed soft invalidation |
 
 ## Architecture decisions
 
@@ -148,6 +149,16 @@ Parsed address parts compare + zip gate, suffix-tolerant. Prevents subject from 
 - Header is a client component with responsive split: at md+ inline nav unchanged; below md, logo left + hamburger right with right-side drawer (48px tap targets, backdrop/link/ESC close, body scroll-lock, inline SVG icons)
 - Form inputs use `block w-full` with `min-w-0` on label wrappers — fixes overflow at source rather than masking with body `overflow-x-hidden`
 - White card padding shrunk from `p-10` to `p-6 sm:p-10` (24px mobile, 40px desktop)
+
+### Navigation & comp search persistence (PR #44)
+
+- Back link affordance duplicated at top of /seller/packet, /seller/adjust, /buyer/packet, /appraiser/packet — same chevron+underline as existing footer link, same href. Solves the long-page-scroll-to-navigate problem on packet views
+- `WorkingSet.findCompsSnapshot` persists Auto-Find result + subject snapshot + topIds + manualSwaps + searchedAt timestamp across page navigation
+- `AutoFindPanel` rehydrates from snapshot on mount — agent clicking Back to comps from /seller/adjust sees comps + swaps still in place, no re-search needed
+- Eager persistence after every search AND every manual swap → back-button bounce mid-edit never loses work
+- "Last searched: HH:MM" label appears next to Find Comps when snapshot is loaded
+- Soft yellow "Subject changed" banner above comp list if agent edits address/ZIP/subdivision/sqft after the search — comps stay visible (intentional soft-invalidation, not hard wipe; agents often tweak fields to test scenarios)
+- `onContinueToPacket` on /seller/adjust carries snapshot through, so packet → adjust → new round-trip still rehydrates
 
 ## Real-world verification (2026-05-11/12)
 
