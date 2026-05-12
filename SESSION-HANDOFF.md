@@ -2,7 +2,27 @@
 
 # Session Handoff
 
-## Last session: 2026-05-12 — CMA mobile pass (actually) complete
+## Last session: 2026-05-12 — Address normalization polish shipped
+
+PR #41 (`polish-address-normalize`) — merged + deployed (READY, `dpl_54X51xHk7vhC729jR43L1rqHn4eQ`).
+
+**The problem:** agents type "215 tyndale ct" and every packet surface (title page, headers, narrative, PDF) renders that exact string. Wanted display as "215 Tyndale Court".
+
+**The verified-up-front constraint:** `mls_property.unparsed_address` is null on **0 / 2,575,875** rows. CLAUDE.md was right. So the canonical address has to be reconstructed from `street_number + street_name + street_suffix + unit_number` — all reliably populated, all already stored in proper case with full-word suffixes by MLS Grid.
+
+**What landed:**
+
+1. **DB migration applied via Supabase MCP** to `wdheejgmrqzqxvgjvfee`. Three RPCs (`mls_subject_detect_v2`, `mls_subject_detect_v2_fuzzy`, `mls_subject_detect_v2_zip_fallback`) now additively return `street_number, street_name, street_suffix, unit_number` at the end of the result tuple. Postgres required DROP+CREATE because the return shape changed; existing callers ignore the new keys (PostgREST is name-keyed). No predicate / ordering changes. Migration also checked into repo at `supabase/migrations/20260512_mls_subject_detect_v2_canonical_parts.sql`.
+2. **`lib/cma/addressNormalize.ts` (new)** — exposes `buildCanonicalAddress(parts)` for the MLS match path and `normalizeAddress(raw)` for manual entry / legacy reports. Normalizer is idempotent (verified 14/14 cases including "215 Tyndale Ct Apt 4B" → "215 Tyndale Court Apt 4B" and "5601 N Main St" → "5601 North Main Street"; "215 Dr Phil Lane" left alone because "Dr" isn't the last street token).
+3. **`lib/mls/subjectDetect.ts`** — `SubjectMlsRow` gets the four parts fields; `MlsSubjectMatch.context.canonicalAddress` is the constructed display address. `SubjectForm.applyMatch` overwrites `subject.address` with it on a match.
+4. **`SubjectForm.maybeAutoFillFromMLS`** — on MLS miss, runs the normalizer over the agent's input.
+5. **`lib/cma/store.ts`** — `saveWorkingSet` / `loadWorkingSet` apply the normalizer defensively. Single choke point that cleans the **43+ legacy `cma_reports` rows** on the way out via history reopen, no in-place backfill needed.
+
+CLAUDE.md's "`unparsed_address` is null on every row" stays accurate. Add: "Canonical display address is built from `street_number + street_name + street_suffix + unit_number` via `buildCanonicalAddress()` in `lib/cma/addressNormalize.ts`; the three `mls_subject_detect_v2*` RPCs now return those parts."
+
+---
+
+## Previous session: 2026-05-12 — CMA mobile pass (actually) complete
 
 PR #39 (Enhancement 2) was the "simpler option" wrap-to-second-row header + a body `overflow-x-hidden` safety net. Brian re-tested on iPhone 15/16 Pro Max and it still read as broken: nav looked bolted-on, form inputs visually overflowed the white card, and `overflow-x-hidden` was masking real width violations.
 
@@ -20,7 +40,7 @@ Mobile responsive pass is now actually done.
 
 ---
 
-## Previous session: 2026-05-12 — Buyers Guide instrumentation + Manus extraction
+## Earlier same-day: 2026-05-12 — Buyers Guide instrumentation + Manus extraction
 
 ### Highlights
 
