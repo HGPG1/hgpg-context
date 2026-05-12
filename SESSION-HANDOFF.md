@@ -2,7 +2,36 @@
 
 # Session Handoff
 
-## Last session: 2026-05-12 — Address normalization polish shipped
+## Last session: 2026-05-12 — Narrative cache shipped
+
+PR #42 (`polish-narrative-cache`) — merged + deployed (READY, `dpl_FVoBSUsoKis1thj6ngdfcDZyYhQq`).
+
+**The problem:** every visit to `/seller/packet`, `/buyer/packet`, `/appraiser/packet` was firing a fresh Claude call — even on plain reopen from /history. Burned LLM credits and produced inconsistent prose between views of the same report. With agents about to use this for real, that's not workable.
+
+**Verified up-front:**
+- `cma_reports` already had `narrative`, `strategy_prices`, `recommended_price` columns. Missing: `narrative_generated_at`.
+- No `editVersion` — used `updated_at`, which is already bumped on every UPDATE by the `cma_reports_set_updated_at` trigger.
+- 52 rows total in HGPG Core: 47 with saved narrative, 5 null.
+- PDF route is already cached (receives in-memory packet from client; no LLM call).
+- Save path was already atomic (single UPDATE writes narrative + strategy_prices + recommended_price).
+
+**What landed:**
+
+1. **DB migration applied via Supabase MCP** to HGPG Core (`ioypqogunwsoucgsnmla`). Added `narrative_generated_at timestamptz`. Backfilled `= updated_at` for the 47 narrative-bearing rows so they hit cache on next view (rather than burning 47 LLM calls). The 5 null-narrative rows stay null and regenerate on first view. **Extended the `cma_reports_set_updated_at` trigger** to also stamp `narrative_generated_at = new.updated_at` whenever the narrative column changes — server-side same-transaction, no browser clock skew can desync the comparison. Migration checked in at `supabase/migrations/20260512_cma_reports_narrative_generated_at.sql`.
+
+2. **`lib/cma/narrative-cache.ts`** (new) — `loadCachedNarrative<T>(reportId)` reads the row and returns the narrative when `narrative_generated_at >= updated_at`, null otherwise. Fail-open on Supabase errors.
+
+3. **Three packet pages** — `useEffect` on mount calls `loadCachedNarrative`. Cache hit → render the saved narrative, skip the Claude call. Cache miss → fall through to existing `generate()`. A `cachedFromSave` flag gates `useSaveNarrative` so the cached narrative isn't echoed back to the row on every view. Appraiser page rebuilds `AppraiserComputed` locally via `buildAppraiserMetrics()` on cache hit (deterministic from ws inputs).
+
+4. **Regenerate always forces a fresh Claude call** regardless of staleness — the agent's escape hatch.
+
+5. **No invalidation logic in `/seller/adjust`** — per spec. The natural `updated_at` bump from autosave is the staleness signal: trigger bumps `updated_at` without touching the narrative column, leaving `narrative_generated_at < updated_at`; next packet view regenerates and the save-back writes both timestamps to the same `now()` server-side so subsequent views cache.
+
+CMA tool is now genuinely production-ready for real-world agent use.
+
+---
+
+## Previous session: 2026-05-12 — Address normalization polish shipped
 
 PR #41 (`polish-address-normalize`) — merged + deployed (READY, `dpl_54X51xHk7vhC729jR43L1rqHn4eQ`).
 
