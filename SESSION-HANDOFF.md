@@ -2,107 +2,108 @@
 
 # Session Handoff
 
-## Last session: 2026-05-12 — ReZEN review request backfill 🟡 in progress
+## Last session: 2026-05-12 — Buyers Guide Session 2 IN PROGRESS 🟡
 
-### What got built
+Session 2 of the Manus migration is mid-flight. All code shipped to branch `session-2-funnel`, NOT merged to main. Production is unchanged from end-of-Session-1.
 
-Goal: hijack ReZEN's API to pull every closed deal from the last 24 months, push the clients into FUB as a tagged cohort for a review-request campaign (Viktor will build the actual FUB Automation 2.0 to send the asks).
+### What got built (lives on session-2-funnel branch)
 
-#### ReZEN API discovered
-- **Auth header**: `X-API-Key: <key>` — NOT Bearer despite what the Bolt docs imply
-- **Brian's yentaId**: `6eae7937-ba23-454e-92d5-3b556662f4c9`
-- **Working endpoints**:
-  - `GET https://yenta.therealbrokerage.com/api/v1/agents/me` — auth verify + profile
-  - `GET https://arrakis.therealbrokerage.com/api/v1/transactions/participant/{yentaId}/transactions/CLOSED?pageSize=N&pageNumber=N` — buyer-side closed deals (138 total all-time)
-  - `GET https://arrakis.therealbrokerage.com/api/v1/transactions/participant/{yentaId}/listing-transactions/CLOSED?pageSize=N&pageNumber=N` — listing-side closed deals (66 total all-time)
-  - `GET https://arrakis.therealbrokerage.com/api/v1/transactions/{txId}` — full detail with participants array
-- **Date filter field**: `skySlopeActualClosingDate` first, fallback `closedAt`, `rezenClosedAt`, `agentReportedClosingDate`. Filter for last 24 months client-side after fetching.
-- **Client identification**: `participants[].participantRole` in (`BUYER`, `SELLER`) AND `external: true`. Other roles to filter out: `BUYERS_AGENT`, `SELLERS_AGENT`, `REFERRING_AGENT`, `REAL`, `BUYERS_LAWYER`, etc.
-- **Multi-client deals**: one transaction can have N buyers or N sellers (spousal pairs, trusts, etc.) — we treat each as its own row, all sharing the same `rezen_transaction_id`.
+New files:
+- `api/_lib/contacts.ts` — upsertBgContact() helper (INSERT ... ON CONFLICT (email) DO UPDATE)
+- `api/calculator/track-completion.ts` — score push + FUB custom fields + behavioral tag
+- `api/calculator/generate-pdf.ts` — PDFKit -> bg-pdfs Storage -> signed URL
+- `api/quiz/submit.ts` — bg_quiz_results insert + FUB sync + +50 score
+- `api/exit-intent/submit.ts` — popup capture path
+- `api/bonus/unlock.ts` — bonus_unlock activity + score push
+- `api/capi-event.ts` — Meta CAPI proxy for server-side dedup
+- `src/components/ExitIntentPopup.tsx`
+- `src/hooks/useExitIntent.ts`
 
-#### Probe scripts (local, kept in iCloud)
-Location: `~/Library/Mobile Documents/com~apple~CloudDocs/HGPG-Cowork/rezen-probe/`
-- `probe.js` — initial Bearer attempt (failed with 403)
-- `probe-auth.js` — tries 8 auth header formats; found `X-API-Key` wins
-- `probe2.js` — confirms transaction list + detail endpoints work
-- `rezen-backfill.js` — paginated production pull, last 24 months, writes `rezen-backfill.csv` + `rezen-backfill.json`
-- `.env` contains `REZEN_API_KEY`
+Modified files:
+- `api/_lib/fub.ts` — added updateFubPersonByEmail()
+- `src/pages/Calculator.tsx` — equity module, URL param prefill, track-completion trigger, PDF auto-fire post-unlock, HGPG palette chart colors
+- `src/pages/Quiz.tsx` — locked-overlay gate on results page, UnlockModal capture path
+- `src/lib/pixel.ts` — trackPixelWithCapi helper
+- `src/App.tsx`, `src/components/Layout.tsx` — wiring
+- `.gitignore` — added .vercel + .env*.local
 
-#### Backfill results (last 24 months)
-- **138 buyer-side closed deals** → 88 in the 24-month window → 122 client rows
-- **66 listing-side closed deals** → 43 in the 24-month window → 56 client rows
-- **178 total client rows**
-- 93 with email+phone (high-value)
-- 13 with email only
-- 72 with neither email nor phone (name + address only)
-- 7 deals returned no client participant from API (rentals/admin commissions like `b5a42f88` Lexington $2,550 — correctly tagged in `notes` column)
+### Three patch rounds during the session
+1. R1 (commit 04e4a21): initial Session 2 build, all features implemented
+2. R2: Quiz capture gate, Calculator PDF gate, exit-intent guard fixes
+3. R3 (commit 87b316d): upsertBgContact added to /api/fub-lead + defensive upserts on every score-touching route — fixed silent no-op chain across the funnel
 
-#### Supabase staging table (HGPG Core, project `ioypqogunwsoucgsnmla`)
-- New table: `public.rezen_review_candidates`
-- Status lifecycle: `pending_check` → `exists_in_fub` / `not_in_fub` → `pushed` / `failed` / `excluded`
-- Unique index on `(rezen_transaction_id, coalesce(email, ''), coalesce(first||last, ''))` to prevent duplicate imports
-- RLS enabled, service-role-only policy (TM uses service role for internal pages)
-- All 178 rows imported via Supabase MCP (no service-role key needed to leave the system)
+### Outstanding bug at pause
+Quiz state-key mismatch on lifestyle field. DevTools diagnostic logs caught it:
+- Quiz state captures four of five answers under expected keys
+- lifestyle answer is captured (renders on results page) but under a different key than hasAllAnswers reads
+- Result: /api/quiz/submit never fires, no row in bg_quiz_results, no +50 score
+- Claude Code is patching at pause — task: unify the state key across (a) the lifestyle question setter, (b) hasAllAnswers check, (c) profile-display block, (d) server route payload schema
 
-#### TM page + API route — files ready, NOT pushed yet
-Local in this session output:
-- `lib/rezen-review/fub.ts` — FUB client (checkDuplicate, create, update, note, full row push)
-- `app/api/rezen-review/route.ts` — GET (list+filter), PATCH (exclude/restore), POST (chunked push)
-- `app/rezen-review/page.tsx` — server shell
-- `app/rezen-review/client.tsx` — interactive UI: filters, bulk select, push button, status badges
-- `README.md` — placement + branch + merge instructions
+### Backend reality check (Supabase MCP, project ioypqogunwsoucgsnmla)
+As of 8:30 PM ET 2026-05-12:
+- bg_contacts: 2 rows total, both source=exit_intent (Quiz path never wrote contacts due to upsert-missing bug, fixed in R3 but not yet re-verified)
+- bg_quiz_results: 0 rows (Quiz submit blocked by lifestyle-key bug)
+- bg_activities: 2 bonus_unlock rows
+- Orphan activity rows (bonus unlocks without parent contact) confirmed pre-R3, should be fixed but unverified post-patch
 
-Branch plan: `rezen-review-backfill` on `HGPG1/hgpg-transaction-manager`. Brian to push from Mac via gh CLI.
+### Infra changes this session
+- Added Preview-scope env vars: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, FUB_API_KEY (FRED was already preview-scoped). All four needed for preview deployments to hit live backends.
+- Bypass token for Vercel deployment protection stored in macOS Keychain under VERCEL_BYPASS_TOKEN, auto-exports via ~/.zshrc. Used as ?x-vercel-protection-bypass=$TOKEN&x-vercel-set-bypass-cookie=true on preview URLs.
 
-#### FUB push behavior (per row)
-1. checkDuplicate by email → phone → exact-name match
-2. If existing: PUT `/people/{id}` with merged tags + stage='Past Client' (additive, doesn't overwrite address)
-3. If new: POST `/people` with tags + stage + emails + phones + addresses (BUYER side only)
-4. Always: POST `/notes` with "Closed on [address] on [date] - [side], [price] (ReZEN [code])"
-5. Chunks of 25, 2-second delay between chunks
+### Brain Write API token also lives in Keychain
+Stored under HGPG_BRAIN_TOKEN. Auto-exports via ~/.zshrc. Used for POST https://brain.homegrownpropertygroup.com/api/external/write with Bearer header.
 
-#### Tags applied
-- `review-request-2026-05` (cohort, all rows)
-- `past-client-buyer` (buyer side rows only)
-- `past-client-seller` (listing side rows only)
+### Preview URLs created this session (newest first)
+- charlotte-buyers-guide-1btetyi8k.vercel.app — R3 + upsert chain
+- charlotte-buyers-guide-dugl76exy.vercel.app — R2 patches (quiz/calc/exit gates)
+- charlotte-buyers-guide-mqtpmesuh.vercel.app — R1 initial build (env-scope rebuild)
+- charlotte-buyers-guide-me0t7ltx6.vercel.app — R1 initial (incomplete env scope)
+
+Lifestyle-key patch (R4) is in flight from Claude Code as of pause — new preview URL will follow.
 
 ### Pickup notes for next session
 
-**To finish the build:**
-1. Brian creates branch `rezen-review-backfill` on `hgpg-transaction-manager`
-2. Drop the 4 files from session outputs into the placements above
-3. `git add` + commit + push from Mac
-4. Verify Vercel preview deploys cleanly
-5. Hit preview URL `/rezen-review`, sanity check the table renders 178 rows
-6. Try pushing 3-5 high-value rows to FUB on the preview as a smoke test
-7. Verify in FUB those people got the cohort tag + side tag + Past Client stage + note
-8. Merge to `main`
-9. Triage in FUB — exclude unwanted rows from the staging table UI as needed
-10. Hand off to Viktor to build the FUB Automation 2.0 that fires the actual review request to anyone with `review-request-2026-05` tag
+1. Get latest preview URL after R4 deploys:
+   vercel ls --scope home-grown-property-groups-projects | head -5
 
-**Watchouts for the FUB push:**
-- The `addresses` field on FUB Person needs `type` to be `"home"` (lowercase). Code uses lowercase. Verify on first push that this lands correctly.
-- The `stage` field needs to exactly match the stage name in FUB. We're using `'Past Client'` — confirm that's the exact stage name in your FUB account before pushing. If it's `'Past Clients'` or something different, edit `fub.ts` line ~143 (the `stage:` value in `buildPersonUpdate` and `buildPersonCreate`).
-- FUB rate limits aren't documented but historically ~250 requests/minute. 25 rows × 3 calls each (check + create/update + note) = 75 calls per chunk. Should be well under.
+2. Cold-state smoke against new preview with fresh test email:
+   - Open fresh incognito + bypass cookie URL
+   - DevTools Console open BEFORE clicking anything
+   - Full funnel: Quiz -> Calculator -> Bonuses
+   - Watch for [Quiz submit] logs — confirm hasAllAnswers becomes true and POST fires
+   - Note: Claude Code was asked to remove diagnostic logs post-fix, so they may be gone
 
-**Decisions captured in code:**
-- BUYER side gets property as home address (assumption: they live there now)
-- LISTING side gets no address (they sold and moved; rely on existing FUB address if any)
-- Notes are added for both sides as audit trail
-- Existing FUB people: tags + stage are additive/upgraded, address is never overwritten
-- Multi-client deals: each spouse/co-buyer is its own row, gets its own FUB person
+3. Backend verification via Supabase MCP after smoke (queries to run against ioypqogunwsoucgsnmla):
+   - SELECT * FROM bg_contacts WHERE email = '<test-email>';
+   - SELECT * FROM bg_quiz_results WHERE contact_email = '<test-email>';
+   - SELECT * FROM bg_activities WHERE contact_email = '<test-email>';
+   Expected: all three return rows, bg_contacts.lead_score is sum of (50 quiz + 25 or 40 calc basic/equity + 20 calc pdf + 30 bonus) = 125 if Calculator basic, 140 if equity used.
 
-### Deferred / not built
+4. FUB person verification:
+   Search FUB for test email, confirm custom fields populated + correct behavioral tag (buy_better / rent_better / move_up_ready depending on calc inputs) + buyer-type tag from Quiz.
 
-- **No FUB Automation 2.0** — Viktor's job. Send copy will reference the `past-client-buyer` vs `past-client-seller` tag for buyer vs seller review URL (Google for buyer, Zillow for seller per existing TM convention).
-- **No automation to re-pull ReZEN incrementally** — this is a one-shot backfill. New closed deals coming through TM will use the existing post-close FUB handoff (`lib/fubPostClose.ts`) and won't go through this staging table.
-- **API key rotation** — service role key for HGPG Core wasn't exposed in chat (used MCP). ReZEN API key only lives in Brian's local `.env`. No rotation needed unless that file leaks.
+5. PDF visual eyeball:
+   Open one Calculator PDF + one buyers-guide PDF (exit-intent path) from the signed URLs, confirm they render correctly inside, not just that they return 200.
 
-### Project status updates
+6. Meta Test Events:
+   Open Meta Events Manager -> Test Events tab -> confirm Lead + Search + Contact + SubmitApplication each show ONE row per event (browser+server dedup working).
 
-- `projects/transaction-manager.md` — add a "ReZEN backfill page" section (new internal page at `/rezen-review`)
-- New entry recommended: `projects/rezen-review-backfill.md` documenting the one-shot campaign for future archival
+7. If all green: merge session-2-funnel to main.
+   git checkout main
+   git pull origin main
+   git merge session-2-funnel
+   git push origin main
+   Production preview auto-deploys. Re-run health checks against prod URL to confirm env-var drift didn't break anything.
 
-### Infra changes that affect other apps
+8. Brain update (one push, not three):
+   After prod is green, update SESSION-HANDOFF.md + projects/buyers-guide.md + projects/buyers-guide-manus-migration.md via brain write API. Note: brain docs from earlier in the session already claim "Session 2 shipped" — those need a corrective push.
 
-None today. Staging table is isolated, no schema changes to existing TM tables.
+### Deferred to Session 3 or later
+- Playwright headless smoke harness — discussed but not built. Would have saved most of today's manual-smoke time. Worth ~15min in a future session for re-usability across Sessions 3+4.
+- Pre-existing accessibility nits in form inputs (missing id/name + label-for associations). Not Session 2 work.
+
+### Things to remember next session
+- Always check the preview URL hash matches the latest deployment. Half a session was spent debugging stale builds. The hash is in vercel ls --scope home-grown-property-groups-projects | head -5.
+- DevTools Console open BEFORE smoke testing. Diagnostic logs are useless if you don't see them.
+- Clear localStorage + sessionStorage between cold-state runs. Stale state masks real bugs.
+- Backend verification via Supabase MCP > eyeballing the UI. Caught the silent no-op chain that visual smoke missed.
