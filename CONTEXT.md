@@ -14,48 +14,30 @@ See `team.md` for full roster.
 - Recently helped brother-in-law evaluate a home purchase in Leola, PA
 - Interests: home improvement projects (deck drainage, garage ceiling hoists)
 
-## What is active right now
+## What's active right now
 
-- **Transaction Manager** (closings.homegrownpropertygroup.com) - lifecycle tool, ongoing Don feedback batches, see `projects/transaction-manager.md`
-- **TC Concierge** (tc.homegrownpropertygroup.com) - email intake, Don running real deals, see `projects/tc-concierge.md`
-- **CMA Engine** (cma.homegrownpropertygroup.com) - production-ready, 21-PR sweep complete (engine math + autosave + mobile + addresses + narrative cache + back-links + comp persistence), awaiting real-world agent reps, see `projects/cma-engine.md`
-- **Listing Report Portal** (reports.homegrownpropertygroup.com) - live, see `projects/listing-report-portal.md`
-- **Brain App** (brain.homegrownpropertygroup.com) - live, see `projects/brain-app.md`
-- **FUB AI Agent** (embedded in TM at `/agent`) - operational, `agent_enabled=false`, decision pending on flip strategy, see `projects/fub-ai-agent.md`
-- **Sellers Guide** (sellersguide.homegrownpropertygroup.com) - shipped + ad-ready, FUB Automation 2.0 pending, see `projects/sellers-guide.md`
-- **Buyers Guide** (buyersguide.homegrownpropertygroup.com) - live, but **major Manus migration workstream active** — Vercel rebuild missing 8 high-value features from original (lead scoring, calculator→FUB tags, exit-intent + PDF gen, bonus tracking, /:agent vanity pages, /admin, /agent-dashboard, advisor mode). See `projects/buyers-guide.md`.
+- **CMA Engine** (cma.homegrownpropertygroup.com) - active build, see `projects/cma-engine.md`
+- **Transaction Manager** (closings.homegrownpropertygroup.com) - lifecycle tool, see `projects/transaction-manager.md`
+- **TC Concierge** (tc.homegrownpropertygroup.com) - intake, live with Don running real deals
+- **Listing Report Portal** (reports.homegrownpropertygroup.com) - blocked on GitHub auth, see `projects/listing-report-portal.md`
+- **New Construction Phone Capture** (newconstruction.homegrownpropertygroup.com) - spec locked, Claude Code prompt ready, see `projects/new-construction-phone-capture.md`
 - **Claude skills** - five new skills shipped May 1 (objection-handler, referral-request-writer, showing-feedback-summarizer, offer-comparison-analyzer, market-update-writer)
 
 ## Recently completed
 
-- Buyers Guide Pixel + CAPI + NeverBounce shipped (2026-05-12). PR merged. Env vars + redeploy + verification pending.
-- Manus AI agent extraction Rounds 1 + 2 (2026-05-12) — repo `HGPG1/homegrown-buyer-guide` confirmed, full file tree + Drizzle schema in hand. Round 3 (full source) + Round 4 (DB CSV export) queued.
-- transaction-pdfs bucket flipped to private (fully aligned 2026-05-11)
-- NC office routing in ReZEN builder verified wired (2026-05-11)
-- Exposed GitHub PAT closed out (2026-05-11)
-- CMA Engine MLS Grid auto-pull confirmed mature (2026-05-09)
-- Sherlock 403 on Transaction Manager resolved (2026-05-11)
-- Listing Report Portal GitHub auth blocker resolved (2026-05-06)
-- Brain App MVP shipped (2026-05-06), Phase 1.5 polish + Write API (2026-05-08)
-- Resend SMTP wired into HGPG Core Supabase (30/hr vs 2/hr default)
 - IDX Broker migration (Ylopo cancelled, Showcase IDX cancelled, FUB lead routing done)
 - Main site SEO push (mobile PageSpeed 96/100)
-- Sellers guide rebrand to brand colors + ad instrumentation
+- Buyers guide migration from Manus to React + Vite
+- Sellers guide rebrand to brand colors
 
 ## Known blockers / pending
 
 See `SESSION-HANDOFF.md` for current scratchpad.
 
-- **Buyers Guide Manus extraction Rounds 3 + 4** — Path B (full source dump) and Path C (DB CSV export). High priority; extract BEFORE telegraphing departure to Manus.
-- **Buyers Guide Pixel + CAPI verification** — env vars need provisioning on Vercel; redeploy and verify dedup in Meta Test Events.
-- **Buyers Guide gap-port to Vercel** — multi-session workstream once Manus export is in hand. Phase 2 (lead scoring, calc→FUB, PDF gen, exit intent, bonus tracking) is highest priority.
-- $395 fee toggle structural build parked (TM)
-- TC Concierge absorption into TM deferred (current architecture stable)
-- Listing Report Portal DB pruning parked (~15GB, 8-10GB reclaim estimated)
-- FUB AI Agent flip strategy decision pending (`agent_enabled=true` vs sustained manual-approve)
-- FUB AI Agent scoring sweep on 4,340 unscored eligible leads (deferred)
-- Sellers Guide: FUB Automation 2.0 on `sellers-guide-2026` tag not yet built (blocks ad-spend scaling)
+- GitHub auth not configured on Mac Mini (blocks Listing Report Portal pushes)
+- Sherlock 403 on Transaction Manager (likely API key scope)
 - .net Google Workspace migration to .com (do not proactively remind)
+- GitHub PAT exposed in chat history needs rotation
 
 ## Where to look next
 
