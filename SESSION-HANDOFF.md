@@ -2,43 +2,45 @@
 
 # Session Handoff
 
-## Last session: 2026-05-12 — New Construction phone capture spec locked, Claude Code prompt prepared
+## Last session: 2026-05-12 — Phone capture SHIPPED 🟢 on newconstruction.homegrownpropertygroup.com
 
-### What got done
-- Confirmed: new construction site live at `newconstruction.homegrownpropertygroup.com` currently captures email + name on 4 lead forms; phone is NOT captured
-- Verified via live curl - zero `type="tel"`, `name="phone"`, or phone copy markers in homepage HTML
-- Locked 3 strategy decisions:
-  - Tiered: optional on Guide/Quiz/Calculator, required on Builder Intro
-  - Benefit-led copy, tailored per form (text guide link, text matches, text breakdown, 24hr callback)
-  - FUB destination = standard `mobile` phone on contact, no custom field
-- SMS speed-to-lead automation explicitly deferred - phone capture ships first, verify in FUB with a real lead, then SMS PR as separate session
-- Full spec saved to brain at `projects/new-construction-phone-capture.md` (commit `e8a2e64`)
-- CONTEXT.md updated to index the new project (commit `b9f5c91`)
-- Claude Code prompt fully written, ready to paste
+### What got shipped
+- PR #1 on `HGPG1/charlotte-new-construction-nextjs` merged to main
+- Merge commit: `8bca9ac` (verified)
+- Prod deploy: `dpl_2UNJu3ByZa5tbdG3WK9NDAfqdnZx` READY
+- Tiered phone capture: optional on Guide/Quiz/Calculator, required on Builder Intro
+- E.164 normalization in `src/lib/fub.ts` with junk-input null-out
+- Per-form benefit-led helper copy
+- Meta CAPI `ph` hashing was already correct - just got Last Updated comment
+
+### Important reframe
+Phone capture was NOT a greenfield build. Phone was already captured and required across all 4 forms before this PR. This was a **tiered downgrade** with proper normalization + per-form copy. Brain originally framed this wrong - corrected in `projects/new-construction-phone-capture.md`.
+
+### Key implementation notes (read these before touching new construction lead capture again)
+- Only 2 form components (LeadCaptureModal shared by 3 forms, BuilderLeadModal standalone)
+- SMS consent checkbox is now CONDITIONAL on phone presence (hidden until user types a digit)
+- `normalizePhone()` in `src/lib/fub.ts` is canonical; `normalizePhoneClient` duplicated in client components because lib/fub.ts imports next/server
+- FUB email now uses `type: 'home'`; phone uses `type: 'mobile'`
+- New "Phone: not provided" line in FUB note text distinguishes email-only leads from phone-having-but-declined-SMS leads
+
+### Preview review (before merge)
+Brian ran fast-path 3-check, 2 passed (conditional SMS consent, Builder Intro block), 3rd (FUB record clarity) deferred to first real lead.
 
 ### Pickup notes for next session
 
-**If phone capture has shipped:** Verify in FUB that a real Builder Intro lead has phone attached as mobile, then prep the SMS speed-to-lead PR (FUB Automations 2.0 rule, 90-second SMS auto-response on Builder Intro source). Update `projects/new-construction-phone-capture.md` status to SHIPPED, add follow-up notes.
+**Primary follow-up: SMS speed-to-lead automation PR.** Parked decision before building:
+- Gate SMS auto-response on the SMS consent checkbox (legal-clean / defensible)
+- OR fire on Builder Intro submission regardless (faster, riskier on TCPA)
+- Builder Intro requires both phone + consent today, so functionally equivalent now
+- Recommendation: gate on consent for audit trail defensibility
 
-**If phone capture has NOT shipped:** The Claude Code prompt is the deliverable. It's verbatim in the previous Claude conversation (2026-05-12) and the full spec lives at `projects/new-construction-phone-capture.md`. Pickup is one step: paste the prompt into Claude Code on Mac, let it run, review PR, merge.
+**Secondary check (low priority):** Next time Brian is in FUB, eyeball one phone-having and one email-only lead from new construction to confirm the "Phone: not provided" vs `(Mobile)` display reads cleanly. If it doesn't, 5-min string change.
 
-**Smoke test once shipped (before merging PR):**
-1. Guide Delivery, no phone → 200, FUB email-only
-2. Quiz, phone `(704) 555-1234` → FUB has `+17045551234` as mobile
-3. Calculator, phone `12345` → inline error, blocked
-4. Builder Intro, empty phone → inline error, blocked
-5. Builder Intro, valid phone → FUB + Meta Test Events both fire
-6. Meta Events Manager → Test Events → confirm `ph` parameter on Lead payloads
-
-### Repo + infra reference
-- Repo: `HGPG1/charlotte-new-construction-nextjs` (branch `main`)
-- Vercel auto-deploys on merge
-- Meta Pixel ID 1880396459290092 already wired, 6 funnel events live
-- Shared FUB helper: `src/lib/fub.ts`
-- FUB API key already in Vercel env
-
-### Open questions, none right now
-None. Spec is locked, ready to execute.
+### Live state
+- New construction site fully live with shipped phone capture
+- Meta Pixel + CAPI firing all 6 funnel events + `ph` param on phone-submitting Lead events
+- Vercel auto-deploy from main working as expected
+- FUB lead capture working; new contacts will land with proper mobile phone field when provided
 
 ---
 
@@ -70,15 +72,3 @@ None. Spec is locked, ready to execute.
   - `https://brain.homegrownpropertygroup.com/**`
   - `http://localhost:3000/**`
   - (Existing tools.hgpg entries left intact)
-
-### Project status updates
-- `projects/brain-app.md` — status now 🟢 SHIPPED (was 🟡)
-- `projects/hgpg-team-tools2.md` — Site URL in Supabase still points here for the broken app's eventual fix
-- `projects/transaction-manager.md` — no changes today, but TM benefits from Resend SMTP upgrade
-
-### Deferred / Phase 2 for brain-app
-- iPhone smoke test (CodeMirror + iOS soft keyboard scroll behavior)
-- Cooper Hewitt self-hosted (currently falling back to system sans)
-- File rename and delete
-- Diff view before save
-- Cross-file search
