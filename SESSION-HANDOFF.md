@@ -2,7 +2,62 @@
 
 # Session Handoff
 
-## Last session: 2026-05-12 — Buyers Guide instrumentation + Manus extraction
+## Last session: 2026-05-12 — Buyer Alerts Session 1 shipped to branch
+
+### Highlights
+
+**Buyer Alerts is the first piece of the MLS Dashboard Suite framing.** Lives inside the existing Team Dashboard (`HGPG1/hgpg-team-dash`) under `/buyers`. Inherits auth, brand, infra. No new repo, no new Vercel project, no new Supabase project. See `projects/buyer-alerts.md` for the full reference.
+
+What shipped on branch `claude/buyer-alerts-session-1-wChbZ` (commit `b0ff809`):
+
+- **DB migration** `buyer_alerts_schema` applied to `wdheejgmrqzqxvgjvfee`:
+  - `buyer_criteria` (owner-scoped via `auth.uid()`)
+  - `buyer_alerts` with unique index `(criteria_id, listing_key)` for cron-safe dedupe
+  - RLS policies `criteria_owner_all` + `alerts_owner_select`
+- **LLM criteria parser** in `src/lib/buyerAlerts.ts` calling Claude Sonnet 4.6 (`claude-sonnet-4-6`) with JSON-only prompt; retries once with stricter system message; final fallback stores raw input in `notes`.
+- **Server-side matcher** filters `mls_property` on `mlg_can_view=true`, `standard_status='Active'`, last 24h `modification_timestamp`, plus price/beds/baths/sqft/zip/city/subdivision/year-built/lot-size. Property types, must-have features, and must-avoid are captured but advisory only (Session 2 work).
+- **UI tab "Buyer Alerts"** added to AppHeader. Routes: `/buyers` (list), `/buyers/new` (two-step compose → preview → save), `/buyers/[id]` (parsed-criteria bullets + alert feed + "Run match now").
+- **Cron route** `/api/cron/buyer-alerts` registered in `vercel.json` at `*/30 * * * *`. Iterates active criteria with service role, runs matcher, inserts alerts, then for each new row resolves owner phone via `auth.users.email ↔ team_members.email` (cross-project) and sends a one-shot LoopMessage iMessage. Missing phone marks the row `skipped`. Delivery failures set `failed` with the API error.
+- **Production build clean.** `npx tsc --noEmit` + `npx next build` both green.
+
+### What's pending (Buyer Alerts blockers before production smoke test)
+
+1. **Vercel env vars** — the Vercel MCP exposed to this session had no env-var write tools, so these need to be set by hand in the Vercel dashboard on project `hgpg-team-dash`:
+   - `SUPABASE_SERVICE_ROLE_KEY` (from `wdheejgmrqzqxvgjvfee`)
+   - `ANTHROPIC_API_KEY` (Brian's Anthropic console)
+   - `HGPG_CORE_SUPABASE_URL` = `https://ioypqogunwsoucgsnmla.supabase.co`
+   - `HGPG_CORE_SUPABASE_SERVICE_ROLE_KEY` (from `ioypqogunwsoucgsnmla`)
+   - `LOOPMESSAGE_API_KEY` and `LOOPMESSAGE_SECRET` (match TM repo var names + values verbatim)
+   - `CRON_SECRET` (optional — only used for manual cron triggers when not invoked by Vercel)
+2. **Merge to main + smoke test** — open PR from `claude/buyer-alerts-session-1-wChbZ` to `main` on `hgpg-team-dash`. After deploy, create a loose-criteria smoke buyer ("anywhere in Charlotte under $1.5M, 2+ bed"), wait for the next cron tick or fire it manually, confirm iMessage lands.
+
+### Locked next-up queue
+
+1. ✅ **Buyer Alerts Session 1** — shipped to branch, pending env vars + production smoke
+2. 🎯 **Buyer Alerts Session 2** — capture UX polish, agent management, alert history pagination, manual test-alert button, free-text feature filtering, criteria-edit UI (carried over from Session 1 limitations)
+3. 🎯 **Team listing photo sync** (still queued from previous; see `projects/team-photo-sync.md`)
+4. 🔍 **Off-market / Expireds Finder** — new
+5. 🤖 **FUB AI Agent rebuild** — gated on Sendblue eval
+
+The Manus migration and Buyers Guide instrumentation work from the 2026-05-12 session is parked but not abandoned. See archived sessions below — Path C DB export is still the highest-value Manus item once Buyer Alerts is fully live.
+
+### Open thread
+
+- `~/Downloads/fix-admin-page.sh` may have unpushed UI changes for Listing Report Portal. Check next time portal is touched.
+- Vercel env-var management is not exposed to the current MCP session — when this matters, set vars manually in the Vercel dashboard.
+
+### Lessons noted (this session)
+
+1. **Cross-project identity = email, not uid.** Auth users live per Supabase project. To resolve a phone for a Listing-Reports buyer owner, look up email in HGPG Core's `team_members`. Two service roles, two clients.
+2. **Dedupe at the unique index, not in app code.** A unique `(criteria_id, listing_key)` index plus an unconditional insert + check for code `23505` gives a single source of truth and is race-safe under cron + manual trigger overlap.
+3. **PostgREST `.or()` with `ilike` is comma-fragile.** Subdivision name matching strips commas before composing the OR; commas in canonical names would break parsing. Acceptable for Session 1.
+4. **Anthropic JSON-only output via system message is reliable.** Sonnet 4.6 follows "no fences, no prose, JSON only" on first attempt; the stricter retry is defensive.
+5. **Match writes happen during the cron, notify also during the cron.** Earlier impulse was to split match + notify into two phases; that added a "pending" state with no resilience benefit since alert rows are already durable.
+6. **MCP capability inventory matters.** This session's Vercel MCP had no env-var tools — discovered only when needed. Worth surfacing upfront so the human knows which steps need their hands.
+
+---
+
+## Previous session: 2026-05-12 — Buyers Guide instrumentation + Manus extraction
 
 ### Highlights
 
@@ -22,10 +77,9 @@
 - **Historic FUB API key found** in `scripts/get-fub-users.ts` (`fka_0cyqBUzL20pdO11gGKd6J4jcHrUp1P6wsu`). Probed `/v1/identity` — HTTP 401. Already revoked. No action required.
 - **Infra clarification:** Manus uses its own "Forge" storage proxy (Bearer-token HTTP API), NOT AWS S3 directly. The `@aws-sdk/*` packages in `package.json` are dead deps. Port target for Vercel rebuild: Supabase Storage (HGPG Core already provisioned).
 
-### What's pending
+### What's pending (Manus track — parked behind Buyer Alerts)
 
-**Manus migration:**
-1. ⏳ **Path C — DB data export** (NEXT). Prompt staged in `projects/buyers-guide.md`. Highest single-value extraction remaining. Actual rows in `contacts`, `activities`, `quizResults`, `agents` only exist on Manus. Fire BEFORE telegraphing departure.
+1. ⏳ **Path C — DB data export** (still NEXT for Manus track). Prompt staged in `projects/buyers-guide.md`. Highest single-value extraction remaining. Actual rows in `contacts`, `activities`, `quizResults`, `agents` only exist on Manus. Fire BEFORE telegraphing departure.
 2. Phase 1 ports to Vercel rebuild (1-2 sessions): lead scoring, calculator→FUB custom fields/tags, server-side PDF gen (PDFKit + Supabase Storage), exit-intent popup, bonus unlock tracking.
 3. Phase 2: activities event tracking, quiz results DB storage, AI Chat Box review.
 4. Phase 3 (deferred until usage confirmed): /:agent vanity URLs, /admin, /agent-dashboard, advisor mode.
@@ -37,9 +91,6 @@
 3. Run post-deploy bundle-grep gates (commands in `projects/buyers-guide.md`).
 4. End-to-end smoke in Meta Test Events to confirm browser+server dedup.
 5. Remove `META_CAPI_TEST_EVENT_CODE` from Vercel env once dedup confirmed.
-
-### Open thread
-- `~/Downloads/fix-admin-page.sh` may have unpushed UI changes for Listing Report Portal. Check next time portal is touched.
 
 ### Lessons noted (cumulative)
 
