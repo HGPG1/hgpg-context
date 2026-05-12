@@ -1,101 +1,87 @@
 <!-- Last Updated: 2026-05-12 -->
 
-# Session Handoff
+# SESSION-HANDOFF
 
-## Last session: 2026-05-12 - Buyers Guide Session 1 (backend infrastructure) shipped 🟢
+## Where we are
 
-Session 1 of the 4-session Manus → Vercel migration is complete. Backend plumbing is live in production; zero buyer-facing UI changes this session.
+**Session 10 (2026-05-12) shipped + addendum.** Operational dashboard live at /agent/ops, scoring pool backfilled +49 warm, onlyUnscored param fixed so future backfills are clean. Plus post-close: shared 3-tab nav strip across all agent screens (Overview/Queue/Ops) AND a full user guide section in /dons-guide for Don. **agent_enabled=true** - the FUB AI Agent is running for sustained operation at daily_send_cap=10 with manual approve.
 
-### What landed
+Status: 🟢 Operational + monitored + documented. Live for week 1 ramp.
 
-**Supabase schema in HGPG Core (`ioypqogunwsoucgsnmla`):**
-- `bg_contacts` (UNIQUE email + lead_score + assigned_agent_id FK + bonus_unlocked + source)
-- `bg_activities` (type + contact_email + platform + cta_type + agent_id + metadata jsonb)
-- `bg_quiz_results` (full buyer-quiz answer storage + synced_to_fub flag)
-- `bg_agents` (5 production agents seeded with preserved Manus IDs 1, 30001-30004)
-- RLS enabled on all 4 tables, zero policies (service-role-only)
-- `updated_at` triggers on `bg_agents` + `bg_contacts`
-- FKs `ON DELETE SET NULL` so deleting an agent never orphans/cascades contacts
+## Todays commits (TM)
 
-**Decision: switched from Manus's bare-insert pattern to UNIQUE(email) + upsert.** Manus had no `.unique()` on contacts.email and used `db.update WHERE email = ?` for score updates, which would double-count any repeat lead. Latent bug never hit them because live DB had 1 row. Fresh schema, no data to preserve, fixed it.
+- 956f1f9 - operational dashboard at /agent/ops (3 new files: /agent/ops/page.tsx, /agent/ops/DashboardClient.tsx, /api/agent/dashboard/route.ts)
+- 46d71d0 - dashboard fixes: Pool Health row cap + Activity Feed empty state
+- 7fc2fce - scoring fixes: onlyUnscored param + pagination on exclude-IDs query
+- e0ba110 - shared 3-tab nav strip across all agent screens (Overview/Queue/Ops via components/AgentNav.tsx)
+- (latest) - dons guide section 16: The FUB AI Agent (~96 lines added to app/dons-guide/content.ts, also TOC entry + cheat sheet row + cron schedule update + renumbered feedback to §17)
 
-**Storage:** Private `bg-pdfs` bucket (10 MB cap, application/pdf only). Renamed from `bg_pdfs` (underscore) to `bg-pdfs` (hyphen) to match Transaction Manager's `transaction-pdfs` convention.
+## Todays brain commits
 
-**Server helpers in `api/_lib/`:**
-- `supabase.ts` - cached service-role client
-- `signBgPdfUrl.ts` - 7-day signed URLs, accepts path OR legacy public URL, never throws. Mirrors TM's signTransactionPdfUrl pattern. Also exports `uploadBgPdf`.
-- `leadScoring.ts` - `SCORE_VALUES` ported verbatim + `applyLeadScore(email, scoreType)` (plain UPDATE WHERE email; no-ops if contact doesn't exist)
-- `fub.ts` - `sendFUBEvent`, `sendLeadCapture`, `sendQuizCompletion`, `assignLeadToAgent`, `testFUBConnection`
-- `pdfContent.ts` - Buyers Guide PDF copy, ported verbatim
-- `generatePDF.ts` + `generateCalculatorPDF.ts` - ported with HGPG palette substituted for Manus's red/orange/sky-blue
-- `marketData.ts` - FRED fetcher with static fallback
+- 9350656 - session 10 entry in projects/fub-ai-agent.md
+- 30b4893 - SESSION-HANDOFF session 10 close
+- 7ae02dd - docs/fub-agent-user-guide.md (standalone markdown reference)
+- edbdcfe - session 10 addendum in projects/fub-ai-agent.md (nav + guide section)
+- (this commit) - SESSION-HANDOFF session 10 addendum
 
-**Smoke-test endpoints at `/api/health/*`** (NOT `_health` - Vercel excludes leading-underscore folders from function discovery; learned the hard way):
-- `/api/health/db` → `{"ok":true,"agentCount":5,"expected":5,"healthy":true}`
-- `/api/health/fub` → `{"ok":true,"keyConfigured":true}`
-- `/api/health/fred` → `{"ok":true,"mortgageRate":"6.37%","asOf":"2026-05-07"}`
-- `/api/health/storage` → `{"ok":true,"bucket":"bg-pdfs","signedUrlPreview":"..."}`
+## TM repo state
 
-All verified live on production 2026-05-12.
+- Branch: main
+- HEAD: latest (after dons-guide commit)
+- Deploy: closings.homegrownpropertygroup.com READY
+- Working tree clean
 
-### Commits (all on `main`)
+## Live agent state
 
-- `6548d53` feat(buyers): Session 1 migration. bg_* tables + storage bucket + agent seed
-- `a134f9a` feat(buyers): Session 1 backend helpers + health endpoints
-- `04e4a21` fix(buyers): rename api/_health to api/health for Vercel API discovery
+- agent_enabled = true ✅
+- daily_send_cap = 10
+- auto_below_threshold = false (manual approve only)
+- hot_threshold = 40, warm_threshold = 30, llm_confidence_floor = 0.4
+- Pool: 5,373 eligible / 0 hot / 52 warm / 981 cold / 4,340 unscored
 
-### Lessons noted (key ones from today)
+## Where the agent lives in the UI
 
-1. **Vercel excludes folders starting with `_` from API discovery.** Same rule that hides `api/_lib/`. So `api/_health/*` was silently absent from the deployed function bundle and hitting the SPA index.html fallback. Confirmed via `lambdaRuntimeStats: nodejs:2` before rename, `nodejs:6` after.
-2. **Vercel + Vite SPA fallback caches the index.html response per URL.** When the function deploy finally landed, the CDN was still serving the cached SPA for previously-404'd `/api/health/*` URLs. A cache-buster query string broke through; the URLs then served correctly cold.
-3. **Don't poll for "endpoint live" using HTTP 200 alone** when the SPA fallback also returns 200. Check the response body shape or use a cache-buster.
-4. **Manus contact-insert had no UNIQUE(email).** Repeat visits would have multiplied lead_score N times per `UPDATE WHERE email = ?`. Latent bug, never triggered (1 fake row). Fixed-on-port with UNIQUE constraint + upsert helper planned for Session 2.
-5. **Preserve historical IDs across migrations when downstream docs reference them by ID** (Session 3 prompt names "id 30003 = Ashley"). Cheap to preserve, expensive to retro-update if you don't.
+- /agent — Overview (read-only v1 dashboard, score distribution + top 50 leads)
+- /agent/queue — Approval queue
+- /agent/ops — Live monitoring dashboard (7 panels, 30s auto-refresh)
 
----
+All three pages now share a tab strip at the top with active highlighting via `components/AgentNav.tsx`. The dashboard is also linked from Dons Guide §16 at /dons-guide#fub-agent.
 
-## Next session queued: Buyers Guide Session 2 (Calculator + Quiz + capture)
+## Pick up here (session 11 priorities)
 
-~2.5 hrs. Buyer-facing surfaces. Calculator port is the heavy lift (1,351 lines). End of session: full funnel end-to-end with leads flowing into bg_contacts + FUB with proper scoring and behavioral tags.
+1. **Watch the agent live for a few days.** Real Brian + Don usage data. What is the approve rate? Reject reasons? Voice complaints?
+2. **Optional: continue scoring backfill** with onlyUnscored=true to drain the remaining 3,340 unscored leads (~$10-15, ~100 expected warm conversions)
+3. **Decide on auto_below_threshold flip** once you trust the queue UI workflow
+4. **Hot tier templates** if any leads start hitting score >=40
 
-**Session 2 kickoff prompt:** verbatim in `projects/buyers-guide-manus-migration.md` under "Session 2 - Calculator + Quiz + Lead Capture."
+## Critical context (carry forward)
 
-### Pre-Session 2 prereqs (Brian)
+- agent_enabled blocks BOTH cron AND manual approve via outboundGate. Flip via Supabase MCP or the queue UI toggle.
+- FUB Automation 2.0 delivers email as plaintext. NEVER use <br> in templates - real newlines only.
+- FUB UI Merge Fields dropdown produces %snake_case% tokens. Use the dropdown, dont type.
+- Test rig: FUB person 27764 (Brian in Sphere, pond 9 = excluded from agent).
+- gerardmarmo@yahoo.com (FUB 23552): Brian in active manual conversation. Reject any agent drafts.
+- Template paragraph sweep query lives in projects/fub-ai-agent.md "Session 8" entry.
+- Variant naming convention: v1.warm.scenario_name.channel (base) + .v2/.v3/... for variants.
+- **For pool backfills:** use POST /api/agent/score with body {"limit": N, "onlyUnscored": true} to score N leads that have NEVER been scored. Dont use the default backfill - it re-scores leads we already have.
+- **Supabase JS has a 1000-row default cap on unbounded selects.** Always paginate or use count head:true.
+- **PostgREST embed syntax silently returns null without a FK.** When embedding a related table, verify the FK exists or fetch + merge in JS.
 
-1. Open a fresh Claude Code thread in `~/Documents/charlotte-buyers-guide` and paste the Session 2 prompt.
-2. Manus snapshot stays at `~/manus-snapshot`.
-3. All Session 1 env vars already provisioned. No new env vars needed for Session 2 unless we surface them in flight.
+## Two user guides
 
----
+- **Dons guide** at /dons-guide#fub-agent — operational, warm voice, for daily TC use
+- **Developer reference** at docs/fub-agent-user-guide.md in brain repo — terser, technical
 
-## Previous session: 2026-05-12 (earlier same day) - Buyers Guide instrumentation + Manus full extraction
+## Backlog (multi-session, in priority order)
 
-(Preserved below for continuity.)
-
-### Highlights
-
-**Buyers Guide instrumentation (shipped + merged):**
-- Pixel + CAPI code was on `main` since late April but inert (`VITE_META_PIXEL_ID` unset → Vite tree-shook). Made live this session.
-- NeverBounce shipped from scratch in commit `5c233ee` on `claude/buyers-guide-instrumentation-nGCLI`, PR merged.
-- Pixel ID for Buyers Guide: `1449157226505129`. NeverBounce key: reuse Sellers Guide value.
-- Env vars + redeploy + verification pending Brian's hands.
-
-**Manus full extraction (Path B + Path C complete):**
-- Manus AI agent (inside their dashboard) cooperatively exported full source as a zip after 2 probe rounds.
-- 220 files extracted, committed to new private repo `HGPG1/charlotte-buyers-guide-manus-export` (commit `e107b0e`).
-- One historic FUB key found in `scripts/get-fub-users.ts` (`fka_0cyqBU…`) - probed FUB API, returned 401, already revoked.
-- Forge storage clarification: Manus uses its own proxy, NOT AWS S3 directly (despite `@aws-sdk` deps).
-- **Path C resolved via direct tRPC probe of live Manus site, NOT via AI agent** (which was looping on archived repo files - the GitHub-archived workspace appears to sandbox the agent away from live DB).
-- **Production DB state: effectively empty.** 1 fake test lead, 0 quiz completions, 0 exit intents, 5 agent config rows.
-- Manus migration scope COLLAPSED. 4 phases → 1 forward-looking phase. Phase 3 features (admin, dashboard, advisor mode, /:agent) re-judged: forward-looking ports, not regressions.
-- Brian decided: no 301 redirect (Manus burned bridges around build time). Take Manus down after Vercel migration completes.
-
-**Full migration plan staged for new thread:** see Next session above.
-
----
-
-## Previous session: 2026-05-11 - Brain reconciliation + transaction-pdfs cleanup
-
-Reconciled CONTEXT.md against project files (which were ahead), closed six items: Sherlock 403, Mac Mini GitHub auth, exposed GitHub PAT rotation, CMA Engine MLS Grid auto-pull, NC office routing in ReZEN (verified live in code), transaction-pdfs bucket flip → private (bucket flipped via MCP on 2026-05-09; migration file backfilled to repo on 2026-05-11 as `2eb9794`).
-
-Also: rebuilt `projects/brain-app.md` (had been clobbered), updated CONTEXT.md "active right now" list.
+- Hot tier templates (score >= 40)
+- iMessage seller variants
+- Cooldown re-touch templates (second-attempt copy)
+- More buyer/seller template variants (only viewed_listing_recent has variants)
+- Backfill remaining 3,340 unscored leads with onlyUnscored=true
+- FUB UI custom fields 157-162 visibility to admins-only
+- Normalize hideIfEmpty across fields 157 vs 160/161/162 (cosmetic)
+- Stale tag cleanup on person 27764
+- Drop body column after deprecation window
+- v2: brokerage oversight expansion (Ashley/Brenda/Taylor + Don unified queue)
+- v2: tier-based behavior, smart channel pick, production inbound classifier
