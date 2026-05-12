@@ -20,11 +20,11 @@ See `team.md` for full roster.
 - **Transaction Manager** (closings.homegrownpropertygroup.com) - lifecycle tool, see `projects/transaction-manager.md`
 - **TC Concierge** (tc.homegrownpropertygroup.com) - intake, live with Don running real deals
 - **Listing Report Portal** (reports.homegrownpropertygroup.com) - blocked on GitHub auth, see `projects/listing-report-portal.md`
-- **New Construction Phone Capture** (newconstruction.homegrownpropertygroup.com) - spec locked, Claude Code prompt ready, see `projects/new-construction-phone-capture.md`
 - **Claude skills** - five new skills shipped May 1 (objection-handler, referral-request-writer, showing-feedback-summarizer, offer-comparison-analyzer, market-update-writer)
 
 ## Recently completed
 
+- **New Construction phone capture** (2026-05-12) - tiered downgrade shipped, see `projects/new-construction-phone-capture.md`. SMS speed-to-lead automation is the parked follow-up.
 - IDX Broker migration (Ylopo cancelled, Showcase IDX cancelled, FUB lead routing done)
 - Main site SEO push (mobile PageSpeed 96/100)
 - Buyers guide migration from Manus to React + Vite
