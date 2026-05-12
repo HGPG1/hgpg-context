@@ -1,112 +1,83 @@
 <!-- Last Updated: 2026-05-12 -->
 
-# Session Handoff
+# SESSION-HANDOFF
 
-## Next session queued: Manus → Vercel full migration, Session 1 (backend infrastructure)
+## Where we are
 
-Full 4-session migration plan is staged at `projects/buyers-guide-manus-migration.md`. Brian opening a new chat thread for execution (this thread is getting long).
+**Session 10 (2026-05-12) shipped.** Operational dashboard live at /agent/ops, scoring pool backfilled +49 warm, onlyUnscored param fixed so future backfills are clean. **agent_enabled=true** - the FUB AI Agent is now running for sustained operation at daily_send_cap=10 with manual approve.
 
-**Total scope:** ~6-10 hours / 4 sessions / 4-6 prompts.
+Status: 🟢 Operational + monitored. Live for week 1 ramp.
 
-**Session 1 (next):** ~2.5 hrs. Backend infrastructure only. Supabase tables (bg_*), seed agents, Storage bucket, server helpers in `api/_lib/`, FRED + FUB + Storage smoke tests. No buyer-facing UI changes.
+## Today's commits (TM)
 
-**Session 1 kickoff prompt:** verbatim in `projects/buyers-guide-manus-migration.md` under "Session 1 — Backend infrastructure." Copy-paste ready.
+- 956f1f9 - operational dashboard at /agent/ops (3 new files: /agent/ops/page.tsx, /agent/ops/DashboardClient.tsx, /api/agent/dashboard/route.ts)
+- 46d71d0 - dashboard fixes: Pool Health row cap (Supabase JS 1000-row default) + Activity Feed empty state (missing FK on embed)
+- 7fc2fce - scoring fixes: onlyUnscored param + pagination on exclude-IDs query
 
-**Sessions 2-4 prompts** also staged verbatim in the same doc.
+## Today's brain commits
 
-### Pre-session prereqs Brian needs to handle BEFORE Session 1
+- 9350656 - session 10 entry in projects/fub-ai-agent.md
+- (this commit) - session 10 SESSION-HANDOFF update
 
-1. **FRED API key** — sign up at https://fred.stlouisfed.org/docs/api/api_key.html (free, 10 min). Save somewhere accessible.
-2. **Confirm Manus production decision** — Brian's call from 2026-05-12: NO 301 redirect. After all 4 sessions done, Manus app gets unpublished/deactivated on their side. Source is permanently safe in `HGPG1/charlotte-buyers-guide-manus-export`.
-3. **Buyers Guide Pixel + CAPI verification still pending separately** — env vars need provisioning on Vercel from the 2026-05-12 instrumentation session. Worth knocking out before Session 1 starts since the verification is unrelated and Brian's already at the Vercel dashboard.
+## TM repo state
 
-### Decisions locked in (recorded in migration plan)
+- Branch: main
+- HEAD: 7fc2fce
+- Deploy: closings.homegrownpropertygroup.com READY
+- Working tree clean
 
-- DB: HGPG Core Supabase (`ioypqogunwsoucgsnmla`), new tables `bg_*` namespace, service-role-only RLS
-- PDF storage: Supabase Storage bucket `bg_pdfs` (private, signed URLs), NOT AWS S3
-- 5 agents pre-known and documented in migration plan for Session 1 seeding
-- Google Maps deferred to Session 4
-- Bonus content gating stays as current UnlockModal pattern
+## Live agent state
 
----
+- agent_enabled = true ✅
+- daily_send_cap = 10
+- auto_below_threshold = false (manual approve only)
+- hot_threshold = 40, warm_threshold = 30, llm_confidence_floor = 0.4
+- Pool: 5,363 eligible / 0 hot / 52 warm / 971 cold / 4,340 unscored
 
-## Parallel track 2026-05-12 — CMA tool: full polish + production-ready
+## Open queue (~14 drafts in flight at last check)
 
-Five PRs landed in `HGPG1/hgpg-cma-tool` today on a thread running alongside the Manus work. Tool is now genuinely production-ready for real-world agent use.
+Manual approve required on every draft.
 
-**Shipped (all live at cma.homegrownpropertygroup.com):**
+Buyer queue: Anthony (clean), Sam (clean), Chris Smith (clean), plus ~3 v3 drafts (Gerard - reject, Seanna, others)
+Seller queue: John, Jay, Tamela (post-template-fix clean), Rachel, Jason, Leigh, Tracy (newly classified seller)
+Plus Jesse Hernandez dupe to reject (id 23)
 
-- **PR #40** (`enh2-followup-hamburger-and-overflow-audit`) — Mobile responsive pass actually complete. Hamburger drawer at <md, inline nav at ≥md. Inputs in SubjectForm + ManualCompRow got `block w-full` + `min-w-0` (fixed overflow at the source, not via body `overflow-x-hidden` band-aid).
-- **PR #41** (`polish-address-normalize`) — Subject address renders canonically across title page, narrative, PDF. Built canonical from MLS `street_number + street_name + street_suffix + unit_number` (verified `unparsed_address` is null on 0/2.575M rows). Three `mls_subject_detect_v2*` RPCs extended additively (DROP+CREATE) to return parts. Idempotent `normalizeAddress()` fallback for manual entry / legacy reports. Single choke point at `saveWorkingSet` / `loadWorkingSet`.
-- **PR #42** (`polish-narrative-cache`) — Saved-narrative cache on `cma_reports`. Added `narrative_generated_at` watermark + extended `cma_reports_set_updated_at` trigger to stamp it server-side when the narrative column changes. `loadCachedNarrative()` gates the LLM call from all three packet pages. Appraiser page rebuilds `AppraiserComputed` locally on cache hit via `buildAppraiserMetrics`.
-- **PR #43** (`polish-narrative-cache-fix`) — PR #42's caching effectively shipped zero savings because the PR #34 PDF-export status flip and manual /history status changes bumped `updated_at` without touching `narrative_generated_at`. All 47 narrative rows were stale by the time of this fix. Per stop-and-ask, fixed the trigger (single point) rather than every UPDATE call site. New rules: math changed → leave watermark, narrative changed → stamp fresh, neither changed but row has narrative → stamp fresh too. Backfill ran: 47 stale → 0 stale.
-- **PR #44** (`polish-top-back-links-and-comp-persist`) — Item 1: duplicated existing footer "Back to..." link at top of all four packet/adjust pages so agents on long packet views don't scroll to navigate back. Item 2: `WorkingSet.findCompsSnapshot` persists the Auto-Find result + subject snapshot + topIds + manualSwaps + searchedAt across navigation. AutoFindPanel hydrates on mount, persists eagerly on search + every swap. "Last searched HH:MM" label + soft yellow "Subject changed" banner when key subject fields drift since search.
+## Pick up here (session 11 priorities)
 
-**DB migrations applied via Supabase MCP** (both checked into repo at `supabase/migrations/`):
-- `wdheejgmrqzqxvgjvfee`: `mls_subject_detect_v2*` RPCs additively return canonical street parts.
-- `ioypqogunwsoucgsnmla`: `cma_reports.narrative_generated_at` + smart trigger.
+1. **Watch the agent live for a few days.** Real Brian + Don usage data. What's the approve rate? Reject reasons? Voice complaints?
+2. **Optional: continue scoring backfill** with `onlyUnscored=true` to drain the remaining 3,340 unscored leads (~$10-15, ~100 expected warm conversions)
+3. **Decide on auto_below_threshold flip** once you trust the queue UI workflow
+4. **Hot tier templates** if any leads start hitting score ≥40
 
-**Production state on cma_reports** (HGPG Core, 52 rows):
-- 47 with narrative — all cached fresh, hit `loadCachedNarrative` without LLM call.
-- 5 with null narrative — generate fresh on first view, save back, hit cache thereafter.
+## Critical context (carry forward)
 
-**Update for [[project_cma_dual_supabase]]:** future writers to `cma_reports` don't need to remember to bump `narrative_generated_at` — the trigger handles it based on which columns actually changed. CMA tool UX queue is fully drained.
+- agent_enabled blocks BOTH cron AND manual approve via outboundGate. Flip via Supabase MCP or the queue UI toggle.
+- FUB Automation 2.0 delivers email as plaintext. NEVER use `<br>` in templates - real newlines only.
+- FUB UI Merge Fields dropdown produces `%snake_case%` tokens. Use the dropdown, don't type.
+- Test rig: FUB person 27764 (Brian in Sphere, pond 9 = excluded from agent).
+- gerardmarmo@yahoo.com (FUB 23552): Brian in active manual conversation. Reject any agent drafts.
+- Template paragraph sweep query lives in projects/fub-ai-agent.md "Session 8" entry.
+- Variant naming convention: `v1.warm.scenario_name.channel` (base) + `.v2`/`.v3`/... for variants.
+- **For pool backfills:** use `POST /api/agent/score {"limit": N, "onlyUnscored": true}` to score N leads that have NEVER been scored. Don't use the default backfill - it re-scores leads we already have.
+- **Supabase JS has a 1000-row default cap on unbounded selects.** Always paginate or use count head:true.
+- **PostgREST embed syntax silently returns null without a FK.** When embedding a related table, verify the FK exists or fetch + merge in JS.
 
----
+## Two dashboards
 
-## Last session: 2026-05-12 — Buyers Guide instrumentation + Manus full extraction
+- **/agent** - read-only score distribution histogram + top-50 leads table. The lead inspector.
+- **/agent/ops** - 7-panel operational dashboard, 30s auto-refresh. The daily-glance live view.
+- Queue lives at **/agent/queue**
 
-### Highlights
+## Backlog (multi-session, in priority order)
 
-**Buyers Guide instrumentation (shipped + merged):**
-- Pixel + CAPI code was on `main` since late April but inert (`VITE_META_PIXEL_ID` unset → Vite tree-shook). Made live this session.
-- NeverBounce shipped from scratch in commit `5c233ee` on `claude/buyers-guide-instrumentation-nGCLI`, PR merged.
-- Pixel ID for Buyers Guide: `1449157226505129`. NeverBounce key: reuse Sellers Guide value.
-- Env vars + redeploy + verification pending Brian's hands.
-
-**Manus full extraction (Path B + Path C complete):**
-- Manus AI agent (inside their dashboard) cooperatively exported full source as a zip after 2 probe rounds.
-- 220 files extracted, committed to new private repo `HGPG1/charlotte-buyers-guide-manus-export` (commit `e107b0e`).
-- One historic FUB key found in `scripts/get-fub-users.ts` (`fka_0cyqBU…`) — probed FUB API, returned 401, already revoked.
-- Forge storage clarification: Manus uses its own proxy, NOT AWS S3 directly (despite `@aws-sdk` deps).
-- **Path C resolved via direct tRPC probe of live Manus site, NOT via AI agent** (which was looping on archived repo files — the GitHub-archived workspace appears to sandbox the agent away from live DB).
-- **Production DB state: effectively empty.** 1 fake test lead, 0 quiz completions, 0 exit intents, 5 agent config rows.
-- Manus migration scope COLLAPSED. 4 phases → 1 forward-looking phase. Phase 3 features (admin, dashboard, advisor mode, /:agent) re-judged: forward-looking ports, not regressions.
-- Brian decided: no 301 redirect (Manus burned bridges around build time). Take Manus down after Vercel migration completes.
-
-**Full migration plan staged for new thread:** see Next session above.
-
-### Lessons noted (cumulative, key ones from today)
-
-1. **Code-on-`main` does NOT equal shipped-in-production.** Verify against built bundle.
-2. **Build-gate divergence:** `vercel.json` vs `package.json` can drift; run `npm run build` locally before merging.
-3. **Sandbox push works** for at least the Buyers Guide repo.
-4. **Migration-without-source = downgrade — but only when the source app was actually being used.** Check usage signal before treating missing features as regressions.
-5. **AI agents inside SaaS platforms are an unofficial export channel.** Probe with innocuous files; verify against production bundle's `data-loc` strings; escalate to full zip. Worked here.
-6. **AWS SDK deps != AWS usage.** Read the code, don't infer infra from `package.json`.
-7. **Verify before rotation chaos.** Grep extracted source for secrets, then probe them. Cheap.
-8. **When a SaaS AI agent loops, check whether the workspace is archived/disconnected.** GitHub-archived workspace appears to sandbox Manus AI agents to dead files. Agent substitutes the closest thing in its workspace and hopes you don't notice.
-9. **When AI agent extraction stalls, hit the deployed app directly.** Live tRPC endpoints are usually faster and more reliable than coaxing an agent to query its own DB. `curl /api/trpc/contact.list` returned the full table in one request after multiple agent rounds failed.
-10. **Usage signal trumps feature inventory.** Eight "missing features" in a gap analysis is meaningless if the source app had zero real users.
-11. **`apply_migration` via MCP doesn't update repo.** DB ledger and `supabase/migrations/` are separate sources of truth. Commit the .sql alongside.
-12. **CONTEXT.md drifts.** Reconcile vs project files every couple weeks.
-13. **Don't trust assertions about "this is done" without verifying against the live system.**
-
----
-
-## Previous session: 2026-05-11 — Brain reconciliation + transaction-pdfs cleanup
-
-Reconciled CONTEXT.md against project files (which were ahead), closed six items: Sherlock 403, Mac Mini GitHub auth, exposed GitHub PAT rotation, CMA Engine MLS Grid auto-pull, NC office routing in ReZEN (verified live in code), transaction-pdfs bucket flip → private (bucket flipped via MCP on 2026-05-09; migration file backfilled to repo on 2026-05-11 as `2eb9794`).
-
-Also: rebuilt `projects/brain-app.md` (had been clobbered), updated CONTEXT.md "active right now" list.
-
----
-
-## Previous session: 2026-05-06 — Brain App MVP shipped 🟢
-
-- New Vercel project: `brain-app` on team `team_FietQPKCmnyioG2n0FdteQCV`
-- New repo: `HGPG1/brain-app` (private)
-- Live at: `https://brain.homegrownpropertygroup.com`
-- Stack: Next.js 16.2.4, Tailwind v4, CodeMirror 6, Supabase Auth (magic link)
-- Single-user lock: `BRIAN_EMAIL=brian@homegrownpropertygroup.com` allow-list
-- Resend custom SMTP wired into HGPG Core Supabase (2/hr → 30/hr)
+- Hot tier templates (score >= 40)
+- iMessage seller variants
+- Cooldown re-touch templates (second-attempt copy)
+- More buyer/seller template variants (only viewed_listing_recent has variants)
+- Backfill remaining 3,340 unscored leads with onlyUnscored=true
+- FUB UI custom fields 157-162 visibility to admins-only
+- Normalize hideIfEmpty across fields 157 vs 160/161/162 (cosmetic)
+- Stale tag cleanup on person 27764
+- Drop body column after deprecation window
+- v2: brokerage oversight expansion (Ashley/Brenda/Taylor + Don unified queue)
+- v2: tier-based behavior, smart channel pick, production inbound classifier
