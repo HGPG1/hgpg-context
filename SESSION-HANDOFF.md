@@ -2,7 +2,41 @@
 
 # Session Handoff
 
-## Last session: 2026-05-12 — Buyers Guide instrumentation (NeverBounce shipped, Pixel/CAPI unblocked)
+## Last session: 2026-05-12 (afternoon) — CMA Engine Enhancement 2 (mobile responsive pass) shipped
+
+**Repo:** `HGPG1/hgpg-cma-tool` · **PR:** https://github.com/HGPG1/hgpg-cma-tool/pull/39 (squash-merged as `66c9912`) · **Vercel:** production deploy READY.
+
+### What got fixed
+
+Brian flagged on iOS Safari (iPhone ~390px wide): global header nav "Seller Buyer Appraiser History" overflowed past the right edge, and page headings on `/appraiser/new` ("Assemble the comparable set") and similar agent-flow pages appeared flush-left with no gutter while form inputs below had proper padding.
+
+**Root cause:** the header `flex` row (logo + 4 nav links) exceeded mobile viewport width. That forced the document wider than 375-390px, so even children with the layout's `px-4` gutter visually appeared shifted left within the viewport. Heading "no gutter" symptom was downstream of header overflow, not a separate bug.
+
+### Changes (9 files, +34 / -22, pure CSS)
+
+- **`components/Header.tsx`** — `flex-col` on mobile (logo row 1, nav row 2 with `flex-wrap`); 44px min-height tap targets on nav links per Apple HIG. `sm+` keeps original horizontal layout.
+- **`app/layout.tsx`** — `overflow-x-hidden` on `<body>` as a safety net (not a substitute for the header fix; just belt-and-suspenders).
+- **`p-10` → `p-6 sm:p-10`** on white-card sections across `app/seller/packet`, `app/buyer/packet`, `app/appraiser/packet`, `app/seller/adjust` (empty state), `app/history` (empty state), `app/admin/feedback` (empty state), and `app/error.tsx`. Recovers ~32px of horizontal content width at 375px; desktop padding unchanged.
+
+### What did NOT change
+
+- Math engine, packet generation, autosave, AI narrative — untouched.
+- No DB migrations, no env vars, no RLS, no `lib/mls/compSearch.ts`.
+- Tailwind config already had standard sm/md/lg breakpoints — no base config additions needed.
+
+### Verification
+
+- `npx tsc --noEmit` clean before push.
+- Production deploy READY on Vercel for commit `66c9912`.
+- Brian should walk `/appraiser/new`, `/seller/adjust` (Candlestick draft `b4278470-e018-466e-b5a5-71d71cd06b2b`), and `/seller/packet` on his iPhone to confirm.
+
+### Engine + UX queue status
+
+Per Brian's note in the kickoff: with Enhancement 2 shipped, the CMA Engine + UX queue is now fully drained. Remaining CMA Engine work is real-world workflow items (Taylor stress test still pending before declaring CMA production-ready).
+
+---
+
+## Last session: 2026-05-12 (earlier) — Buyers Guide instrumentation (NeverBounce shipped, Pixel/CAPI unblocked)
 
 ### What got built
 
