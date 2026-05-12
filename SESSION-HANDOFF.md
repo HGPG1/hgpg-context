@@ -30,6 +30,30 @@ Full 4-session migration plan is staged at `projects/buyers-guide-manus-migratio
 
 ---
 
+## Parallel track 2026-05-12 — CMA tool: full polish + production-ready
+
+Five PRs landed in `HGPG1/hgpg-cma-tool` today on a thread running alongside the Manus work. Tool is now genuinely production-ready for real-world agent use.
+
+**Shipped (all live at cma.homegrownpropertygroup.com):**
+
+- **PR #40** (`enh2-followup-hamburger-and-overflow-audit`) — Mobile responsive pass actually complete. Hamburger drawer at <md, inline nav at ≥md. Inputs in SubjectForm + ManualCompRow got `block w-full` + `min-w-0` (fixed overflow at the source, not via body `overflow-x-hidden` band-aid).
+- **PR #41** (`polish-address-normalize`) — Subject address renders canonically across title page, narrative, PDF. Built canonical from MLS `street_number + street_name + street_suffix + unit_number` (verified `unparsed_address` is null on 0/2.575M rows). Three `mls_subject_detect_v2*` RPCs extended additively (DROP+CREATE) to return parts. Idempotent `normalizeAddress()` fallback for manual entry / legacy reports. Single choke point at `saveWorkingSet` / `loadWorkingSet`.
+- **PR #42** (`polish-narrative-cache`) — Saved-narrative cache on `cma_reports`. Added `narrative_generated_at` watermark + extended `cma_reports_set_updated_at` trigger to stamp it server-side when the narrative column changes. `loadCachedNarrative()` gates the LLM call from all three packet pages. Appraiser page rebuilds `AppraiserComputed` locally on cache hit via `buildAppraiserMetrics`.
+- **PR #43** (`polish-narrative-cache-fix`) — PR #42's caching effectively shipped zero savings because the PR #34 PDF-export status flip and manual /history status changes bumped `updated_at` without touching `narrative_generated_at`. All 47 narrative rows were stale by the time of this fix. Per stop-and-ask, fixed the trigger (single point) rather than every UPDATE call site. New rules: math changed → leave watermark, narrative changed → stamp fresh, neither changed but row has narrative → stamp fresh too. Backfill ran: 47 stale → 0 stale.
+- **PR #44** (`polish-top-back-links-and-comp-persist`) — Item 1: duplicated existing footer "Back to..." link at top of all four packet/adjust pages so agents on long packet views don't scroll to navigate back. Item 2: `WorkingSet.findCompsSnapshot` persists the Auto-Find result + subject snapshot + topIds + manualSwaps + searchedAt across navigation. AutoFindPanel hydrates on mount, persists eagerly on search + every swap. "Last searched HH:MM" label + soft yellow "Subject changed" banner when key subject fields drift since search.
+
+**DB migrations applied via Supabase MCP** (both checked into repo at `supabase/migrations/`):
+- `wdheejgmrqzqxvgjvfee`: `mls_subject_detect_v2*` RPCs additively return canonical street parts.
+- `ioypqogunwsoucgsnmla`: `cma_reports.narrative_generated_at` + smart trigger.
+
+**Production state on cma_reports** (HGPG Core, 52 rows):
+- 47 with narrative — all cached fresh, hit `loadCachedNarrative` without LLM call.
+- 5 with null narrative — generate fresh on first view, save back, hit cache thereafter.
+
+**Update for [[project_cma_dual_supabase]]:** future writers to `cma_reports` don't need to remember to bump `narrative_generated_at` — the trigger handles it based on which columns actually changed. CMA tool UX queue is fully drained.
+
+---
+
 ## Last session: 2026-05-12 — Buyers Guide instrumentation + Manus full extraction
 
 ### Highlights
