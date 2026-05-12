@@ -2,108 +2,83 @@
 
 # Session Handoff
 
-## Last session: 2026-05-12 — Buyers Guide Session 2 IN PROGRESS 🟡
+## Last session: 2026-05-12 — New Construction phone capture spec locked, Claude Code prompt prepared
 
-Session 2 of the Manus migration is mid-flight. All code shipped to branch `session-2-funnel`, NOT merged to main. Production is unchanged from end-of-Session-1.
-
-### What got built (lives on session-2-funnel branch)
-
-New files:
-- `api/_lib/contacts.ts` — upsertBgContact() helper (INSERT ... ON CONFLICT (email) DO UPDATE)
-- `api/calculator/track-completion.ts` — score push + FUB custom fields + behavioral tag
-- `api/calculator/generate-pdf.ts` — PDFKit -> bg-pdfs Storage -> signed URL
-- `api/quiz/submit.ts` — bg_quiz_results insert + FUB sync + +50 score
-- `api/exit-intent/submit.ts` — popup capture path
-- `api/bonus/unlock.ts` — bonus_unlock activity + score push
-- `api/capi-event.ts` — Meta CAPI proxy for server-side dedup
-- `src/components/ExitIntentPopup.tsx`
-- `src/hooks/useExitIntent.ts`
-
-Modified files:
-- `api/_lib/fub.ts` — added updateFubPersonByEmail()
-- `src/pages/Calculator.tsx` — equity module, URL param prefill, track-completion trigger, PDF auto-fire post-unlock, HGPG palette chart colors
-- `src/pages/Quiz.tsx` — locked-overlay gate on results page, UnlockModal capture path
-- `src/lib/pixel.ts` — trackPixelWithCapi helper
-- `src/App.tsx`, `src/components/Layout.tsx` — wiring
-- `.gitignore` — added .vercel + .env*.local
-
-### Three patch rounds during the session
-1. R1 (commit 04e4a21): initial Session 2 build, all features implemented
-2. R2: Quiz capture gate, Calculator PDF gate, exit-intent guard fixes
-3. R3 (commit 87b316d): upsertBgContact added to /api/fub-lead + defensive upserts on every score-touching route — fixed silent no-op chain across the funnel
-
-### Outstanding bug at pause
-Quiz state-key mismatch on lifestyle field. DevTools diagnostic logs caught it:
-- Quiz state captures four of five answers under expected keys
-- lifestyle answer is captured (renders on results page) but under a different key than hasAllAnswers reads
-- Result: /api/quiz/submit never fires, no row in bg_quiz_results, no +50 score
-- Claude Code is patching at pause — task: unify the state key across (a) the lifestyle question setter, (b) hasAllAnswers check, (c) profile-display block, (d) server route payload schema
-
-### Backend reality check (Supabase MCP, project ioypqogunwsoucgsnmla)
-As of 8:30 PM ET 2026-05-12:
-- bg_contacts: 2 rows total, both source=exit_intent (Quiz path never wrote contacts due to upsert-missing bug, fixed in R3 but not yet re-verified)
-- bg_quiz_results: 0 rows (Quiz submit blocked by lifestyle-key bug)
-- bg_activities: 2 bonus_unlock rows
-- Orphan activity rows (bonus unlocks without parent contact) confirmed pre-R3, should be fixed but unverified post-patch
-
-### Infra changes this session
-- Added Preview-scope env vars: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, FUB_API_KEY (FRED was already preview-scoped). All four needed for preview deployments to hit live backends.
-- Bypass token for Vercel deployment protection stored in macOS Keychain under VERCEL_BYPASS_TOKEN, auto-exports via ~/.zshrc. Used as ?x-vercel-protection-bypass=$TOKEN&x-vercel-set-bypass-cookie=true on preview URLs.
-
-### Brain Write API token also lives in Keychain
-Stored under HGPG_BRAIN_TOKEN. Auto-exports via ~/.zshrc. Used for POST https://brain.homegrownpropertygroup.com/api/external/write with Bearer header.
-
-### Preview URLs created this session (newest first)
-- charlotte-buyers-guide-1btetyi8k.vercel.app — R3 + upsert chain
-- charlotte-buyers-guide-dugl76exy.vercel.app — R2 patches (quiz/calc/exit gates)
-- charlotte-buyers-guide-mqtpmesuh.vercel.app — R1 initial build (env-scope rebuild)
-- charlotte-buyers-guide-me0t7ltx6.vercel.app — R1 initial (incomplete env scope)
-
-Lifestyle-key patch (R4) is in flight from Claude Code as of pause — new preview URL will follow.
+### What got done
+- Confirmed: new construction site live at `newconstruction.homegrownpropertygroup.com` currently captures email + name on 4 lead forms; phone is NOT captured
+- Verified via live curl - zero `type="tel"`, `name="phone"`, or phone copy markers in homepage HTML
+- Locked 3 strategy decisions:
+  - Tiered: optional on Guide/Quiz/Calculator, required on Builder Intro
+  - Benefit-led copy, tailored per form (text guide link, text matches, text breakdown, 24hr callback)
+  - FUB destination = standard `mobile` phone on contact, no custom field
+- SMS speed-to-lead automation explicitly deferred - phone capture ships first, verify in FUB with a real lead, then SMS PR as separate session
+- Full spec saved to brain at `projects/new-construction-phone-capture.md` (commit `e8a2e64`)
+- CONTEXT.md updated to index the new project (commit `b9f5c91`)
+- Claude Code prompt fully written, ready to paste
 
 ### Pickup notes for next session
 
-1. Get latest preview URL after R4 deploys:
-   vercel ls --scope home-grown-property-groups-projects | head -5
+**If phone capture has shipped:** Verify in FUB that a real Builder Intro lead has phone attached as mobile, then prep the SMS speed-to-lead PR (FUB Automations 2.0 rule, 90-second SMS auto-response on Builder Intro source). Update `projects/new-construction-phone-capture.md` status to SHIPPED, add follow-up notes.
 
-2. Cold-state smoke against new preview with fresh test email:
-   - Open fresh incognito + bypass cookie URL
-   - DevTools Console open BEFORE clicking anything
-   - Full funnel: Quiz -> Calculator -> Bonuses
-   - Watch for [Quiz submit] logs — confirm hasAllAnswers becomes true and POST fires
-   - Note: Claude Code was asked to remove diagnostic logs post-fix, so they may be gone
+**If phone capture has NOT shipped:** The Claude Code prompt is the deliverable. It's verbatim in the previous Claude conversation (2026-05-12) and the full spec lives at `projects/new-construction-phone-capture.md`. Pickup is one step: paste the prompt into Claude Code on Mac, let it run, review PR, merge.
 
-3. Backend verification via Supabase MCP after smoke (queries to run against ioypqogunwsoucgsnmla):
-   - SELECT * FROM bg_contacts WHERE email = '<test-email>';
-   - SELECT * FROM bg_quiz_results WHERE contact_email = '<test-email>';
-   - SELECT * FROM bg_activities WHERE contact_email = '<test-email>';
-   Expected: all three return rows, bg_contacts.lead_score is sum of (50 quiz + 25 or 40 calc basic/equity + 20 calc pdf + 30 bonus) = 125 if Calculator basic, 140 if equity used.
+**Smoke test once shipped (before merging PR):**
+1. Guide Delivery, no phone → 200, FUB email-only
+2. Quiz, phone `(704) 555-1234` → FUB has `+17045551234` as mobile
+3. Calculator, phone `12345` → inline error, blocked
+4. Builder Intro, empty phone → inline error, blocked
+5. Builder Intro, valid phone → FUB + Meta Test Events both fire
+6. Meta Events Manager → Test Events → confirm `ph` parameter on Lead payloads
 
-4. FUB person verification:
-   Search FUB for test email, confirm custom fields populated + correct behavioral tag (buy_better / rent_better / move_up_ready depending on calc inputs) + buyer-type tag from Quiz.
+### Repo + infra reference
+- Repo: `HGPG1/charlotte-new-construction-nextjs` (branch `main`)
+- Vercel auto-deploys on merge
+- Meta Pixel ID 1880396459290092 already wired, 6 funnel events live
+- Shared FUB helper: `src/lib/fub.ts`
+- FUB API key already in Vercel env
 
-5. PDF visual eyeball:
-   Open one Calculator PDF + one buyers-guide PDF (exit-intent path) from the signed URLs, confirm they render correctly inside, not just that they return 200.
+### Open questions, none right now
+None. Spec is locked, ready to execute.
 
-6. Meta Test Events:
-   Open Meta Events Manager -> Test Events tab -> confirm Lead + Search + Contact + SubmitApplication each show ONE row per event (browser+server dedup working).
+---
 
-7. If all green: merge session-2-funnel to main.
-   git checkout main
-   git pull origin main
-   git merge session-2-funnel
-   git push origin main
-   Production preview auto-deploys. Re-run health checks against prod URL to confirm env-var drift didn't break anything.
+## Prior session: 2026-05-06 — Brain App MVP shipped 🟢
 
-8. Brain update (one push, not three):
-   After prod is green, update SESSION-HANDOFF.md + projects/buyers-guide.md + projects/buyers-guide-manus-migration.md via brain write API. Note: brain docs from earlier in the session already claim "Session 2 shipped" — those need a corrective push.
+(preserved below for reference)
 
-### Deferred to Session 3 or later
-- Playwright headless smoke harness — discussed but not built. Would have saved most of today's manual-smoke time. Worth ~15min in a future session for re-usability across Sessions 3+4.
-- Pre-existing accessibility nits in form inputs (missing id/name + label-for associations). Not Session 2 work.
+### What got built
+- New Vercel project: `brain-app` on team `team_FietQPKCmnyioG2n0FdteQCV`
+- New repo: `HGPG1/brain-app` (private)
+- Live at: `https://brain.homegrownpropertygroup.com`
+- Stack: Next.js 16.2.4, Tailwind v4, CodeMirror 6, Supabase Auth (magic link)
+- Single-user lock: `BRIAN_EMAIL=brian@homegrownpropertygroup.com` allow-list
+- GitHub auth: fine-grained PAT scoped to `HGPG1/hgpg-context`, contents:write only
+- Round-trip verified: edit file in browser → commit lands on `main` with author `brian@homegrownpropertygroup.com`
 
-### Things to remember next session
-- Always check the preview URL hash matches the latest deployment. Half a session was spent debugging stale builds. The hash is in vercel ls --scope home-grown-property-groups-projects | head -5.
-- DevTools Console open BEFORE smoke testing. Diagnostic logs are useless if you don't see them.
-- Clear localStorage + sessionStorage between cold-state runs. Stale state masks real bugs.
-- Backend verification via Supabase MCP > eyeballing the UI. Caught the silent no-op chain that visual smoke missed.
+### Infra changes that affect other apps
+- Resend custom SMTP wired into `HGPG Core` Supabase (project `ioypqogunwsoucgsnmla`)
+  - Sender: `noreply@homegrownpropertygroup.com`, name: HGPG
+  - API key stored under "Supabase HGPG Core" in Resend
+  - Rate limit went from 2/hr (Supabase default) to 30/hr (Resend default), can be raised
+  - This affects ALL apps using this Supabase: TM, CMA, TC Concierge, brain-app
+- Supabase project renames for hygiene:
+  - `ioypqogunwsoucgsnmla` → "HGPG Core"
+  - `ngdrliyjtqcwhhfrbxao` → "HGPG FUB Integration" (verify)
+  - `wdheejgmrqzqxvgjvfee` → "HGPG Listing Reports + MLS" (verify)
+  - `fkxgdqfnowskflgbuxhm` → "HGPG Signature + Relocation" (verify)
+- Supabase `HGPG Core` redirect URLs added:
+  - `https://brain.homegrownpropertygroup.com/**`
+  - `http://localhost:3000/**`
+  - (Existing tools.hgpg entries left intact)
+
+### Project status updates
+- `projects/brain-app.md` — status now 🟢 SHIPPED (was 🟡)
+- `projects/hgpg-team-tools2.md` — Site URL in Supabase still points here for the broken app's eventual fix
+- `projects/transaction-manager.md` — no changes today, but TM benefits from Resend SMTP upgrade
+
+### Deferred / Phase 2 for brain-app
+- iPhone smoke test (CodeMirror + iOS soft keyboard scroll behavior)
+- Cooper Hewitt self-hosted (currently falling back to system sans)
+- File rename and delete
+- Diff view before save
+- Cross-file search
