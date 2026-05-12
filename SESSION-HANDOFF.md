@@ -2,7 +2,25 @@
 
 # Session Handoff
 
-## Last session: 2026-05-12 — Buyers Guide instrumentation + Manus extraction
+## Last session: 2026-05-12 — CMA mobile pass (actually) complete
+
+PR #39 (Enhancement 2) was the "simpler option" wrap-to-second-row header + a body `overflow-x-hidden` safety net. Brian re-tested on iPhone 15/16 Pro Max and it still read as broken: nav looked bolted-on, form inputs visually overflowed the white card, and `overflow-x-hidden` was masking real width violations.
+
+**PR #40 (`enh2-followup-hamburger-and-overflow-audit`) — merged + deployed (READY).**
+
+What changed:
+
+1. **Header → hamburger drawer at <md, inline nav at ≥md.** `components/Header.tsx` is now a client component. Right-side drawer, 48px tap targets, backdrop/link/ESC close, body scroll-lock while open. Inline SVG icons — no new dep.
+2. **Input width fixed at the source.** SubjectForm and ManualCompRow inputs got `block w-full`; their label wrappers got `min-w-0`. Without `w-full` inputs rendered at the browser's intrinsic ~150px width inside a ~300px card on mobile — looked broken. `min-w-0` on grid items prevents wide intrinsic content from blowing the column track past the card edge (the actual horizontal-overflow source).
+3. **Removed `overflow-x-hidden` from `<body>`.** Underlying violations are gone; future regressions surface at audit time instead of being silently masked.
+
+Deploy: `dpl_H5MPdGpug4Qc2uopVFWEzbzAQX9o`, READY at cma.homegrownpropertygroup.com.
+
+Mobile responsive pass is now actually done.
+
+---
+
+## Previous session: 2026-05-12 — Buyers Guide instrumentation + Manus extraction
 
 ### Highlights
 
