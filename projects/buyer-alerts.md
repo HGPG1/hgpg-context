@@ -4,13 +4,52 @@
 
 ## Core Identity
 
-- **Status:** 🟢 Session 1 shipped to branch (env vars + smoke test pending in production)
+- **Status:** 🟡 Session 1 PARKED on LoopMessage env blocker (DB schema + code + 5 of 6 env vars done; one env var + code patch + smoke test remaining)
 - **Lives inside:** Team Dashboard (`HGPG1/hgpg-team-dash`, route `/buyers`)
 - **Live URL (target):** `team.homegrownpropertygroup.com/buyers`
 - **Supabase project:** `wdheejgmrqzqxvgjvfee` (HGPG Listing Reports + MLS) — shared with Team Dashboard
 - **Cross-project lookups:** `ioypqogunwsoucgsnmla` (HGPG Core) for `team_members.phone`
 - **Vercel project:** `prj_Q4dFcHGUvmUbUPaDydcHhdS2Laxd` (existing `hgpg-team-dash`)
 - **Cron:** Vercel cron `*/30 * * * *` against `/api/cron/buyer-alerts`
+
+## Parked: outstanding work to unblock S1
+
+As of 2026-05-12 EOD, three items remain before S1 can be smoke-tested in production:
+
+1. **Code patch — LoopMessage integration** in `src/app/api/cron/buyer-alerts/route.ts`.
+   - Claude Code wrote: `LOOPMESSAGE_API_KEY` + `LOOPMESSAGE_SECRET` env vars, `server.loopmessage.com` endpoint, both `Authorization:` and `Loop-Secret-Key:` headers.
+   - TM canonical pattern (`lib/loopBridge.ts`): single `LOOP_API_KEY` env var, `a.loopmessage.com` endpoint, `Authorization:` header with raw key (no Bearer).
+   - Replace the `sendLoopMessage` function in the cron route to match TM byte-for-byte.
+
+2. **LoopMessage env var value** in team-dash Vercel.
+   - TM's `LOOP_API_KEY` is flagged Sensitive in Vercel and cannot be revealed for copy.
+   - Resolution paths:
+     - Path 1 (fastest): regenerate in LoopMessage dashboard, paste into BOTH TM and team-dash, redeploy both
+     - Path 2: locate the value in 1Password or Notes
+     - Path 3 (best long-term): migrate `LOOP_API_KEY` to `internal_secrets` table on HGPG Core (same pattern as `DM_BRIAN_SECRET`), refactor both TM and team-dash to read from Supabase, eliminates Sensitive-flag pain forever
+   - Add `LOOP_API_KEY` to `hgpg-team-dash` Vercel env vars (Production + Preview).
+   - Redeploy with "Use existing Build Cache" UNCHECKED.
+
+3. **Smoke test**:
+   - Create a buyer at `team.homegrownpropertygroup.com/buyers` with natural-language input
+   - Verify LLM parse renders structured preview before save
+   - "Run match now" returns matches against current Active MLS data
+   - Repeat run does NOT re-alert on same matches (dedupe via unique index)
+   - Manual cron trigger: `curl -X GET https://team.homegrownpropertygroup.com/api/cron/buyer-alerts -H "Authorization: Bearer $CRON_SECRET"`
+   - Verify iMessage arrives on Brian's phone with the correct format
+
+## Env vars already added (2026-05-12)
+
+In Vercel project `hgpg-team-dash` (Production + Preview):
+
+- `ANTHROPIC_API_KEY` ✅
+- `SUPABASE_SERVICE_ROLE_KEY` ✅
+- `HGPG_CORE_SUPABASE_URL` ✅
+- `HGPG_CORE_SUPABASE_SERVICE_ROLE_KEY` ✅
+- `CRON_SECRET` ✅
+- `LOOP_API_KEY` ⏳ (blocked on Sensitive-flag rotation — see above)
+
+All marked Sensitive in Vercel UI. Rotating any of them requires delete-and-re-add (standard Vercel gotcha).
 
 ## What it does
 
