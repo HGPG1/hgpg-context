@@ -1,6 +1,6 @@
 # HGPG Context (Brain)
 
-Last updated: 2026-05-11
+Last updated: 2026-05-12
 
 ## Who
 
@@ -23,33 +23,32 @@ See `team.md` for full roster.
 - **Brain App** (brain.homegrownpropertygroup.com) - live, see `projects/brain-app.md`
 - **FUB AI Agent** (embedded in TM at `/agent`) - operational, `agent_enabled=false`, decision pending on flip strategy, see `projects/fub-ai-agent.md`
 - **Sellers Guide** (sellersguide.homegrownpropertygroup.com) - shipped + ad-ready, FUB Automation 2.0 pending, see `projects/sellers-guide.md`
-- **Buyers Guide** - live capturing leads, see `projects/buyers-guide.md`
+- **Buyers Guide** (buyersguide.homegrownpropertygroup.com) - live, but **major Manus migration workstream active** — Vercel rebuild missing 8 high-value features from original (lead scoring, calculator→FUB tags, exit-intent + PDF gen, bonus tracking, /:agent vanity pages, /admin, /agent-dashboard, advisor mode). See `projects/buyers-guide.md`.
 - **Claude skills** - five new skills shipped May 1 (objection-handler, referral-request-writer, showing-feedback-summarizer, offer-comparison-analyzer, market-update-writer)
 
 ## Recently completed
 
-- transaction-pdfs bucket flipped to private (fully aligned 2026-05-11). Bucket private since 2026-05-09, code on main via PR #7, DB ledger recorded, repo migration file committed (`2eb9794`).
+- Buyers Guide Pixel + CAPI + NeverBounce shipped (2026-05-12). PR merged. Env vars + redeploy + verification pending.
+- Manus AI agent extraction Rounds 1 + 2 (2026-05-12) — repo `HGPG1/homegrown-buyer-guide` confirmed, full file tree + Drizzle schema in hand. Round 3 (full source) + Round 4 (DB CSV export) queued.
+- transaction-pdfs bucket flipped to private (fully aligned 2026-05-11)
 - NC office routing in ReZEN builder verified wired (2026-05-11)
-- Exposed GitHub PAT closed out (2026-05-11) — superseded by fine-grained brain-app PAT
-- CMA Engine MLS Grid auto-pull confirmed mature (2026-05-09 in project file)
-- Sherlock 403 on Transaction Manager resolved (2026-05-11 reconciliation)
-- Listing Report Portal GitHub auth blocker resolved (2026-05-06 favicon push)
-- Brain App MVP shipped (2026-05-06)
-- Brain App Phase 1.5 UX polish shipped (2026-05-06)
-- Brain App Write API shipped (2026-05-08)
-- FUB AI Agent Session 7-9: paragraph stitching architecture, template paragraph length sweep, buyer template diversity (2026-05-11)
-- Sellers Guide Home Grown Selling Score v2 shipped (2026-05-07)
-- Sellers Guide Meta Pixel + CAPI + FUB Events API ingestion (2026-05-05 through 2026-05-11)
+- Exposed GitHub PAT closed out (2026-05-11)
+- CMA Engine MLS Grid auto-pull confirmed mature (2026-05-09)
+- Sherlock 403 on Transaction Manager resolved (2026-05-11)
+- Listing Report Portal GitHub auth blocker resolved (2026-05-06)
+- Brain App MVP shipped (2026-05-06), Phase 1.5 polish + Write API (2026-05-08)
 - Resend SMTP wired into HGPG Core Supabase (30/hr vs 2/hr default)
 - IDX Broker migration (Ylopo cancelled, Showcase IDX cancelled, FUB lead routing done)
 - Main site SEO push (mobile PageSpeed 96/100)
-- Buyers guide migration from Manus to React + Vite
-- Sellers guide rebrand to brand colors
+- Sellers guide rebrand to brand colors + ad instrumentation
 
 ## Known blockers / pending
 
 See `SESSION-HANDOFF.md` for current scratchpad.
 
+- **Buyers Guide Manus extraction Rounds 3 + 4** — Path B (full source dump) and Path C (DB CSV export). High priority; extract BEFORE telegraphing departure to Manus.
+- **Buyers Guide Pixel + CAPI verification** — env vars need provisioning on Vercel; redeploy and verify dedup in Meta Test Events.
+- **Buyers Guide gap-port to Vercel** — multi-session workstream once Manus export is in hand. Phase 2 (lead scoring, calc→FUB, PDF gen, exit intent, bonus tracking) is highest priority.
 - $395 fee toggle structural build parked (TM)
 - TC Concierge absorption into TM deferred (current architecture stable)
 - Listing Report Portal DB pruning parked (~15GB, 8-10GB reclaim estimated)
