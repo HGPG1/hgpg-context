@@ -4,6 +4,16 @@
 
 - **Status:** 🟢 Operational + monitored. Session 10 (2026-05-12) shipped operational dashboard at /agent/ops + scoring pool backfill (1,000 leads, +49 warm) + onlyUnscored param for clean future backfills. agent_enabled=true, ready for week 1 ramp at daily_send_cap=10 with manual approve.
 
+## Session 10 addendum — 2026-05-12 (nav + user guide)
+
+After session 10 close, three small follow-ups shipped:
+
+**Shared agent nav strip (commit e0ba110).** /agent/ops was unreachable from the existing navigation — had to be typed directly. New `components/AgentNav.tsx` renders a 3-tab strip (Overview / Queue / Ops) on every agent page with active tab highlighting (navy bottom border on active, gray inactive). Wired into all 3 agent pages via small targeted edits (2 lines each). Existing back-links left in place — now functionally redundant but not broken. Cosmetic cleanup deferred. Visual idiom matches queue UI exactly.
+
+**Don-facing user guide section (this commit).** Added section 16 "The FUB AI Agent" to `app/dons-guide/content.ts` (~90 lines of HTML). Covers the three screens (Overview/Queue/Ops), the 5-step daily flow, approve/edit/reject patterns, what to watch for when reading drafts, kill switch, daily cap, reading each Ops panel, and when to text Brian. Also added a cheatsheet row for the three agent URLs and added the FUB Agent flush cron + scoring cron to the cron schedule table. Renumbered "Sending feedback" from §16 to §17. Now lives at https://closings.homegrownpropertygroup.com/dons-guide#fub-agent.
+
+**Standalone markdown user guide.** Also wrote `docs/fub-agent-user-guide.md` in the brain repo as a developer-facing reference (different audience from Don's guide — terser, more technical). Same content shape, different voice.
+
 ## Session 10 — 2026-05-12 (operational dashboard + scoring backfill + onlyUnscored fix)
 
 ### What shipped
