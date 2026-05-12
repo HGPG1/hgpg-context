@@ -2,75 +2,79 @@
 
 # New Construction Site - Phone Capture Build
 
-**Status:** 🟡 SPEC LOCKED, READY TO SHIP
+**Status:** 🟢 SHIPPED 2026-05-12
 **Repo:** `HGPG1/charlotte-new-construction-nextjs` (branch: `main`)
 **Domain:** `newconstruction.homegrownpropertygroup.com`
 **Driver:** Capitalize on imminent paid ad spend by capturing phone alongside email across all 4 lead forms.
 
-## Strategy decisions (locked 2026-05-12)
+## What actually shipped (corrected framing)
 
-| Decision | Choice |
-|---|---|
-| Phone strategy across the 4 forms | **Tiered** - optional on Guide/Quiz/Calculator, required on Builder Intro |
-| Copy nudge style | **Benefit-led**, tailored per form (see table below) |
-| FUB destination | **Standard `mobile` phone on contact** - no custom field |
-| SMS speed-to-lead automation | **Deferred** - ship phone capture first, verify, then SMS PR as follow-up |
+**Important reframe:** Phone was already captured and *required* on every form before this PR. This shipped as a **tiered downgrade**, not greenfield phone capture. The brain originally framed this as a new feature - that was wrong. The actual work was making phone optional on 3 forms, kept required on Builder Intro, plus added E.164 normalization, junk-input null-out, and per-form benefit-led helper copy.
 
-## Per-form copy
+**PR:** https://github.com/HGPG1/charlotte-new-construction-nextjs/pull/1
+**Merge commit:** `8bca9ac` (verified)
+**Prod deploy:** `dpl_2UNJu3ByZa5tbdG3WK9NDAfqdnZx` (READY, target=production)
+**Author:** brian@homegrownpropertygroup.com
 
-| Form | FUB Template ID | Required? | Label | Helper text |
-|---|---|---|---|---|
-| Guide Delivery | 1147 | optional | `Phone (optional)` | `We'll text you the guide link too` |
-| Quiz Complete | 1150 | optional | `Phone (optional)` | `We'll text you your community matches` |
-| Calculator | 1149 | optional | `Phone (optional)` | `We'll text you the breakdown` |
-| Builder Intro | 1151 | **required** | `Phone *` | `The builder rep will reach out within 24 hours` |
+## Final state
 
-## Technical changes
+| Form | Required? | Helper text |
+|---|---|---|
+| Guide Delivery | optional | `We'll text you the guide link too` |
+| Quiz Complete | optional | `We'll text you your community matches` |
+| Calculator | optional | `We'll text you the breakdown` |
+| Builder Intro | required | `The builder rep will reach out within 24 hours` |
 
-### 1. `src/lib/fub.ts`
-Add `normalizePhone()` helper - strip non-digits, prepend `+1` if 10 digits, accept `+1` if 11 digits starting with 1, return `null` for anything else (junk like "123" rejected, never passed to FUB). Update the FUB Events payload builder so `person` conditionally includes `phones: [{value, type: 'mobile'}]` when normalized phone is non-null.
+## Key implementation notes (for future sessions)
 
-### 2. Meta CAPI hashing
-Locate the file building Meta CAPI `user_data` (probably `src/lib/meta.ts` or inline in API routes). Add SHA-256 hashed `ph` parameter when normalized phone present. Hash digits-only (NO leading `+`, NO formatting - Meta's requirement). Verify `em` hash uses `sha256(email.trim().toLowerCase())`.
+- **Only 2 form component files, not 4.** Guide/Quiz/Calculator share `src/components/LeadCaptureModal.tsx`. Builder Intro is its own `src/components/BuilderLeadModal.tsx`. Per-form copy threaded via new `phoneHelperText` prop, not a fork.
+- **SMS consent checkbox is conditional on phone presence.** If no digit in the phone field, the consent checkbox is hidden entirely. This was a Claude Code judgment call (the spec was silent on it) - good instinct. Builder Intro keeps consent required since phone is required.
+- **`normalizePhone()` in `src/lib/fub.ts`** is the canonical helper. Returns null on junk (e.g. `"123"`), prepends `+1` on 10-digit input, accepts `+1` on 11-digit `1` prefix. Junk is rejected with inline error, never passed to FUB.
+- **Client-side mirror `normalizePhoneClient`** duplicated 5-line helper in both modal components because `src/lib/fub.ts` imports `next/server` - can't pull into `'use client'` bundle even tree-shaken.
+- **FUB email now uses `type: 'home'`.** Previously had no type field. FUB matches on value either way.
+- **FUB note line "Phone: not provided"** added to leads who skip phone, replacing the old "SMS Consent: NO" line so the operational state reads cleanly. Email-only leads visually distinct from phone-having-but-declined-SMS leads in FUB.
+- **Branch name was `claude/phone-capture-lead-forms-Dq6ZJ`** (Claude Code harness-assigned, not `feature/phone-capture` as the original spec said). Harness convention.
 
-### 3. The 4 form components
-- Input attrs: `type="tel"`, `inputMode="tel"`, `autoComplete="tel"`, `name="phone"`, `placeholder="(704) 555-1234"`
-- Match existing email field styling, don't reinvent
-- Client-side validation: if any non-whitespace content AND `normalizePhone` returns null, inline error "Please enter a valid US phone number", block submit
-- Builder Intro only: block submit if empty/whitespace, error "Phone number is required for builder introductions"
-- No em dashes per brand rules
+## Files modified (final)
 
-### 4. The 4 API routes (`src/app/api/<name>/route.ts`)
-- Destructure `phone` with `null` default
-- Normalize once at top via `normalizePhone()`
-- Pass into both FUB call + Meta CAPI fire
-- Builder Intro route only: return 400 if `normalizedPhone` is null
+**Form components (2):**
+- `src/components/LeadCaptureModal.tsx`
+- `src/components/BuilderLeadModal.tsx`
 
-## Smoke test plan
+**Call-site helper-text wiring (4):**
+- `src/app/HomeContent.tsx`
+- `src/components/FooterContactCTA.tsx`
+- `src/app/quiz/QuizClient.tsx`
+- `src/app/calculator/CalculatorClient.tsx`
 
-Run against Vercel preview URL before merging:
+**Lib + routes:**
+- `src/lib/fub.ts` (normalizePhone + nullable phone in FubLeadInput + conditional phones[] in FUB person + conditional SMS-consent gate)
+- `src/lib/meta.ts` (ph hashing was already correct; only Last Updated comment changed)
+- `src/app/api/guide-lead/route.ts`, `calculator-lead/route.ts`, `quiz-lead/route.ts` (destructure phone, normalize, 400 on junk)
+- `src/app/api/builder-lead/route.ts` (same + 400 if normalizedPhone null)
 
-1. Guide Delivery, no phone → 200, FUB contact created email-only
-2. Quiz, phone `(704) 555-1234` → 200, FUB contact has `+17045551234` as mobile
-3. Calculator, phone `12345` → inline error, submit blocked
-4. Builder Intro, empty phone → inline error, submit blocked
-5. Builder Intro, valid phone → 200, FUB contact + Meta Test Events both fire
-6. Meta Events Manager → Test Events → confirm `ph` parameter on Lead event payloads from steps 2 and 5
+## Preview review (2026-05-12)
 
-All 5 pass → merge to main, Vercel auto-deploys prod.
+Brian ran fast-path 3-check review on preview deploy `dpl_CMzXNRubbQgUn4QdxESJSBqZgMG9`:
 
-## Claude Code prompt (paste-ready)
+- ✅ Check 1: Conditional SMS consent on Guide Delivery - PASS
+- ✅ Check 2: Builder Intro empty-phone block - PASS
+- ⏸ Check 3: FUB record clarity - deferred (Brian not at computer; eyeball whenever next real lead comes through)
 
-The full prompt was generated and handed to Brian in conversation 2026-05-12. Stored verbatim in `SESSION-HANDOFF.md` for pickup convenience.
+Merged on basis of passing UX-critical paths.
 
-## Follow-up (parked)
+## Follow-up (parked - separate PR)
 
-**SMS speed-to-lead automation on Builder Intro:** After phone capture is live and a real lead has been captured with phone attached, build FUB Automation 2.0 rule that triggers a 90-second SMS auto-response on Builder Intro submissions. Separate PR, separate session.
+**SMS speed-to-lead automation on Builder Intro:** Next session. Real decision to make before building:
+- **Gate the automation on the SMS consent checkbox** (legal-clean path - only fire on Builder Intro submissions where consent was checked).
+- **Or fire on Builder Intro submission regardless** (faster but riskier on TCPA).
+
+Builder Intro requires phone AND consent, so in practice both paths produce the same trigger set today. The decision matters for the audit trail and for any future form where phone might be required but consent is optional. Recommendation: gate on consent for defensibility, even if functionally equivalent right now.
 
 ## References
 
 - Original conversation: 2026-04-30 (Meta Pixel + CAPI install on this site)
 - Phone capture decision conversation: 2026-05-12
-- Domain Pixel ID: 1880396459290092 (Meta Pixel + CAPI live, all 6 funnel events firing)
-- API routes share `src/lib/fub.ts`
+- Domain Pixel ID: 1880396459290092 (Meta Pixel + CAPI live, all 6 funnel events firing, ph param now riding on phone-submitting Lead events)
+- Shared FUB helper: `src/lib/fub.ts`
 - FUB API key already in Vercel env from prior build
