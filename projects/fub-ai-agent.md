@@ -1,8 +1,73 @@
-<!-- Last Updated: 2026-05-11 -->
+<!-- Last Updated: 2026-05-12 -->
 
 # FUB AI Agent
 
-- **Status:** 🟢 Operational. Session 9 (2026-05-11) shipped buyer template diversity via .vN scenario variants + random pick in selectTemplate. Three buyer templates now in rotation for viewed_listing_recent scenario. agent_enabled=false; ready to flip true any time.
+- **Status:** 🟢 Operational + monitored. Session 10 (2026-05-12) shipped operational dashboard at /agent/ops + scoring pool backfill (1,000 leads, +49 warm) + onlyUnscored param for clean future backfills. agent_enabled=true, ready for week 1 ramp at daily_send_cap=10 with manual approve.
+
+## Session 10 — 2026-05-12 (operational dashboard + scoring backfill + onlyUnscored fix)
+
+### What shipped
+
+**Operational dashboard at /agent/ops (commit 956f1f9 + 46d71d0).** New screen for daily monitoring. Sits alongside the existing v1 read-only dashboard at /agent (score distribution + top-50 leads) - two screens, two purposes. The queue UI already had a `← Back to dashboard` link pointing to /agent, so the existing dashboard remains the front page and /agent/ops is the deeper operational view.
+
+Seven panels:
+1. **Pool health** - eligible_total / hot / warm / cold / unscored counts with draftable subtotal + scored % progress
+2. **Daily cap (ET)** - pushed_today / cap with progress bar, red when at cap
+3. **Volume (last 7 days)** - generated/approved/sent/rejected/blocked + delta vs prior 7 days
+4. **Queue depth** - pending count by template scenario
+5. **Template performance (last 30 days)** - total/approved/rejected/blocked/pending + approve % per scenario
+6. **Top reject reasons (last 30 days)** - grouped, with empty state
+7. **Recent activity feed** - last 20 events with timestamp + event_type + lead name + summarized event_data
+
+Single endpoint `GET /api/agent/dashboard` returns all panel data in one shot. Client component auto-refreshes every 30 seconds, only when tab is visible (visibilitychange listener pauses interval when document.hidden). Visual idiom matches queue UI exactly: bg-[#F0F0F0] page, bg-white rounded-lg border-[#D1D9DF] cards, text-[#2A384C] navy, text-[#5a6b7d] secondary.
+
+**Two post-deploy bug fixes in patch commit 46d71d0:**
+- Pool Health was capped at 1,000 leads because Supabase JS defaults to a 1000-row limit on unbounded selects. Dashboard showed 1,000 eligible / 771 unscored when the real numbers are 5,363 eligible / ~3,340 unscored. Fix: use `count: exact head: true` for the eligible total, paginate the actual ID pulls in pages of 1000 with a 20-page defensive cap.
+- Activity feed always showed empty because the PostgREST embed syntax `fub_agent_leads(name)` silently returned null - no FK exists from `fub_agent_log` to `fub_agent_leads`. Fix: drop the embed, collect unique fub_person_ids from the 20 activity rows, fetch lead names in one separate query, build a Map for the merge.
+
+**Scoring pool backfill via canary approach.** Ran 5 sequential calls of limit=200, total 1,000 leads scored. Results:
+- Batch 1: 19 warm of 200 (9.5%) - freshest by last_activity
+- Batches 2-5: 4-9 warm each, averaging 3.8% - diminishing returns as we move into stale leads
+- Total: 49 warm added to pool from 1,000 scored. ~$5 in Haiku tokens at observed cost rate
+- Pool growth: 22 → 52 warm (estimated ~25 warm pre-backfill, hit 49 fresh + losses from cooldowns etc)
+- 0 errors across 1,000 calls
+
+**onlyUnscored param + pagination fix (commit 7fc2fce).** The 1,000-lead backfill surfaced that ~855 of 1,000 scoring calls re-scored leads we already had instead of growing the pool. Two bugs combined:
+- Bug 1: scoreEligibleLeads order-by `last_activity` prioritizes leads with the most recent FUB activity, which heavily overlaps with leads we have already scored. Default 24h rescore window meant we burned tokens on stale-by-time but fresh-by-data leads.
+- Bug 2: the recently-scored IDs query had Supabase JSs default 1000-row cap. With ~1,170 leads scored in our DB, the exclusion set was incomplete - some leads escaped the not-in filter and got re-scored anyway.
+
+Fix: new `onlyUnscored: boolean` param on scoreEligibleLeads + the route. When true, the exclude set is ALL ever-scored leads (not just recent), so backfills pull exclusively unscored leads. Both code paths now paginate the exclude-IDs query in pages of 1000 with a 50-page defensive cap. Daily cron untouched - still uses default recent-only behavior. Verified with canary `{"limit":10,"onlyUnscored":true}` - all 10 unscored leads pulled, skipped_already_scored=2819 (full exclude set used vs ~800 before).
+
+**Agent flipped agent_enabled=true at session close** for week 1 ramp. daily_send_cap=10 with manual approve.
+
+### Learnings captured in session 10
+
+1. **Supabase JS has a default 1000-row cap on unbounded selects.** Bit us twice in one session: Pool Health (returned 1000 of 5363 eligible) and scoreEligibleLeads recently-scored query (incomplete exclude set). Pattern fix: any query that pulls "all rows matching a filter" needs to either use `count: exact head: true` (if you only need the count) or paginate via `range(from, from + PAGE - 1)` in a loop. Never rely on unbounded selects.
+2. **PostgREST embed syntax silently returns null without a FK.** `select('field, related_table(field)')` returns null for the embed when no foreign key relationship exists in Postgres, regardless of whether the data is queryable. Caught by the empty activity feed. Lesson: if you're not sure an FK exists, fetch the related rows in a separate query and merge in JS rather than relying on the embed.
+3. **Order-by last_activity for backfills prioritizes leads we already have.** The scoring engine's default `orderBy=last_activity` is correct for the daily refresh cron (re-score the freshest leads first), but wrong for growing the pool (those leads are already scored). For backfills, onlyUnscored=true is the right tool; consider also adding orderBy=random for future backfills to spread across the population.
+4. **Tail-end pool conversion rate is much lower than headline.** Freshest 200 leads converted at 9.5% warm. Trailing 800 averaged 3.8%. Final 3,340 unscored leads will likely convert at 2-4% as we move into staler territory. For pool-growth ROI math, assume 3% not 10%.
+5. **Two-screen dashboard pattern works.** Original /agent (read-only inspector) + new /agent/ops (operational live view) split the use cases cleanly. Don and Brian glance at /agent/ops during the workday. /agent is the lead-inspector for deep-dives. No need to merge them.
+
+### Followup observations (not blocking)
+
+- The "missing FK" pattern likely affects other places in the codebase that embed `fub_agent_leads(*)` from `fub_agent_log` or similar. Worth a future sweep, but not urgent.
+- The `recentlyScoredIds` -> `excludeIds` rename in scoreEligibleLeads loses some semantic meaning. If we later need to distinguish "recently rescored" from "ever scored" in the stats, the field name and logic will need refinement.
+- 3,340 unscored leads remain in the pool. At ~3% warm conversion, that's ~100 more warm leads available with another backfill run via `onlyUnscored=true`. Roughly $10-15 to complete. Not urgent.
+
+## Session 10 backlog (parked for session 11+)
+
+- Continue scoring backfill with `onlyUnscored=true` to drain the remaining 3,340 unscored leads (~$10-15, ~100 expected warm conversions)
+- Watch the agent live: how often does Don approve? Reject? What template performance shows after a week of real activity?
+- Hot tier templates (score >= 40) - still no templates for hot leads. Currently they fall through to warm templates.
+- iMessage seller variants - still no seller templates on the iMessage channel
+- Cooldown re-touch templates - second-attempt copy after rejected drafts
+- More buyer/seller template variants - only `viewed_listing_recent` has variants (sessions 9 fix)
+- FUB UI custom fields 157-162 visibility to admins-only - carryover from session 4
+- Normalize hideIfEmpty across fields 157 vs 160/161/162 - cosmetic
+- Stale tag cleanup on person 27764 (`agent_draft_email_` trailing underscore)
+- Drop body column after deprecation window
+- Multi-agent: Ashley / Brenda / Taylor + unified Don queue
+- v2: tier-based behavior, smart channel pick, production inbound classifier
 
 ## Session 9 — 2026-05-11 (buyer template diversity)
 
