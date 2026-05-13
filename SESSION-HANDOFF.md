@@ -2,73 +2,107 @@
 
 # Session Handoff
 
-## Last session: 2026-05-12 — Phone capture SHIPPED 🟢 on newconstruction.homegrownpropertygroup.com
+## Next session (morning 2026-05-13): Quiz smoke test → Buyers Guide migration Session 3
 
-### What got shipped
-- PR #1 on `HGPG1/charlotte-new-construction-nextjs` merged to main
-- Merge commit: `8bca9ac` (verified)
-- Prod deploy: `dpl_2UNJu3ByZa5tbdG3WK9NDAfqdnZx` READY
-- Tiered phone capture: optional on Guide/Quiz/Calculator, required on Builder Intro
-- E.164 normalization in `src/lib/fub.ts` with junk-input null-out
-- Per-form benefit-led helper copy
-- Meta CAPI `ph` hashing was already correct - just got Last Updated comment
+### Step 1 — Quiz smoke test (5 min, do FIRST)
 
-### Important reframe
-Phone capture was NOT a greenfield build. Phone was already captured and required across all 4 forms before this PR. This was a **tiered downgrade** with proper normalization + per-form copy. Brain originally framed this wrong - corrected in `projects/new-construction-phone-capture.md`.
+**Why:** Session 2 was marked shipped after pause at commit `879d263` for a Quiz lifestyle-key mismatch bug. Direct Supabase check 2026-05-12 evening shows `bg_quiz_results` has **0 rows** despite Session 2's smoke test putting 3 rows each in `bg_contacts` + `bg_activities` at the same timestamp. Strong signal the bug was never fully resolved before Session 2 was declared shipped. Verify before Session 3 modifies Quiz to add advisor mode.
 
-### Key implementation notes (read these before touching new construction lead capture again)
-- Only 2 form components (LeadCaptureModal shared by 3 forms, BuilderLeadModal standalone)
-- SMS consent checkbox is now CONDITIONAL on phone presence (hidden until user types a digit)
-- `normalizePhone()` in `src/lib/fub.ts` is canonical; `normalizePhoneClient` duplicated in client components because lib/fub.ts imports next/server
-- FUB email now uses `type: 'home'`; phone uses `type: 'mobile'`
-- New "Phone: not provided" line in FUB note text distinguishes email-only leads from phone-having-but-declined-SMS leads
+**How:**
+1. Open https://buyersguide.homegrownpropertygroup.com (incognito ideal so existing UnlockModal state doesn't interfere)
+2. Open DevTools → Network tab
+3. Navigate to /quiz, complete the 5 questions with test data:
+   - Email: `quiz-test-2026-05-13@homegrownpropertygroup.com`
+   - Pick any option for each of the 5 questions
+4. Submit. Watch Network tab for the `/api/...` call that fires.
+5. Check the response — 200 with success, or 4xx/5xx with an error?
 
-### Preview review (before merge)
-Brian ran fast-path 3-check, 2 passed (conditional SMS consent, Builder Intro block), 3rd (FUB record clarity) deferred to first real lead.
+**Verification queries (run from Claude session with Supabase MCP after the submission):**
 
-### Pickup notes for next session
+    SELECT id, contact_email, contact_name, buyer_type, lifestyle_priority,
+           commute_tolerance, budget_range, property_type, synced_to_fub, created_at
+    FROM bg_quiz_results
+    WHERE contact_email = 'quiz-test-2026-05-13@homegrownpropertygroup.com'
+    ORDER BY created_at DESC;
 
-**Primary follow-up: SMS speed-to-lead automation PR.** Parked decision before building:
-- Gate SMS auto-response on the SMS consent checkbox (legal-clean / defensible)
-- OR fire on Builder Intro submission regardless (faster, riskier on TCPA)
-- Builder Intro requires both phone + consent today, so functionally equivalent now
-- Recommendation: gate on consent for audit trail defensibility
+**Two outcomes:**
 
-**Secondary check (low priority):** Next time Brian is in FUB, eyeball one phone-having and one email-only lead from new construction to confirm the "Phone: not provided" vs `(Mobile)` display reads cleanly. If it doesn't, 5-min string change.
+- ✅ **Row lands with all 5 fields populated** → quiz bug was fixed, proceed to Step 2 (Session 3)
+- ❌ **Row missing OR has null/wrong values in `lifestyle_priority`** → bug is real. Fix Quiz first BEFORE Session 3. Bug is likely a key-name mismatch between client form state and either the API request body or the Supabase column. The fix is small but must be verified end-to-end before stacking advisor mode on top.
 
-### Live state
-- New construction site fully live with shipped phone capture
-- Meta Pixel + CAPI firing all 6 funnel events + `ph` param on phone-submitting Lead events
-- Vercel auto-deploy from main working as expected
-- FUB lead capture working; new contacts will land with proper mobile phone field when provided
+If bug is real, the fix is a focused mini-session (~20-30 min): read `src/pages/Quiz.tsx` for what key it submits, read `api/quiz/submit.ts` (or wherever the route lives) for what it expects, reconcile. Run the smoke test again to confirm before moving on.
+
+### Step 2 — Buyers Guide migration Session 3 (~2 hrs)
+
+Only proceed once Step 1 is green.
+
+**Prompt to use:** verbatim in `projects/buyers-guide-manus-migration.md` under the heading "Session 3 — Agent surfaces + Advisor Mode." Copy-paste ready.
+
+**Quick scope reminder for Session 3:**
+- Agent routes: `/:agent`, `/advisor`, `/advisor/quiz`, `/advisor/calculator`, `/advisor/neighborhoods`, `/advisor/strategy`, `/advisor/checklist`, `/admin`, `/agent-dashboard`
+- Agent detection from URL slug → `bg_agents` lookup → routes new contacts to right FUB user
+- Advisor mode context + banner + inline talking points on Quiz/Neighborhoods/Strategy/Checklist
+- Agent API routes: `/api/agent/by-slug`, `/api/agent/default`, `/api/agent/performance-stats`
+- Protection on `/admin` and `/agent-dashboard` via `?key=X` against `ADMIN_ACCESS_KEY` env
+- Talking points content extracted to `src/data/advisor-content.ts`
+
+**Pre-session question Session 3 prompt will ask:** "Do HGPG agents have any external pages/email signatures pointing to `/brian`-style URLs today?" → answer is **no**, the Manus `/:agent` URLs were never shared (zero attributed leads in Manus DB confirms this). Tell the agent to use HGPG-standard slugs (`brian`, `ashley`, `taylor`, `brenda`, `owner` from `bg_agents`) and not worry about backward compatibility with anything in the wild.
 
 ---
 
-## Prior session: 2026-05-06 — Brain App MVP shipped 🟢
+## End-of-day 2026-05-12 state
 
-(preserved below for reference)
+### Shipped today (chronological)
 
-### What got built
+1. **Buyers Guide instrumentation** (earlier today) - Pixel + CAPI made live (was inert since April), NeverBounce shipped from scratch. Commit `5c233ee`. PR merged.
+2. **Manus AI agent extraction** - 220-file source snapshot in `HGPG1/charlotte-buyers-guide-manus-export`. Live Manus DB confirmed effectively empty (1 fake test lead, 0 quizzes, 0 exit intents, 5 agents) via direct tRPC probe.
+3. **Buyers Guide migration Session 1** - Supabase backend (`bg_contacts`, `bg_activities`, `bg_quiz_results`, `bg_agents`), server helpers in `api/_lib/`, FRED + FUB + Storage health endpoints green.
+4. **Buyers Guide migration Session 2** - Calculator + Quiz + Exit Intent + Bonus Unlock shipped. **Quiz outcome unverified — see Step 1 above.**
+5. **New Construction phone capture** - tiered required/optional across 4 forms, E.164 normalization, per-form helper copy. PR #1 merged (`8bca9ac`).
+6. **End-of-day CONTEXT.md reconciliation** - drifted again; full active/completed/blocker rebuild, root cause logged with proposed Phase 2 fix (auto-generate index from project-file frontmatter).
+
+### Open thread
+- `~/Downloads/fix-admin-page.sh` may have unpushed Listing Report Portal UI changes. Check next time portal is touched.
+
+### Real build items remaining
+
+- **Buyers Guide migration Sessions 3 + 4** (Session 3 next; Session 4 optional polish)
+- **SMS speed-to-lead automation** for New Construction (parked; recommend gate on SMS consent for TCPA defensibility)
+- **CMA Engine** - awaiting Taylor stress test
+- **$395 fee toggle** (TM) - structural build parked, commit `b9fa0deb`
+- **FUB AI Agent** - flip strategy decision pending, 4,340 unscored lead sweep deferred
+- **Sellers Guide** - FUB Automation 2.0 on `sellers-guide-2026` tag (blocks ad-spend scaling)
+- **Take Manus app down** (no 301) once migration Sessions 3+4 complete
+- **`META_CAPI_TEST_EVENT_CODE` cleanup** on Buyers Guide once dedup confirmed in Meta Test Events
+
+### Non-build
+- .net → .com Google Workspace migration (do not proactively remind)
+
+### Lessons noted today (key ones)
+
+1. **Code-on-`main` does NOT equal shipped-in-production.** Pixel + CAPI sat on main ~2 weeks with zero `fbq` references in live bundle because `VITE_*` was unset.
+2. **Migration-without-source = downgrade — but only when the source app was actually being used.** Always check usage signal before treating missing features as regressions.
+3. **AI agents inside SaaS platforms are an unofficial export channel.** Probe with innocuous files; verify against production bundle; escalate to full zip.
+4. **When a SaaS AI agent loops, check whether the workspace is archived/disconnected.** GitHub-archived workspace sandboxes the Manus AI agent to dead files.
+5. **When AI agent extraction stalls, hit the deployed app directly.** Live tRPC endpoints faster than coaxing an agent.
+6. **"Shipped" needs end-to-end verification, not just `npm run build` green.** Today's Quiz situation: Session 2 declared shipped after build passed and partial smoke. Direct DB check at EOD reveals `bg_quiz_results` is empty. Future sessions: "shipped" requires one row of real data in every new table the session touched.
+7. **CONTEXT.md drifts structurally.** Two-layer brain, one-layer attention. Phase 2 fix logged: auto-generate index sections from project-file frontmatter.
+
+---
+
+## Previous session: 2026-05-11 — Brain reconciliation + transaction-pdfs cleanup
+
+Reconciled CONTEXT.md against project files (which were ahead), closed six items: Sherlock 403, Mac Mini GitHub auth, exposed GitHub PAT rotation, CMA Engine MLS Grid auto-pull, NC office routing in ReZEN (verified live in code), transaction-pdfs bucket flip → private (bucket flipped via MCP on 2026-05-09; migration file backfilled to repo on 2026-05-11 as `2eb9794`).
+
+Also: rebuilt `projects/brain-app.md` (had been clobbered), updated CONTEXT.md "active right now" list.
+
+---
+
+## Previous session: 2026-05-06 — Brain App MVP shipped 🟢
+
 - New Vercel project: `brain-app` on team `team_FietQPKCmnyioG2n0FdteQCV`
 - New repo: `HGPG1/brain-app` (private)
 - Live at: `https://brain.homegrownpropertygroup.com`
 - Stack: Next.js 16.2.4, Tailwind v4, CodeMirror 6, Supabase Auth (magic link)
 - Single-user lock: `BRIAN_EMAIL=brian@homegrownpropertygroup.com` allow-list
-- GitHub auth: fine-grained PAT scoped to `HGPG1/hgpg-context`, contents:write only
-- Round-trip verified: edit file in browser → commit lands on `main` with author `brian@homegrownpropertygroup.com`
-
-### Infra changes that affect other apps
-- Resend custom SMTP wired into `HGPG Core` Supabase (project `ioypqogunwsoucgsnmla`)
-  - Sender: `noreply@homegrownpropertygroup.com`, name: HGPG
-  - API key stored under "Supabase HGPG Core" in Resend
-  - Rate limit went from 2/hr (Supabase default) to 30/hr (Resend default), can be raised
-  - This affects ALL apps using this Supabase: TM, CMA, TC Concierge, brain-app
-- Supabase project renames for hygiene:
-  - `ioypqogunwsoucgsnmla` → "HGPG Core"
-  - `ngdrliyjtqcwhhfrbxao` → "HGPG FUB Integration" (verify)
-  - `wdheejgmrqzqxvgjvfee` → "HGPG Listing Reports + MLS" (verify)
-  - `fkxgdqfnowskflgbuxhm` → "HGPG Signature + Relocation" (verify)
-- Supabase `HGPG Core` redirect URLs added:
-  - `https://brain.homegrownpropertygroup.com/**`
-  - `http://localhost:3000/**`
-  - (Existing tools.hgpg entries left intact)
+- Resend custom SMTP wired into HGPG Core Supabase (2/hr → 30/hr)
