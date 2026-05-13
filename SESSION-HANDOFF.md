@@ -1,91 +1,76 @@
-<!-- Last Updated: 2026-05-12 -->
+<!-- Last Updated: 2026-05-13 -->
 
 # Session Handoff
 
-## Last session: 2026-05-12 — ReZEN review request backfill ✅ shipped
+## Last session: 2026-05-13 — SMS speed-to-lead SHIPPED 🟢 (live test pending)
 
-### What got built
+### What got shipped today
 
-Goal: hijack ReZEN's API to pull every closed deal from the last 24 months, push past clients into FUB as a tagged cohort for a review-request campaign (Viktor to build the actual FUB Automation 2.0 to send the asks).
+**Stage 1 code (PR #2 merged):**
+- `customSmsConsent: 'YES' | 'NO'` field now written to FUB on every Builder Intro / Guide / Quiz / Calculator submission
+- Commit `5fe1ce9` on main, Vercel auto-deployed to prod
+- Verified live - test contact `SmsTest Field` has `Sms Consent: YES` in FUB
 
-#### ReZEN API
-- **Auth header**: `X-API-Key: <key>` — NOT Bearer despite what the Bolt docs imply
-- **Brian's yentaId**: `6eae7937-ba23-454e-92d5-3b556662f4c9`
-- **Working endpoints**:
-  - `GET https://yenta.therealbrokerage.com/api/v1/agents/me`
-  - `GET https://arrakis.therealbrokerage.com/api/v1/transactions/participant/{yentaId}/transactions/CLOSED?pageSize=N&pageNumber=N` — buyer-side
-  - `GET https://arrakis.therealbrokerage.com/api/v1/transactions/participant/{yentaId}/listing-transactions/CLOSED?pageSize=N&pageNumber=N` — listing-side
-  - `GET https://arrakis.therealbrokerage.com/api/v1/transactions/{txId}` — full detail with participants
-- **Closing date field**: `skySlopeActualClosingDate` (fallback `closedAt`, `rezenClosedAt`, `agentReportedClosingDate`)
-- **Client filter**: `participants[].participantRole` in (`BUYER`, `SELLER`) AND `external: true`
+**Stage 2 FUB config:**
+- Custom field `Sms Consent` created in FUB Admin (dropdown YES/NO, API name `customSmsConsent`)
+- Automation `New Construction - Builder Intro - Post SMS Workflow` built (Manual trigger, 5-min wait, Create Task) - ENABLED
+- Lead Flow rule built on source `Website - New Construction`: Tags include `Builder:`, distributes to Brian, attaches Automation, sends initial text instantly
 
-#### Probe scripts (kept in iCloud)
-Location: `~/Library/Mobile Documents/com~apple~CloudDocs/HGPG-Cowork/rezen-probe/`
-- `probe.js`, `probe-auth.js`, `probe2.js`, `rezen-backfill.js`
-- `.env` contains `REZEN_API_KEY`
+### Architecture changed from original spec - read project file
 
-#### Backfill results
-- 138 buyer-side closed deals → 88 in 24-month window → 122 client rows
-- 66 listing-side closed deals → 43 in 24-month window → 56 client rows
-- **178 total client rows** imported to Supabase staging table
+Original spec assumed FUB Lead Flow + Action Plan. WRONG. The shipped reality:
+- FUB Lead Flow conditions cannot filter on custom fields (only Tags, Price, City, State, ZIP, MLS, Phone)
+- FUB Automations 2.0 cannot send SMS (no Send Text step type)
+- ONLY native auto-SMS path = Lead Flow's "initial text message" field (NOT Action Plans, NOT Automations)
+- Action Plans are deprecated per HGPG standing rule, so the Lead Flow native SMS path is the only viable option
 
-#### Supabase staging table
-- `public.rezen_review_candidates` in HGPG Core (`ioypqogunwsoucgsnmla`)
-- Status lifecycle: `pending_check` → `exists_in_fub` / `not_in_fub` → `pushed` / `failed` / `excluded`
-- All 178 rows imported via MCP
+The TCPA defensibility model now lives at the FORM layer (double-gated client + server consent enforcement), with `customSmsConsent` + event-body line as audit artifacts. Lead Flow trusts upstream enforcement. Full details in `projects/new-construction-sms-speed-to-lead.md`.
 
-#### TM page shipped to production
-Files at commit `1888f69` on `main`:
-- `lib/rezen-review/fub.ts` — FUB client (checkDuplicate, create, update, note, full row push)
-- `app/api/rezen-review/route.ts` — GET (list+filter), PATCH (exclude/restore), POST (chunked push)
-- `app/rezen-review/page.tsx` — server shell
-- `app/rezen-review/client.tsx` — interactive UI
+### Open item: live end-to-end test (5 min when back at desk)
 
-Production URL: `https://closings.homegrownpropertygroup.com/rezen-review`
+Brian hadn't run a live test yet. Procedure:
+1. Submit Builder Intro from incognito with REAL phone (not 555-pattern - those are flagged invalid in FUB)
+2. SMS should arrive from `(980) 261-9222` within seconds
+3. Task should appear in FUB at the 5-min mark
+4. Reply STOP - should opt-out cleanly
 
-#### Final campaign state
-- **43 rows pushed to FUB** (clean — 33 net new past clients created, 10 updates to existing FUB people)
-- **135 rows excluded** (dupes or team-agent deals not Brian-repped)
-- 0 errors across all pushes
+Brain file has full troubleshooting guide if anything fails.
 
-Tags applied to all 43:
-- `review-request-2026-05` (cohort)
-- `past-client-buyer` or `past-client-seller` (side)
-- Stage set to `Past Client`
-- Note added with closing details
-- Address: buyer side only, never overwrote existing FUB addresses
+### Key learnings captured in project file
+
+- FUB Lead Flow condition limits (Tags / Price / location / MLS / Phone only)
+- FUB Automations 2.0 has no Send Text step type
+- FUB custom field API names preserve uppercase runs in labels (we got bit once - rename label to control casing)
+- FUB tag matching is case-insensitive on partial-match
+- FUB send-from number for new construction: (980) 261-9222
+- 555-pattern phones get flagged invalid
 
 ### Pickup notes for next session
 
-**Open work:**
-1. **Hand cohort tag `review-request-2026-05` to Viktor** to build the FUB Automation 2.0:
-   - Trigger on tag
-   - Branch on side tag: `past-client-buyer` → Google review link; `past-client-seller` → Zillow review link
-   - Stagger sends 5-10/day over 1-2 weeks (avoid clustered reviews)
-2. **For future quarterly review pushes**: ReZEN API key + auth pattern + endpoint discovery is all documented. To repeat the campaign next quarter:
-   - Re-run `rezen-backfill.js` to get fresh 24-month window
-   - Bulk-insert into `rezen_review_candidates` with NEW cohort tag (e.g. `review-request-2026-q3`)
-   - Use the existing `/rezen-review` page to triage and push
+If Brian comes back and says "the test worked": flip the project status from 'pending live test' to fully SHIPPED in the project file, close out.
 
-**Decisions captured in code:**
-- BUYER side: property as home address (only on new creates)
-- LISTING side: no address (rely on existing FUB address)
-- Notes added both sides as audit trail
-- Existing FUB people: tags + stage additive, address never overwritten
-- Multi-client deals: each spouse/co-buyer is its own row
+If the test failed: troubleshooting steps in the project file under 'End-to-end test plan' section. Most likely failure modes: Automation not enabled, SMS copy formatting issue, Lead Flow rule positioned below Default Rule.
 
-### Lessons learned
+If Brian wants to extend the Automation: parked follow-up to add a Day-1 email step after the task. Currently it's just SMS + 5-min task.
 
-- **ReZEN docs lie about Bearer auth.** It's `X-API-Key`. Adding to known auth patterns.
-- **iCloud-synced git repos can stall git commands by 10-30s.** Long-term, move `hgpg-transaction-manager` out of `~/Documents` (iCloud-synced) to `~/Code` (local-only) to avoid this.
-- **TypeScript strict mode** in TM means all route handlers and React components need explicit types — no implicit `any`. First three Vercel builds failed on this; final commit added full types.
-- **FUB API quirk**: `addresses[].type` should be lowercase (`'home'`, `'work'`). FUB UI shows it capitalized but API expects lowercase.
+If Brian wants the FUB label to read 'SMS Consent' (caps) instead of 'Sms Consent': 1-line code patch to change the customSmsConsent key to customSMSConsent. Purely cosmetic - leave for now.
 
-### Files for the brain
+---
 
-Add a project file at `projects/rezen-review-backfill.md` summarizing this campaign for future archival reference. The TM project file should add a section noting the new `/rezen-review` internal page exists.
+## Prior session: 2026-05-12 — Phone capture SHIPPED 🟢
 
-### Infra changes
+PR #1 merged, prod deploy live. Tiered phone capture (optional on Guide/Quiz/Calculator, required on Builder Intro). Was reframed mid-session - phone was already captured everywhere, the real work was tiering. Two of three preview-deploy checks passed, third (FUB record clarity) deferred to first real lead. Full details in `projects/new-construction-phone-capture.md`.
 
-- New table `public.rezen_review_candidates` in HGPG Core (`ioypqogunwsoucgsnmla`) — staging only, can be dropped after Viktor's automation runs the campaign
-- No schema changes to existing TM tables
+---
+
+## Prior session: 2026-05-06 — Brain App MVP shipped 🟢
+
+(preserved for reference)
+
+- New Vercel project: `brain-app` on team `team_FietQPKCmnyioG2n0FdteQCV`
+- New repo: `HGPG1/brain-app` (private)
+- Live at: `https://brain.homegrownpropertygroup.com`
+- Stack: Next.js 16.2.4, Tailwind v4, CodeMirror 6, Supabase Auth (magic link)
+- Single-user lock: `BRIAN_EMAIL=brian@homegrownpropertygroup.com` allow-list
+- Resend custom SMTP wired into `HGPG Core` Supabase, affects ALL apps using that project
+- Supabase project renames for hygiene (see prior handoff)
