@@ -1,104 +1,124 @@
-<!-- Last Updated: 2026-05-12 -->
+<!-- Last Updated: 2026-05-13 -->
 
 # New Construction Site - SMS Speed-to-Lead (Builder Intro)
 
-**Status:** 📋 SPEC LOCKED, STAGE 1 READY TO SHIP
-**Repo:** `HGPG1/charlotte-new-construction-nextjs` (branch: `main`)
+**Status:** 🟢 SHIPPED 2026-05-13 (pending one live end-to-end test)
+**Repo:** `HGPG1/charlotte-new-construction-nextjs` (branch `main`)
 **Domain:** `newconstruction.homegrownpropertygroup.com`
-**Driver:** Builder Intro is the hottest funnel surface (hand-raise). Get an instant SMS auto-response on submission so HGPG is first in the door before the builder rep calls.
+**Driver:** Builder Intro is the hottest funnel surface (hand-raise). Instant SMS auto-response on submission so HGPG is first in the door before the builder rep calls.
 
-## Architecture decision (2026-05-12)
+## Final architecture (different from original spec - read this)
 
-**Path A — FUB Lead Flow + Action Plan**, chosen over Path C (LoopMessage from API route).
+Original spec called for FUB Lead Flow + Action Plan. That was wrong. The actual shipped architecture:
 
-**Why:**
-- FUB-native = no new code on the messaging path, message copy editable from FUB UI without a deploy
-- All leads get the SMS (iMessage + Android, unlike LoopMessage which is iMessage-only)
-- Built-in STOP/opt-out handling
-- Consistent with how the incentives forms already use FUB Automations 2.0
+```
+Builder Intro lead lands at /api/builder-lead route
+    -> FUB contact created with customSmsConsent='YES', tag 'Builder: X', source 'Website - New Construction'
+    -> Lead Flow rule matches (Tags include 'Builder:')
+    -> Native initial text message fires immediately (NOT via Action Plan)
+    -> Automation 'New Construction - Builder Intro - Post SMS Workflow' kicks off
+        -> Wait 5 minutes
+        -> Create Task 'Call Builder Intro lead', assigned to agent on contact
+```
 
-**TCPA gate:** SMS only fires when `customSmsConsent` field on the FUB contact equals `YES`. This is the defensible audit trail.
+**Why this architecture differs from the spec:**
+- FUB Lead Flow condition dropdown only exposes: Tags, Price, City, State, ZIP, MLS, Phone Number. **Custom fields are NOT available as Lead Flow conditions.** Verified live 2026-05-13.
+- FUB Automations 2.0 do NOT have a native "Send Text" step type. Only Lead Flow's "initial text message" can send native SMS.
+- Action Plans are deprecated per HGPG standing rule. So Lead Flow's native SMS field is the only on-architecture path.
+- The Automation handles post-SMS workflow (wait + task). Trigger: Manual (called by Lead Flow).
 
-## Critical pre-work finding
+## TCPA defensibility model (important - read before changing anything)
 
-`src/lib/fub.ts` currently writes SMS consent into the FUB Event **message body** as a freetext `SMS Consent: YES/NO` line. FUB Lead Flow and Automations cannot filter on text inside the message body. So **Stage 1 (code) must ship before Stage 2 (FUB UI) can be built.**
+**Consent gate is enforced at the FORM, not at Lead Flow.** This is intentional and defensible. Four layers of audit trail:
 
-## Build sequence — two sequential stages
+1. **Form layer:** Builder Intro form requires phone (required field) and SMS consent (required checkbox). Submit is double-gated client-side + server-side. Server returns 400 if either missing.
+2. **API layer:** Server route only writes to FUB if both checks pass.
+3. **FUB contact:** `customSmsConsent` field = `YES` on every Builder Intro contact reaching FUB (since lower layers reject anything else).
+4. **Event body:** `SMS Consent: YES` line written into the FUB event message body as a second audit artifact.
 
-### Stage 1 (code PR) — Write SMS consent to FUB custom field
+Lead Flow conditions on `Tags include "Builder:"` only. It does NOT re-check consent at the Lead Flow layer because:
+- It can't (FUB Lead Flow can't filter custom fields)
+- It doesn't need to (every lead reaching this rule has already cleared the form gate)
 
-Change in `src/lib/fub.ts` `postLeadToFub`: add `customSmsConsent: smsConsent === true ? 'YES' : 'NO'` on the `person` payload. FUB auto-creates custom fields on first Events API write - no manual provisioning. Keep the existing freetext line in the message body for human readability.
+**CRITICAL: If Builder Intro is ever changed to make phone or consent optional, this Lead Flow rule MUST be updated** to add a re-check condition. Possible paths if that day comes:
+- Add a tag like `SMS Consented` written from code when consent=true, condition Lead Flow on that tag
+- Move SMS send out of Lead Flow into the API route (LoopMessage from Builder Intro route)
+- Restrict Lead Flow rule to a more specific tag set
 
-Write `'NO'` explicitly on email-only / consent-not-given leads (not undefined / null) so Lead Flow conditions are binary instead of ternary.
+## What's live in FUB (built 2026-05-13)
 
-**While in there:** read the current SMS consent checkbox label copy in `BuilderLeadModal.tsx` and `LeadCaptureModal.tsx`. If it doesn't explicitly say "Home Grown Property Group", describe what messages will be sent, mention msg/data rates, and include opt-out language, fix it in the same PR. TCPA requires clear consent language.
+### Custom field
+- **Label:** Sms Consent (lowercase 'ms' because FUB regenerates API name from label - this matters)
+- **API name:** `customSmsConsent`
+- **Type:** Dropdown
+- **Choices:** YES, NO
+- Verified via `GET /customFields` API
 
-### Stage 2 (FUB UI) — Lead Flow rule + Action Plan
+### Automation
+- **Name:** `New Construction - Builder Intro - Post SMS Workflow`
+- **Trigger:** Manual
+- **Step 1:** Wait 5 minutes
+- **Step 2:** Create Task `Call Builder Intro lead`, type=Call, assigned to "Agent assigned to the contact"
+- **Status:** Enabled
 
-Cannot start until Stage 1 has shipped and at least one real lead has populated the `SMS Consent` custom field. FUB won't surface custom fields as filter options in Lead Flow conditions until at least one record has the field set.
+### Lead Flow rule
+- **Location:** Source group `Website - New Construction` -> Rule 1
+- **Condition:** `Tags include "Builder:"` (partial-match style filter - catches `Builder: DR Horton`, `Builder: Lennar`, all future builders)
+- **Distribution:** Brian McCarron
+- **Automation:** `New Construction - Builder Intro - Post SMS Workflow`
+- **Initial text message:**
+  ```
+  Hi %contact_first_name%, Brian from Home Grown Property Group. Thanks for the builder intro request. I'll reach out shortly with next steps. Reply STOP to opt out.
+  ```
+- **Delay:** 0 minutes (instant)
+- **Send-from number:** `(980) 261-9222` (FUB-assigned)
+- **Positioned above Default Rule**
 
-**2a.** Verify the Builder Intro event arriving in FUB - confirm exact source string, event type (must be one of `Registration`, `Property Inquiry`, `Seller Inquiry`, `General Inquiry` to be Lead Flow eligible), and tag combo.
+## Stage 1 code (shipped earlier today via PR #2, commit 5fe1ce9)
 
-**2b.** Action Plan `New Construction - Builder Intro - Instant SMS`:
-- Step 1: Send Text Message, Delay: Immediately
-- Message: `Hi {{firstName}}, Brian from Home Grown Property Group. Thanks for the builder intro request. I'll reach out shortly with next steps. Reply STOP to opt out.` (155 chars, single segment, brand-voice, no em dashes, sender ID + opt-out included)
-- Step 2: Create Task, Delay: 5 min, assigned to Brian as backup
+`src/lib/fub.ts` writes `customSmsConsent: 'YES' | 'NO'` to the person payload on the FUB Events API call. Always set (never undefined / null). Existing 'SMS Consent: YES/NO' line preserved in the event message body as second artifact. Consent label copy already exceeded TCPA bar (sender, scope, rates, STOP, frequency, privacy link) - no copy changes needed.
 
-**2c.** Lead Flow rule `New Construction - Builder Intro - Consented`:
-- Conditions (ALL): source = New Construction Site, event type = (verified), tag contains `Builder Intro`, custom field `SMS Consent` = `YES`
-- Action: Apply Action Plan + Assign to Brian
-- Position: ABOVE any existing catch-all NC Lead Flow rule
+## End-to-end test plan
 
-**2d.** Defensive parallel rule `New Construction - Builder Intro - No Consent`:
-- Same conditions but `SMS Consent` = `NO`
-- Action: Apply Action Plan that does NOT include SMS (email or task only)
-- Guardrail against future form changes accidentally creating TCPA exposure
+Pending one live test (Brian had to jet). When run:
+1. Submit Builder Intro from incognito with REAL phone number (NOT 555-pattern - those are flagged invalid in FUB and SMS won't send). Use first name `LiveTest`, email pattern `live-test-<timestamp>@homegrownpropertygroup.com`.
+2. Phone should receive SMS from `(980) 261-9222` within seconds: `Hi LiveTest, Brian from Home Grown Property Group. Thanks for the builder intro request...`
+3. Open contact in FUB - confirm: phone shown, `Sms Consent: YES`, tag `Builder: <picked builder>`, event in timeline showing the SMS that went out.
+4. Wait 5 minutes - confirm task `Call Builder Intro lead` appears, assigned to Brian.
+5. Reply STOP to the SMS - confirm FUB marks contact opted-out (native FUB behavior).
 
-## Why we cannot skip the consent gate
+If anything fails:
+- No SMS arrived? Check Vercel runtime logs for the `/api/builder-lead` route, check FUB contact for the tag and consent field, check Lead Flow rule order (must be above Default).
+- SMS arrived but no task at 5 min? Automation didn't fire - check Automation is Enabled, check Automation dropdown on Lead Flow rule is set to the right Automation.
 
-Earlier the question was "gate on consent vs fire on Builder Intro submission regardless?" The consent gate is functionally identical TODAY (Builder Intro requires phone + consent, so the same set fires either way), but the gate protects every FUTURE lead form. The moment a 5th form ships, or Builder Intro becomes phone-optional during a test, an ungated automation creates TCPA exposure on day one. Gate-on-consent makes the system safer-by-default forever. Free defensibility.
+## Key learnings (FUB internals worth remembering)
 
-## TCPA compliance checklist
+1. **FUB Lead Flow conditions are restricted to: Tags, Price, City, State, ZIP, MLS, Phone Number.** Custom fields, source, event type are NOT filterable at Lead Flow. Don't spec gates that depend on them.
+2. **FUB Automations 2.0 don't have a native Send Text step.** SMS only happens via Lead Flow's "initial text message" feature, or via Action Plans (which are deprecated).
+3. **FUB custom field API names preserve uppercase runs in the label.** Label `SMS Consent` -> API name `customSMSConsent` (NOT `customSmsConsent`). Label `Sms Consent` -> API name `customSmsConsent`. **Always run `GET /customFields` and verify the API name after creating any new field.** This bit us once already.
+4. **FUB tag matching is case-insensitive in the partial-match style** (`Builder:` matches `Builder: DR Horton`). Good for forward-compatible filters.
+5. **FUB Lead Flow doesn't auto-recheck custom fields.** Consent gates have to live at the application layer if you need re-validation.
+6. **FUB send-from number for new construction:** `(980) 261-9222`. Replies route into FUB.
+7. **555-pattern phones get flagged invalid in FUB and SMS won't actually send.** Use real phones for end-to-end tests.
 
-| Requirement | How met |
-|---|---|
-| Prior express written consent | SMS consent checkbox + `customSmsConsent: YES` field |
-| Clear consent language on form | TODO: verify current checkbox copy in Stage 1 PR |
-| Timestamp + IP captured | FUB native (contact created with sourceUrl + timestamp) |
-| Sender ID in message | "Brian from Home Grown Property Group" in copy |
-| Opt-out language | "Reply STOP to opt out" in copy |
-| STOP honored within 10 biz days | FUB native (auto-blocks outbound to STOP-replied contacts) |
-| Audit trail | `customSmsConsent` field + freetext message body line = two artifacts |
+## Verification commands
 
-## Test plan
+```
+curl -s -u "fka_0cyqBULqHHKqrZiEJH6Njl7jqDkBBNTUYJ:" https://api.followupboss.com/v1/customFields | python3 -m json.tool | grep -A2 -i "sms"
+```
 
-**Stage 1 verification:**
-1. Submit Builder Intro with phone + consent -> FUB contact `SMS Consent` = `YES`
-2. Submit Guide Delivery, no phone -> `SMS Consent` = `NO`
-3. Submit Guide Delivery, phone but consent unchecked -> `SMS Consent` = `NO`
+```
+curl -s -u "fka_0cyqBULqHHKqrZiEJH6Njl7jqDkBBNTUYJ:" "https://api.followupboss.com/v1/people?q=EMAIL_TO_SEARCH" | python3 -m json.tool
+```
 
-**Stage 2 verification:**
-1. Submit Builder Intro on live site with own phone -> SMS received within 60 sec
-2. Open contact in FUB -> Action Plan visible in timeline
-3. Reply STOP -> FUB marks contact as SMS-opted-out
-4. Wait 5 min -> backup task appears assigned to Brian
+## Follow-ups (parked)
 
-**Edge case:** Manually flip a test contact's `SMS Consent` to `NO`, re-trigger Builder Intro event -> confirm No-Consent rule fires instead of SMS rule.
-
-## What changes vs today
-
-| | Today | After both stages |
-|---|---|---|
-| Consent captured | Text in event body | Text + queryable custom field |
-| FUB can query consent | No | Yes |
-| Speed-to-lead SMS | None | Within seconds |
-| Backup task | Manual | Auto at 5 min |
-| TCPA defensibility | Good | Excellent (two artifacts + gated automation) |
-| Channel coverage | N/A | iMessage + Android both |
+- Live end-to-end test (5 min, do when back at desk)
+- Decide whether to drop the `Sms Consent` label back to `SMS Consent` (caps) and patch the code in a 1-line follow-up PR. Today the FUB UI label reads lowercase-ms. Purely cosmetic. Operational over polish for now.
+- Consider extending the Automation: add a Day-1 follow-up email step after the task. Currently just SMS + task.
 
 ## References
 
-- Phone capture project: `projects/new-construction-phone-capture.md` (parent build, shipped 2026-05-12)
-- FUB Automations 2.0 already in use for incentives forms (variant-tagged Phase 1 drips)
-- LoopMessage approach (Path C) rejected: iMessage-only, less defensible audit pattern, more code surface
-- FUB docs: action plan text messages don't fire when triggered by Automations - must use Lead Flow + Action Plan path for native SMS auto-send
+- Phone capture parent project: `projects/new-construction-phone-capture.md` (shipped 2026-05-12)
+- Stage 1 PR (merged 2026-05-13): https://github.com/HGPG1/charlotte-new-construction-nextjs/pull/2, commit 5fe1ce9 on main
+- FUB API key (in env, also in this file for terminal verification): `fka_0cyqBULqHHKqrZiEJH6Njl7jqDkBBNTUYJ:`
