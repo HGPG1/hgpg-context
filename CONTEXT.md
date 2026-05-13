@@ -20,7 +20,11 @@ See `team.md` for full roster.
 - **Transaction Manager** (closings.homegrownpropertygroup.com) - lifecycle tool, see `projects/transaction-manager.md`
 - **TC Concierge** (tc.homegrownpropertygroup.com) - intake, live with Don running real deals
 - **Listing Report Portal** (reports.homegrownpropertygroup.com) - blocked on GitHub auth, see `projects/listing-report-portal.md`
-- **Claude skills** - five new skills shipped May 1 (objection-handler, referral-request-writer, showing-feedback-summerizer, offer-comparison-analyzer, market-update-writer)
+- **Claude skills** - five new skills shipped May 1 (objection-handler, referral-request-writer, showing-feedback-summarizer, offer-comparison-analyzer, market-update-writer)
+
+## Parked - run on a date
+
+- **New Construction phone capture rate review** - run between 2026-05-19 and 2026-05-26, see `projects/new-construction-phone-capture-rate-review.md`. Pull FUB data after 7-14 days post-shipping, evaluate if optional-phone nudges are pulling weight, decide if iteration needed.
 
 ## Recently completed
 
