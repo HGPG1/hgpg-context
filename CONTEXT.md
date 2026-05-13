@@ -1,6 +1,6 @@
 # HGPG Context (Brain)
 
-Last updated: 2026-05-12
+Last updated: 2026-05-13
 
 ## Who
 
@@ -20,12 +20,12 @@ See `team.md` for full roster.
 - **Transaction Manager** (closings.homegrownpropertygroup.com) - lifecycle tool, see `projects/transaction-manager.md`
 - **TC Concierge** (tc.homegrownpropertygroup.com) - intake, live with Don running real deals
 - **Listing Report Portal** (reports.homegrownpropertygroup.com) - blocked on GitHub auth, see `projects/listing-report-portal.md`
-- **New Construction SMS Speed-to-Lead** - spec locked, Stage 1 ready to ship, see `projects/new-construction-sms-speed-to-lead.md`
-- **Claude skills** - five new skills shipped May 1 (objection-handler, referral-request-writer, showing-feedback-summarizer, offer-comparison-analyzer, market-update-writer)
+- **Claude skills** - five new skills shipped May 1 (objection-handler, referral-request-writer, showing-feedback-summerizer, offer-comparison-analyzer, market-update-writer)
 
 ## Recently completed
 
-- **New Construction phone capture** (2026-05-12) - tiered downgrade shipped, see `projects/new-construction-phone-capture.md`. SMS speed-to-lead is now the next phase.
+- **New Construction SMS speed-to-lead** (2026-05-13) - Builder Intro instant SMS via Lead Flow + 5-min backup task via Automation 2.0, see `projects/new-construction-sms-speed-to-lead.md`. **Live end-to-end test pending** (Brian had to jet before final test).
+- **New Construction phone capture** (2026-05-12) - tiered downgrade, see `projects/new-construction-phone-capture.md`
 - IDX Broker migration (Ylopo cancelled, Showcase IDX cancelled, FUB lead routing done)
 - Main site SEO push (mobile PageSpeed 96/100)
 - Buyers guide migration from Manus to React + Vite
@@ -39,6 +39,14 @@ See `SESSION-HANDOFF.md` for current scratchpad.
 - Sherlock 403 on Transaction Manager (likely API key scope)
 - .net Google Workspace migration to .com (do not proactively remind)
 - GitHub PAT exposed in chat history needs rotation
+
+## Standing rules learned this week
+
+- **FUB Lead Flow conditions are restricted** to: Tags, Price, City, State, ZIP, MLS, Phone Number. Custom fields are NOT filterable at Lead Flow.
+- **FUB Automations 2.0 have NO Send Text step.** Only Lead Flow can send native auto-SMS.
+- **FUB custom field API names preserve uppercase runs in labels.** Always GET /customFields to verify after creating.
+- **FUB send-from number for new construction:** (980) 261-9222
+- **555-pattern phones get flagged invalid in FUB** and won't actually receive SMS. Use real phones for tests.
 
 ## Where to look next
 
