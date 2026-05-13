@@ -2,75 +2,61 @@
 
 # Session Handoff
 
-## Last session: 2026-05-13 — SMS speed-to-lead SHIPPED 🟢 (live test pending)
+## Active: 2026-05-13 — Buyers Guide Session 2 still in progress 🟡
 
-### What got shipped today
+Note: this handoff was overwritten yesterday by a ReZEN review-request session that landed between Buyers Guide working windows. ReZEN work is shipped and documented elsewhere. This handoff is back to Buyers Guide pickup.
 
-**Stage 1 code (PR #2 merged):**
-- `customSmsConsent: 'YES' | 'NO'` field now written to FUB on every Builder Intro / Guide / Quiz / Calculator submission
-- Commit `5fe1ce9` on main, Vercel auto-deployed to prod
-- Verified live - test contact `SmsTest Field` has `Sms Consent: YES` in FUB
+### Where we are
+- Branch: session-2-funnel (HEAD = 16d1e79, R4 patch shipped)
+- Production: unchanged from end-of-Session-1 (main HEAD = 04e4a21)
+- Latest preview to smoke: https://charlotte-buyers-guide-c9ydyjmsh.vercel.app
 
-**Stage 2 FUB config:**
-- Custom field `Sms Consent` created in FUB Admin (dropdown YES/NO, API name `customSmsConsent`)
-- Automation `New Construction - Builder Intro - Post SMS Workflow` built (Manual trigger, 5-min wait, Create Task) - ENABLED
-- Lead Flow rule built on source `Website - New Construction`: Tags include `Builder:`, distributes to Brian, attaches Automation, sends initial text instantly
+### Patch round history (all on session-2-funnel)
+- R1 (35d5da8 → 04e4a21): initial Session 2 build, then health endpoint rename
+- R2 (2878215): Quiz capture gate + Calculator PDF gate + exit-intent guard
+- R3 (87b316d): upsertBgContact added everywhere — fixed silent no-op chain
+- R4 (16d1e79): Quiz autoAdvanceTimer race-condition fix
 
-### Architecture changed from original spec - read project file
+### Pickup task (one cold-state smoke against c9ydyjmsh)
+1. Fresh incognito + bypass cookie URL on c9ydyjmsh
+2. DevTools Console + Network tab open BEFORE clicking
+3. Test email format: smoke-s2-r4-YYYYMMDD@homegrownpropertygroup.com
+4. Full funnel at NORMAL CADENCE: Quiz (slow-and-steady on all 5 questions) → results page → Unlock my profile → Calculator → Download PDF → Bonuses → unlock one bonus
+5. Skip exit-intent (P1, working from prior runs)
+6. Report any red console errors or 4xx/5xx in Network tab
+7. Claude verifies backend via Supabase MCP (project ioypqogunwsoucgsnmla): bg_contacts, bg_quiz_results, bg_activities rows for test email + score totals
 
-Original spec assumed FUB Lead Flow + Action Plan. WRONG. The shipped reality:
-- FUB Lead Flow conditions cannot filter on custom fields (only Tags, Price, City, State, ZIP, MLS, Phone)
-- FUB Automations 2.0 cannot send SMS (no Send Text step type)
-- ONLY native auto-SMS path = Lead Flow's "initial text message" field (NOT Action Plans, NOT Automations)
-- Action Plans are deprecated per HGPG standing rule, so the Lead Flow native SMS path is the only viable option
+### Expected lead score totals
+- Quiz: +50
+- Calculator basic: +25 (+40 if equity used)
+- Calculator PDF: +20
+- Bonus unlock: +30
+- Total: 125 (basic) or 140 (equity)
 
-The TCPA defensibility model now lives at the FORM layer (double-gated client + server consent enforcement), with `customSmsConsent` + event-body line as audit artifacts. Lead Flow trusts upstream enforcement. Full details in `projects/new-construction-sms-speed-to-lead.md`.
+bg_quiz_results row must have lifestyle_priority populated (was the canary for R4 race-condition fix).
 
-### Open item: live end-to-end test (5 min when back at desk)
+### Merge path once smoke is green
+git checkout main
+git pull origin main
+git merge session-2-funnel
+git push origin main
+Verify prod health endpoints, then push corrective brain docs (Sessions 2 actually shipped).
 
-Brian hadn't run a live test yet. Procedure:
-1. Submit Builder Intro from incognito with REAL phone (not 555-pattern - those are flagged invalid in FUB)
-2. SMS should arrive from `(980) 261-9222` within seconds
-3. Task should appear in FUB at the 5-min mark
-4. Reply STOP - should opt-out cleanly
+### Infrastructure state
+- Vercel project: charlotte-buyers-guide on team home-grown-property-groups-projects
+- Preview env vars (all 4 set): SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, FUB_API_KEY, FRED_API_KEY
+- Bypass token: macOS Keychain under VERCEL_BYPASS_TOKEN (auto-exports via ~/.zshrc)
+- Brain Write API token: macOS Keychain under HGPG_BRAIN_TOKEN (auto-exports via ~/.zshrc)
+- Health endpoints renamed in 04e4a21: /api/health/* not /api/_health/* (no underscore)
 
-Brain file has full troubleshooting guide if anything fails.
+### Deferred to next pickup or later
+- Playwright headless smoke harness — would have saved hours of manual smoke testing across patch rounds
+- Pre-existing accessibility nits (form input id/name + label-for)
+- Brain handoff hygiene — Session 2 notes got clobbered by ReZEN once already. Consider per-project handoff files (SESSION-HANDOFF-buyers-guide.md, SESSION-HANDOFF-rezen.md) or append-only log pattern
 
-### Key learnings captured in project file
-
-- FUB Lead Flow condition limits (Tags / Price / location / MLS / Phone only)
-- FUB Automations 2.0 has no Send Text step type
-- FUB custom field API names preserve uppercase runs in labels (we got bit once - rename label to control casing)
-- FUB tag matching is case-insensitive on partial-match
-- FUB send-from number for new construction: (980) 261-9222
-- 555-pattern phones get flagged invalid
-
-### Pickup notes for next session
-
-If Brian comes back and says "the test worked": flip the project status from 'pending live test' to fully SHIPPED in the project file, close out.
-
-If the test failed: troubleshooting steps in the project file under 'End-to-end test plan' section. Most likely failure modes: Automation not enabled, SMS copy formatting issue, Lead Flow rule positioned below Default Rule.
-
-If Brian wants to extend the Automation: parked follow-up to add a Day-1 email step after the task. Currently it's just SMS + 5-min task.
-
-If Brian wants the FUB label to read 'SMS Consent' (caps) instead of 'Sms Consent': 1-line code patch to change the customSmsConsent key to customSMSConsent. Purely cosmetic - leave for now.
-
----
-
-## Prior session: 2026-05-12 — Phone capture SHIPPED 🟢
-
-PR #1 merged, prod deploy live. Tiered phone capture (optional on Guide/Quiz/Calculator, required on Builder Intro). Was reframed mid-session - phone was already captured everywhere, the real work was tiering. Two of three preview-deploy checks passed, third (FUB record clarity) deferred to first real lead. Full details in `projects/new-construction-phone-capture.md`.
-
----
-
-## Prior session: 2026-05-06 — Brain App MVP shipped 🟢
-
-(preserved for reference)
-
-- New Vercel project: `brain-app` on team `team_FietQPKCmnyioG2n0FdteQCV`
-- New repo: `HGPG1/brain-app` (private)
-- Live at: `https://brain.homegrownpropertygroup.com`
-- Stack: Next.js 16.2.4, Tailwind v4, CodeMirror 6, Supabase Auth (magic link)
-- Single-user lock: `BRIAN_EMAIL=brian@homegrownpropertygroup.com` allow-list
-- Resend custom SMTP wired into `HGPG Core` Supabase, affects ALL apps using that project
-- Supabase project renames for hygiene (see prior handoff)
+### Things to remember
+- Check preview URL hash matches latest deployment before testing (vercel ls)
+- DevTools Console open BEFORE smoke
+- Clear localStorage + sessionStorage between cold runs
+- Backend verification via Supabase MCP > eyeballing the UI
+- Use slow-and-steady cadence on Quiz to verify R4 race fix held
