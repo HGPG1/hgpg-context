@@ -1,90 +1,80 @@
-<!-- Last Updated: 2026-05-14 -->
+<!-- Last Updated: 2026-05-13 -->
 
 # Session Handoff
 
-## Last session: 2026-05-14 — Brain App switched from PAT to GitHub App 🟢
+## Last session: 2026-05-13 (full day) - Three NC site builds shipped 🟢
 
-### What got built
-- **GitHub App "HGPG Brain Commit"** created in HGPG1 org
-  - App ID: `3712986`
-  - Installation ID: `132322328`
-  - Permissions: Contents read/write, Metadata read-only
-  - Installed on: ALL HGPG1 repositories
-  - Private key: stored as Vercel env var `GITHUB_APP_PRIVATE_KEY` on brain-app project, local copy at `~/.hgpg-secrets/github-app-private-key.pem` on iMac (chmod 600)
-- **`lib/octokit-app.ts`** (new) — GitHub App auth helper that mints fresh installation tokens
-- **`lib/github.ts`** (refactored) — brain UI reads/writes now use the App instead of a PAT
-- **`/api/external/write`** (refactored) — bearer-authed brain write API now uses the App
-- **`/api/external/commit`** (NEW) — bearer-authed endpoint that can commit to ANY HGPG1 repo, not just the brain
+Today was a heavy build day on `newconstruction.homegrownpropertygroup.com`. Three production deploys, four brain commits.
 
-### Why
-- A PAT got exposed in chat history on 2026-05-13 and all PATs were revoked
-- This broke `/api/external/write` (was returning 502 "GitHub read failed")
-- Rather than rotate to another PAT, switched to GitHub App auth permanently:
-  - Installation tokens auto-rotate every hour (no manual rotation ever needed)
-  - One bearer token (`BRAIN_WRITE_TOKEN`) is the only thing to rotate if leaked
-  - App can be installed on additional repos in seconds via GitHub UI
-  - No PAT exists on disk anywhere in the stack
+### What shipped today (in order)
 
-### Verified working end-to-end
-- `GET /api/external/write` returns `authMode: "github-app", configured: true`
-- `GET /api/external/commit` returns `authMode: "github-app", configured: true, allowedRepos: "all"`
-- Live write to `HGPG1/hgpg-context/_diagnostics/github-app-write-test.md` → HTTP 200, commit `d33d9ec` (file later removed in cleanup commit `1d24043`)
-- Live cross-repo commit to `HGPG1/brain-app/_diagnostics/cross-repo-commit-test.md` → HTTP 200, commit `098007e` (file later removed in cleanup commit `6cd2536`)
+**1. FUB customSmsConsent field (PR #2 merged earlier today)**
+- `customSmsConsent: 'YES' | 'NO'` written to FUB on every lead form submit
+- Unblocks Lead Flow conditioning on consent
+- Consent copy audit confirmed existing checkbox already exceeds 4-element TCPA bar
 
-### Env vars added to brain-app on Vercel (Production)
-- `GITHUB_APP_ID` = 3712986 (sensitive)
-- `GITHUB_APP_INSTALLATION_ID` = 132322328 (sensitive)
-- `GITHUB_APP_PRIVATE_KEY` = full PEM contents (sensitive, multi-line)
-- `ALLOWED_REPOS` = (not set, meaning "all HGPG1 repos the App has access to")
+**2. SMS speed-to-lead (FUB UI config, no code)**
+- Built `Sms Consent` custom field in FUB (dropdown YES/NO, API name `customSmsConsent`)
+- Built Automation `New Construction - Builder Intro - Post SMS Workflow` (Manual trigger, 5-min wait, Create Task)
+- Built Lead Flow rule on source `Website - New Construction`: Tags include `Builder:`, attaches Automation, sends initial text instantly
+- See `projects/new-construction-sms-speed-to-lead.md` for the full architecture (it changed mid-session from the original spec because FUB Lead Flow can't filter custom fields)
+- **Outstanding:** live end-to-end test from Brian's real phone
 
-### Env vars NO LONGER USED (removed 2026-05-14)
-- `GITHUB_PAT` — confirmed removed via `vercel env rm`
-- `GITHUB_TOKEN` — was never actually set (code had fallback only)
-- `BRAIN_GITHUB_PAT` — was never actually set (code had fallback only)
-Final state verified: `vercel env ls | grep -E 'PAT|TOKEN'` returns only `BRAIN_WRITE_TOKEN` (the bearer).
+**3. Scout admin cleanup (PR #3 merged)**
+- Added `scout_status` column to `nc_builders` (crawl | email_only | paused)
+- Scout admin tab now filters where `scout_status = 'crawl'`: 23 -> 19 builders shown
+- KB Home incentives_url fixed (404 -> working Indian Land page)
+- 4 builders flipped to email_only (Eastwood, Mattamy, Stanley Martin, Taylor Morrison) - they're blocked by 403 or JS-required, ingested via Apps Script email pipeline instead
+- Status badge + edit field on the Builders tab so Brian can flip scout_status from the UI without SQL
+- See `projects/new-construction-scout-admin-cleanup.md`
 
-### How Claude sessions write to the brain now
-```
-POST https://brain.homegrownpropertygroup.com/api/external/write
-Authorization: Bearer <BRAIN_WRITE_TOKEN>
-Content-Type: application/json
-{
-  "path": "SESSION-HANDOFF.md",
-  "content": "<full file contents>",
-  "message": "optional commit message"
-}
-```
+### Open / pending
 
-### How Claude sessions commit code to other HGPG1 repos now
-```
-POST https://brain.homegrownpropertygroup.com/api/external/commit
-Authorization: Bearer <BRAIN_WRITE_TOKEN>
-Content-Type: application/json
-{
-  "repo": "hgpg-transaction-manager",
-  "path": "app/api/foo/route.ts",
-  "content": "<full file contents>",
-  "message": "optional commit message",
-  "branch": "main"
-}
-```
-Same bearer token for both endpoints. Author of commits is Brian McCarron <brian@homegrownpropertygroup.com>.
+**Live end-to-end test for SMS speed-to-lead.** Brian was at the office and didn't run it. Procedure:
+1. Submit Builder Intro from incognito with REAL phone (not 555-pattern - flagged invalid in FUB)
+2. SMS should arrive from `(980) 261-9222` within seconds
+3. Task should appear in FUB at the 5-min mark
+4. Reply STOP to verify opt-out
 
-### Project status updates
-- `projects/brain-app.md` — needs update: auth model section + new commit endpoint docs
-- `infrastructure.md` — needs update: PAT references should be removed, GitHub App documented
+If anything fails, troubleshooting guide is in `projects/new-construction-sms-speed-to-lead.md`.
+
+### Parked follow-ups (low priority)
+
+- **Phone capture rate review** (run 2026-05-19 to 2026-05-26) - see `projects/new-construction-phone-capture-rate-review.md`
+- **"For Builders" footer link** to /builder-submit - bundle with next NC site touch, see `projects/new-construction-builder-submit-footer-link.md`
+
+### Key learnings captured in brain
+
+- FUB Lead Flow can only filter on Tags, Price, City, State, ZIP, MLS, Phone (NOT custom fields, NOT source, NOT event type)
+- FUB Automations 2.0 have no native Send Text step - SMS only happens via Lead Flow's "initial text message" field
+- FUB custom field API names preserve uppercase runs in labels (`SMS Consent` -> `customSMSConsent`, `Sms Consent` -> `customSmsConsent`). Always GET /customFields to verify after creating
+- FUB send-from number for new construction: (980) 261-9222
+- 555-pattern phones are flagged invalid in FUB and won't actually receive SMS
+- NC Scout builders fall into 3 ingestion buckets (crawl / email_only / paused). Filter at API layer, not just UI
+- Builder-rep submission form lives at `/builder-submit` (unlinked from nav by design)
 
 ### Pickup notes for next session
-- **For Claude:** You can now write directly to any HGPG1 repo via `/api/external/commit`. No more "push this from your Mac" handoffs for routine code changes. Brian still pushes from Mac when he's editing locally and committing his own work — that's normal git, not changed by this work.
-- **Rotation playbook:** if `BRAIN_WRITE_TOKEN` ever leaks: `vercel env rm BRAIN_WRITE_TOKEN production && vercel env add BRAIN_WRITE_TOKEN production` then redeploy. Update Brian's memory in chat with the new token. ~60 seconds end to end.
-- **If you need to revoke the GitHub App itself** (e.g. the private key leaks): go to github.com/organizations/HGPG1/settings/installations/132322328, click "Suspend" or generate a new private key, then update `GITHUB_APP_PRIVATE_KEY` in Vercel.
-- **PAT cleanup:** Brian killed all PATs on 2026-05-13. The brain-app code no longer references them. If any other HGPG1 app still has dead PAT env vars, those can be cleaned up at leisure but won't break anything.
-- **Diagnostic files** removed from both repos in cleanup commits `1d24043` (hgpg-context) and `6cd2536` (brain-app). Brain is clean.
 
-## Cleanup sweep (later same day, 2026-05-14)
+When Brian returns: ask if the SMS live test happened. If yes and it worked, flip SMS project status from "pending live test" to fully shipped. If it didn't work, troubleshooting guide in the project file.
 
-- Deleted `_diagnostics/` directories from both repos via gh CLI (commits `1d24043` and `6cd2536`)
-- Removed stale `GITHUB_PAT` env var from brain-app Vercel project (production + preview scopes)
-- Confirmed `GITHUB_TOKEN` and `BRAIN_GITHUB_PAT` were never actually set — the code had fallbacks for them but no env vars existed
-- Re-swept the brain for stale references and patched CONTEXT.md, SESSION-HANDOFF.md, and projects/brain-app.md accordingly
-- Final state: zero PAT references in active env vars, code, or active documentation. Only historical mentions remain in bug-history sections (intentional record).
+If Brian asks about adding more builders to the NC site: he ALREADY has 23, which is dense coverage. The original "find missing builders" question was tangential to his real ask (hide non-crawlable ones), and the actual cleanup shipped today. Don't re-litigate adding builders unless he explicitly asks.
+
+---
+
+## Prior session: 2026-05-12 — Phone capture SHIPPED 🟢
+
+PR #1 merged, prod deploy live. Tiered phone capture (optional on Guide/Quiz/Calculator, required on Builder Intro). Was reframed mid-session - phone was already captured everywhere, the real work was tiering. Two of three preview-deploy checks passed, third (FUB record clarity) deferred to first real lead. Full details in `projects/new-construction-phone-capture.md`.
+
+---
+
+## Prior session: 2026-05-06 — Brain App MVP shipped 🟢
+
+(preserved for reference)
+
+- New Vercel project: `brain-app` on team `team_FietQPKCmnyioG2n0FdteQCV`
+- New repo: `HGPG1/brain-app` (private)
+- Live at: `https://brain.homegrownpropertygroup.com`
+- Stack: Next.js 16.2.4, Tailwind v4, CodeMirror 6, Supabase Auth (magic link)
+- Single-user lock: `BRIAN_EMAIL=brian@homegrownpropertygroup.com` allow-list
+- Resend custom SMTP wired into `HGPG Core` Supabase, affects ALL apps using that project
+- Supabase project renames for hygiene (see prior handoff)
