@@ -2,7 +2,7 @@
 
 # Sellers Guide
 
-**Status:** 🟢 SHIPPED + AD-READY. Outstanding: FUB Automation 2.0 on `sellers-guide-2026` tag (not yet built).
+**Status:** 🟢 SHIPPED + AD-READY. FUB Automation 2.0 build status unknown via API — 📋 PARKED for validation on first real ad lead.
 
 ## URLs
 
@@ -115,7 +115,8 @@ End-to-end test from `?utm_source=meta&utm_campaign=preflight-final-20260511`:
 ## Outstanding
 
 ### Before scaling ad spend
-- 🟡 **FUB Automation 2.0 not built yet** on `sellers-guide-2026` tag. Leads land in FUB tagged correctly but no automatic drip/assignment fires. Manual follow-up required until Automation is configured. Acceptable for initial ad launch (want eyes on first leads anyway) but blocks scaling.
+- 📋 **FUB Automation 2.0 verification PARKED** until first real ad lead arrives. FUB API does not expose Automations 2.0 to outside integrators (returns 403 on `/v1/automations`), so build status cannot be confirmed via API. Brian believes the Automation is configured in FUB UI. Validation plan: when first real lead lands tagged `sellers-guide-2026`, check downstream activity (assignment, follow-up tasks, drip emails) to confirm the Automation fired. If nothing fires: log into FUB UI, build/repair the Automation on `sellers-guide-2026` tag trigger.
+- **Pre-launch sanity check:** as of 2026-05-14, zero FUB persons have the `sellers-guide-2026` tag (verified via `GET /people?tags=sellers-guide-2026` returning total=0). Confirms no real traffic has hit this funnel yet.
 
 ### SEO follow-through ✅ DONE 2026-05-14
 - ~~Resubmit sitemap in Google Search Console~~ — completed
