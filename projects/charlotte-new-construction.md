@@ -92,8 +92,34 @@ Card_modal submissions self-identify a builder. Useful for future routing / foll
 - 🟡 **Verify Automation 2.0 enrollment** for Lead Flow 54 → New Construction Incentives source. FUB API does not expose Automations to outside integrators (`/v1/automations` returns 403), so verification must be UI-based. Open any post-May-6 lead in FUB UI and confirm enrollment + email send events on timeline.
 
 ### Manual outreach pending (high-priority leads from paused campaign)
-- 🟡 **Personal touch on Tammy Flores (FUB ID 31833)** — only confirmed in-market lead from the paused campaign. David Weekley card_modal submit. Original draft was in a CRM thread but staleness risk grows daily; outreach copy now drafted 2026-05-14 (see below).
-- 🟡 **Personal touch on Andrew Broughton (FUB ID 31885)** — submitted 3 builder modals (Empire $50K, Empire $25K, DW $30K) in 2 minutes. Highest engagement signal in the batch even with unknown location. Outreach copy now drafted 2026-05-14 (see below).
+- 🟡 **Personal touch on Tammy Flores (FUB ID 31833)** — only confirmed in-market lead from the paused campaign (Charlotte, NC per FUB social data). David Weekley card_modal submit on 2026-05-05. Variant B-Rate. Email-only (no phone). Outreach copy approved 2026-05-14, send via FUB:
+
+  **Subject:** Tammy — David Weekley incentives, still want the rundown?
+  
+  Hi Tammy,
+  
+  You requested info on David Weekley new-construction incentives last week and I want to make sure that didn't slip through. Their current programs change month to month, and a couple of their Charlotte communities are running deeper rate buydowns and design-center credits right now than what shows up on the public page.
+  
+  Are you still actively looking? Happy to send a one-pager on what they're running this week, no strings, no calls unless you ask for one.
+  
+  Brian
+  Home Grown Property Group
+  +1 (704) 677-9191
+- 🟡 **Personal touch on Andrew Broughton (FUB ID 31885)** — submitted 3 builder modals (Empire $50K, Empire $25K, DW $30K) in 2 minutes on 2026-05-07. Highest engagement signal in the batch even with unknown location. Variant A-Dollar. Email-only (no phone). Outreach copy approved 2026-05-14, send via FUB:
+
+  **Subject:** Empire + David Weekley, real numbers?
+  
+  Hi Andrew,
+  
+  You pinged on three builder incentives in a couple minutes on our site last week. I'd rather get useful info in your hands than have you stuck comparing dated PDFs from each builder's sales office.
+  
+  If you're still in the market, send me back the price range and timeline and I'll put together a real comparison of what Empire, David Weekley, and a couple others are running right now.
+  
+  If you're already under contract or moved on, totally fine, just let me know and I'll stop emailing.
+  
+  Brian
+  Home Grown Property Group
+  +1 (704) 677-9191
 
 ### Done / shipped since 2026-05-11
 - ✅ **Killed Variants A and B** (single-offer creatives that didn't qualify intent)
