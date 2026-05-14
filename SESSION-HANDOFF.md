@@ -1,61 +1,82 @@
-<!-- Last Updated: 2026-05-13 -->
+<!-- Last Updated: 2026-05-14 -->
 
 # Session Handoff
 
-## Last session: 2026-05-13 — Buyers Guide Session 2 SHIPPED ✅
+## Last session: 2026-05-14 — Brain App switched from PAT to GitHub App 🟢
 
-Session 2 of the Manus migration is in production. Branch session-2-funnel merged to main. All four health endpoints green on prod.
+### What got built
+- **GitHub App "HGPG Brain Commit"** created in HGPG1 org
+  - App ID: `3712986`
+  - Installation ID: `132322328`
+  - Permissions: Contents read/write, Metadata read-only
+  - Installed on: ALL HGPG1 repositories
+  - Private key: stored as Vercel env var `GITHUB_APP_PRIVATE_KEY` on brain-app project, local copy at `~/.hgpg-secrets/github-app-private-key.pem` on iMac (chmod 600)
+- **`lib/octokit-app.ts`** (new) — GitHub App auth helper that mints fresh installation tokens
+- **`lib/github.ts`** (refactored) — brain UI reads/writes now use the App instead of a PAT
+- **`/api/external/write`** (refactored) — bearer-authed brain write API now uses the App
+- **`/api/external/commit`** (NEW) — bearer-authed endpoint that can commit to ANY HGPG1 repo, not just the brain
 
-### What shipped to production
+### Why
+- A PAT got exposed in chat history on 2026-05-13 and all PATs were revoked
+- This broke `/api/external/write` (was returning 502 "GitHub read failed")
+- Rather than rotate to another PAT, switched to GitHub App auth permanently:
+  - Installation tokens auto-rotate every hour (no manual rotation ever needed)
+  - One bearer token (`BRAIN_WRITE_TOKEN`) is the only thing to rotate if leaked
+  - App can be installed on additional repos in seconds via GitHub UI
+  - No PAT exists on disk anywhere in the stack
 
-New routes:
-- /api/quiz/submit
-- /api/calculator/track-completion
-- /api/calculator/generate-pdf
-- /api/exit-intent/submit
-- /api/bonus/unlock
-- /api/capi-event (Meta CAPI proxy for browser+server dedup)
+### Verified working end-to-end
+- `GET /api/external/write` returns `authMode: "github-app", configured: true`
+- `GET /api/external/commit` returns `authMode: "github-app", configured: true, allowedRepos: "all"`
+- Live write to `HGPG1/hgpg-context/_diagnostics/github-app-write-test.md` → HTTP 200, commit `d33d9ec`
+- Live cross-repo commit to `HGPG1/brain-app/_diagnostics/cross-repo-commit-test.md` → HTTP 200, commit `098007e`
 
-New helpers (api/_lib/):
-- contacts.ts — upsertBgContact (INSERT ... ON CONFLICT DO UPDATE)
-- fub.ts updated — added updateFubPersonByEmail
-- signBgPdfUrl.ts (Session 1 holdover)
+### Env vars added to brain-app on Vercel (Production)
+- `GITHUB_APP_ID` = 3712986 (sensitive)
+- `GITHUB_APP_INSTALLATION_ID` = 132322328 (sensitive)
+- `GITHUB_APP_PRIVATE_KEY` = full PEM contents (sensitive, multi-line)
+- `ALLOWED_REPOS` = (not set, meaning "all HGPG1 repos the App has access to")
 
-Frontend:
-- Quiz with locked overlay + UnlockModal capture path + autoAdvanceTimer race fix
-- Calculator with equity module, URL param prefill, behavioral tag push (buy_better / rent_better / move_up_ready), auto-PDF-fire after unlock
-- Exit-intent popup with topThresholdPx + minimum time + sessionStorage fire-once guard
-- Meta Pixel + CAPI mirroring (Lead, Search, Contact, SubmitApplication)
+### Env vars NO LONGER USED (safe to remove from Vercel)
+- `GITHUB_PAT`
+- `GITHUB_TOKEN`
+- `BRAIN_GITHUB_PAT`
+- (Cleanup deferred — the new code doesn't read these but they're dead weight)
 
-### Backend verification at prod-ready point (smoke-s2-r4-20260513 email)
-- bg_contacts: row exists, lead_score=125 (50 quiz + 25 calc basic + 20 pdf + 30 bonus), bonus_unlocked=true
-- bg_quiz_results: row exists, lifestyle_priority='urban' (R4 canary), synced_to_fub=true
-- bg_activities: bonus_unlock row with parent contact, no orphans
-- All four health endpoints (db/fub/fred/storage) return 200 on prod
+### How Claude sessions write to the brain now
+```
+POST https://brain.homegrownpropertygroup.com/api/external/write
+Authorization: Bearer <BRAIN_WRITE_TOKEN>
+Content-Type: application/json
+{
+  "path": "SESSION-HANDOFF.md",
+  "content": "<full file contents>",
+  "message": "optional commit message"
+}
+```
 
-### Patch round history (closed out)
-- R1 (35d5da8): initial Session 2 build
-- 04e4a21: health endpoint rename /api/_health → /api/health for Vercel discovery
-- R2 (2878215): Quiz capture gate + Calculator PDF gate + exit-intent guard
-- R3 (87b316d): upsertBgContact added everywhere — fixed silent no-op chain
-- R4 (16d1e79): Quiz autoAdvanceTimer race-condition fix
-- Final merge to main: session-2-funnel → main
+### How Claude sessions commit code to other HGPG1 repos now
+```
+POST https://brain.homegrownpropertygroup.com/api/external/commit
+Authorization: Bearer <BRAIN_WRITE_TOKEN>
+Content-Type: application/json
+{
+  "repo": "hgpg-transaction-manager",
+  "path": "app/api/foo/route.ts",
+  "content": "<full file contents>",
+  "message": "optional commit message",
+  "branch": "main"
+}
+```
+Same bearer token for both endpoints. Author of commits is Brian McCarron <brian@homegrownpropertygroup.com>.
 
-### Next: Session 3 — Agent surfaces + Advisor Mode
-Goal: per-agent URLs (/brian, /ashley, /taylor, /brenda), advisor mode UX layer, agent dashboard, agent admin. Depends on Sessions 1 + 2 — both complete.
+### Project status updates
+- `projects/brain-app.md` — needs update: auth model section + new commit endpoint docs
+- `infrastructure.md` — needs update: PAT references should be removed, GitHub App documented
 
-Full Session 3 kickoff prompt preserved in projects/buyers-guide-manus-migration.md. Pickup at any time.
-
-Pre-session reminder: Session 3 introduces a /:agent slug route. Confirm with Brian whether HGPG agents are currently sharing any /brian-style URLs in the wild (Manus) — this affects the route allowlist design.
-
-### Standing pickup notes
-- Brain Write API token: macOS Keychain under HGPG_BRAIN_TOKEN (auto-exports via ~/.zshrc)
-- Vercel preview bypass token: macOS Keychain under VERCEL_BYPASS_TOKEN (auto-exports via ~/.zshrc)
-- Preview-scope env vars all set: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, FUB_API_KEY, FRED_API_KEY
-- Buyers Guide prod: buyersguide.homegrownpropertygroup.com on Vercel project charlotte-buyers-guide
-- Supabase: HGPG Core (ioypqogunwsoucgsnmla), bg_* tables
-
-### Deferred items (not blocking)
-- Playwright headless smoke harness — would have saved hours of manual testing across Session 2 patch rounds. Worth ~15min to build before Session 3 or Session 4
-- Pre-existing accessibility nits (form input id/name + label-for) on Quiz/Unlock forms
-- Brain handoff hygiene: per-project handoff files (SESSION-HANDOFF-buyers-guide.md, etc.) to prevent overwrite collisions between projects worked in same week
+### Pickup notes for next session
+- **For Claude:** You can now write directly to any HGPG1 repo via `/api/external/commit`. No more "push this from your Mac" handoffs for routine code changes. Brian still pushes from Mac when he's editing locally and committing his own work — that's normal git, not changed by this work.
+- **Rotation playbook:** if `BRAIN_WRITE_TOKEN` ever leaks: `vercel env rm BRAIN_WRITE_TOKEN production && vercel env add BRAIN_WRITE_TOKEN production` then redeploy. Update Brian's memory in chat with the new token. ~60 seconds end to end.
+- **If you need to revoke the GitHub App itself** (e.g. the private key leaks): go to github.com/organizations/HGPG1/settings/installations/132322328, click "Suspend" or generate a new private key, then update `GITHUB_APP_PRIVATE_KEY` in Vercel.
+- **PAT cleanup:** Brian killed all PATs on 2026-05-13. The brain-app code no longer references them. If any other HGPG1 app still has dead PAT env vars, those can be cleaned up at leisure but won't break anything.
+- **Diagnostic files** at `_diagnostics/` in both repos can be deleted whenever — they were one-shot verification artifacts.
