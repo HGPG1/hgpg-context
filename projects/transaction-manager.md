@@ -1,4 +1,4 @@
-<!-- Last Updated: 2026-05-11 -->
+<!-- Last Updated: 2026-05-14 -->
 
 # Transaction Manager
 
@@ -133,6 +133,15 @@
 
 ## Open items
 
+- 🆕 **Don feedback 2026-05-13 — Ad-hoc transaction events (e.g. mid-deal signings)** — feedback ID `84a2761a-f5b9-40a7-ba3a-f7923e9f1b3f`, status=open in `feedback` table.
+  - **Context:** On Lamington Dr (`a7ac15e6-bdfb-495a-8588-11e98692f905`, listing deal closing 2026-06-01), Don wants to schedule a seller deed signing for 2026-05-26 at 3 PM at Lando Law firm WITHOUT changing the 6/1 closing date. He asked "Wasn't sure just whether to put another task in?"
+  - **Product gap:** TM auto-creates Google Calendar events for the 3 standard milestones (closing, DD deadline, walkthrough) but has no mechanism for ad-hoc transaction events like seller signings, intermediate inspections, lender meetings, attorney signings, etc. Don is asking for guidance because the right surface doesn't exist yet.
+  - **Three plausible responses, ordered by build cost:**
+    1. **Quick win (no build):** Tell Don to use a Task with a due date + time + location in the title. Works today. No calendar event though, no formal "this is a signing" semantic.
+    2. **Calendar-only surface:** Add a "Schedule event" button on the deal page that opens a small form (event type, date/time, location, notes) and pushes to the HGPG Closings Google Calendar with reasonable defaults — title format `[Deal type] - [Event type] - [Address]`. Persist event ID in `transactions.calendar_event_ids` JSON. No new DB table.
+    3. **Full Signing Event entity:** New `transaction_events` table with `event_type` enum (`seller_signing`, `buyer_signing`, `lender_meeting`, `inspection`, `attorney_signing`, `other`), `scheduled_at`, `location`, `attendees` (json), `notes`, `calendar_event_id`. Auto-syncs to shared calendar. Surfaces on deal page timeline. Recommended for medium-term; option 2 is a stepping stone.
+  - **Recommendation:** Option 2 first (~2 hours), with the understanding that option 3 is the eventual destination once we see how often these ad-hoc events come up. Option 1 is too hand-wavy for a TC who is already feeling the pain.
+  - **Don needs an answer in the meantime.** Whichever path is chosen, reply to him in the feedback queue. Until then, Option 1 ("Just add a task for now") is the right tactical answer for Lamington Dr specifically — won't block him from closing.
 - **$395 fee toggle** — parked build spec, refs commit b9fa0deb. The underlying notes-append work for the 3-gate fee verification (contract distribution + mid-deal at under_contract+14 + settlement review) shipped 2026-05-05. Structural toggle still parked.
 - **Migration file backfill** (`supabase/migrations/20260509_flip_transaction_pdfs_bucket_private.sql`) — repo hygiene only. DB ledger and bucket state both correct. Commit pending from Brian's Mac.
 
