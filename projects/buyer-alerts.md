@@ -1,10 +1,10 @@
-<!-- Last Updated: 2026-05-12 -->
+<!-- Last Updated: 2026-05-14 -->
 
 # Buyer Alerts
 
 ## Core Identity
 
-- **Status:** 🟡 Session 1 PARKED on LoopMessage env blocker (DB schema + code + 5 of 6 env vars done; one env var + code patch + smoke test remaining)
+- **Status:** 🟡 Session 1 PARKED. Item 1 (code patch) drafted but NOT YET COMMITTED 2026-05-14 — Brian wants to pair the full Items 1+2+3 in one session for clean finish.
 - **Lives inside:** Team Dashboard (`HGPG1/hgpg-team-dash`, route `/buyers`)
 - **Live URL (target):** `team.homegrownpropertygroup.com/buyers`
 - **Supabase project:** `wdheejgmrqzqxvgjvfee` (HGPG Listing Reports + MLS) — shared with Team Dashboard
@@ -19,7 +19,14 @@ As of 2026-05-12 EOD, three items remain before S1 can be smoke-tested in produc
 1. **Code patch — LoopMessage integration** in `src/app/api/cron/buyer-alerts/route.ts`.
    - Claude Code wrote: `LOOPMESSAGE_API_KEY` + `LOOPMESSAGE_SECRET` env vars, `server.loopmessage.com` endpoint, both `Authorization:` and `Loop-Secret-Key:` headers.
    - TM canonical pattern (`lib/loopBridge.ts`): single `LOOP_API_KEY` env var, `a.loopmessage.com` endpoint, `Authorization:` header with raw key (no Bearer).
-   - Replace the `sendLoopMessage` function in the cron route to match TM byte-for-byte.
+   - **Status 2026-05-14: Patch DRAFTED.** Replacement function written to match TM byte-for-byte. Differences vs current team-dash code:
+     - `LOOPMESSAGE_API_KEY` + `LOOPMESSAGE_SECRET` → single `LOOP_API_KEY`
+     - `server.loopmessage.com` → `a.loopmessage.com`
+     - Drop `Loop-Secret-Key:` header
+     - Body field `recipient` → `contact`
+     - Body field `service: "iMessage"` → `service: "imessage"` (lowercase)
+     - Add JSON content-type verify on 2xx (TM canonical safety check that caught a months-long silent failure in the old self-hosted bridge)
+   - **NOT COMMITTED** — Brian wants to ship Items 1+2+3 together in a single Buyer Alerts session, not piecemeal. Patch can be retrieved or rebuilt from this brain entry.
 
 2. **LoopMessage env var value** in team-dash Vercel.
    - TM's `LOOP_API_KEY` is flagged Sensitive in Vercel and cannot be revealed for copy.
