@@ -43,7 +43,6 @@ See `SESSION-HANDOFF.md` for current scratchpad.
 
 - Sherlock 403 on Transaction Manager (likely API key scope)
 - .net Google Workspace migration to .com (do not proactively remind)
-- Stale env vars on brain-app Vercel project (`GITHUB_PAT`, `GITHUB_TOKEN`, `BRAIN_GITHUB_PAT`) - dead weight, code no longer reads them, can be removed at leisure
 
 ## Where to look next
 
