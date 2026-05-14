@@ -1,4 +1,4 @@
-<!-- Last Updated: 2026-05-07 (session 5) -->
+<!-- Last Updated: 2026-05-14 -->
 
 # Infrastructure
 
@@ -13,10 +13,36 @@
 
 ## GitHub auth
 
-- gh CLI authenticated on Mac Mini and iMac (token in macOS Keychain)
-- Web/sandbox Claude sessions cannot push - they prepare files and Brian pushes from his Mac
-- Brain App at `brain.homegrownpropertygroup.com` can write to `hgpg-context` directly via fine-grained PAT (single-user, magic link auth)
-- No PATs in remote URLs. Any PAT-embedded URL from older instructions is invalid and revoked.
+### GitHub App (primary, since 2026-05-14)
+
+- **App name:** HGPG Brain Commit
+- **App ID:** 3712986
+- **Installation ID:** 132322328 (HGPG1 org, installed on all repositories)
+- **Permissions:** Contents read/write, Metadata read-only
+- **Private key:** stored as Vercel env var `GITHUB_APP_PRIVATE_KEY` on brain-app project. Local backup at `~/.hgpg-secrets/github-app-private-key.pem` on iMac (chmod 600). Keep a copy in 1Password as well.
+- **Auth helper:** `lib/octokit-app.ts` in brain-app repo. Mints fresh installation tokens (auto-rotate every hour).
+
+### What this enables
+
+- Claude sessions (any device, including mobile) can write to `hgpg-context` via `POST https://brain.homegrownpropertygroup.com/api/external/write`
+- Claude sessions can commit code to ANY HGPG1 repo via `POST https://brain.homegrownpropertygroup.com/api/external/commit`
+- Both endpoints use the same bearer token (`BRAIN_WRITE_TOKEN` in Vercel env vars), stored in Claude memory and 1Password ("HGPG Brain Write Token")
+- No PAT exists anywhere in the stack
+
+### Local development
+
+- gh CLI authenticated on Mac Mini and iMac (token in macOS Keychain) - used for normal git push from local clones, unchanged
+- Brian still pushes from his Mac when editing locally and committing his own work - that's standard git, not affected by the App migration
+
+### Rotation playbooks
+
+- **Bearer token leaks** (`BRAIN_WRITE_TOKEN`): `vercel env rm BRAIN_WRITE_TOKEN production && vercel env add BRAIN_WRITE_TOKEN production` then redeploy. Update Claude memory with new value. ~60 seconds.
+- **GitHub App private key leaks**: go to https://github.com/organizations/HGPG1/settings/installations/132322328, generate new private key, delete old one, update `GITHUB_APP_PRIVATE_KEY` env var on Vercel. App ID and Installation ID don't change.
+
+### Historical note
+
+- Prior to 2026-05-14, brain-app used a fine-grained PAT. All PATs were revoked 2026-05-13 after one was exposed in chat history. The GitHub App migration replaces PATs permanently.
+- No PATs in remote URLs anywhere. Any PAT-embedded URL from older instructions is invalid.
 - Fix any leftover PAT remote: `git remote set-url origin https://github.com/HGPG1/REPO-NAME.git`
 
 ## Supabase projects (4 active)
@@ -87,7 +113,7 @@ Registered in `hgpg-transaction-manager/vercel.json`. All UTC schedules.
 | closings.homegrownpropertygroup.com | Transaction Manager (also hosts /agent FUB AI surface) | hgpg-transaction-manager |
 | tc.homegrownpropertygroup.com | TC Concierge | tc-concierge |
 | reports.homegrownpropertygroup.com | Listing Report Portal | hgpg-listing-report |
-| brain.homegrownpropertygroup.com | Brain App (markdown editor for hgpg-context) | brain-app |
+| brain.homegrownpropertygroup.com | Brain App (markdown editor for hgpg-context + commit API for all HGPG1 repos) | brain-app |
 | tools.homegrownpropertygroup.com | HGPG Team Tools | hgpg-team-tools2 |
 | newconstruction.homegrownpropertygroup.com | Charlotte New Construction | charlotte-new-construction-nextjs |
 | marketinganalyzer.homegrownpropertygroup.com | Property Marketing Analyzer | hgpg-property-analyzer |
