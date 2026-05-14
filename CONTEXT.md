@@ -29,7 +29,8 @@ See `team.md` for full roster.
 
 ## Recently completed
 
-- **New Construction SMS speed-to-lead** (2026-05-13) - Builder Intro instant SMS via Lead Flow + 5-min backup task via Automation 2.0, see `projects/new-construction-sms-speed-to-lead.md`. **Live end-to-end test pending** (Brian had to jet before final test).
+- **New Construction Scout admin cleanup** (2026-05-13) - scout_status column on nc_builders, Scout admin tab filters to crawl-only (23 -> 19), KB Home URL fix, 4 builders flipped to email_only. See `projects/new-construction-scout-admin-cleanup.md`.
+- **New Construction SMS speed-to-lead** (2026-05-13) - Builder Intro instant SMS via Lead Flow + 5-min backup task via Automation 2.0, see `projects/new-construction-sms-speed-to-lead.md`. Live end-to-end test pending.
 - **New Construction phone capture** (2026-05-12) - tiered downgrade, see `projects/new-construction-phone-capture.md`
 - IDX Broker migration (Ylopo cancelled, Showcase IDX cancelled, FUB lead routing done)
 - Main site SEO push (mobile PageSpeed 96/100)
@@ -53,6 +54,7 @@ See `SESSION-HANDOFF.md` for current scratchpad.
 - **FUB send-from number for new construction:** (980) 261-9222
 - **555-pattern phones get flagged invalid in FUB** and won't actually receive SMS. Use real phones for tests.
 - **Builder-rep submission page lives at `/builder-submit`** on the new construction site (unlinked from nav by design - shared back-channel for now)
+- **NC Scout: builders fall into 3 ingestion buckets** - crawl (plain HTTP works), email_only (JS-rendered or WAF-blocked, ingested via Apps Script email pipeline), paused (not pulling). Filter Scout admin tab by scout_status. Filter at API layer, not just UI.
 
 ## Where to look next
 
