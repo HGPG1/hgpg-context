@@ -1,8 +1,8 @@
-<!-- Last Updated: 2026-05-11 -->
+<!-- Last Updated: 2026-05-14 -->
 
 # Charlotte New Construction
 
-- **Status:** 🟡 Live + ads PAUSED 2026-05-11 pending targeting fix (lead quality issue surfaced). Pixel/CAPI plumbing is load-bearing for ad spend.
+- **Status:** 🟡 Live. Ads were PAUSED 2026-05-11 for lead-quality fix; Variants A and B killed, Variant D built 2026-05-13 with corrected tagging fixed 2026-05-13. NeverBounce email validation also live. Ad spend resumption pending one open item: Automation 2.0 enrollment verification for Lead Flow 54. Pixel/CAPI plumbing is load-bearing for ad spend.
 - **URL:** newconstruction.homegrownpropertygroup.com
 - **Repo:** HGPG1/charlotte-new-construction-nextjs
 - **Default branch:** `main`
@@ -88,14 +88,26 @@ Card_modal submissions self-identify a builder. Useful for future routing / foll
 
 ## Open / pending
 
-- **Meta ad set targeting fix**, moved to HGPG - Ads project. Plan on the table: confirm Location Type = "People living in this location"; switch Placements to Manual, kill Audience Network; confirm Optimization Event = Leads (pixel event); rebuild Variant D creative with Charlotte / Fort Mill / Indian Land geo baked into headline + imagery (creative does the targeting work that Housing rules strip away); build Custom Audience exclusion of existing FUB leads.
-- **Verify Automation 2.0 enrollment** for Lead Flow 54 → New Construction Incentives source. Open a recent post-May-6 lead in FUB UI and confirm enrollment + email send events on timeline.
-- **Personal touch on Tammy Flores (FUB ID 31833)**, only confirmed in-market lead. David Weekley card_modal submit. Draft ready in CRM thread.
-- **Andrew Broughton (FUB ID 31885) deserves a touch**, submitted 3 builder modals (Empire $50K, Empire $25K, DW $30K) in 2 minutes. Highest engagement signal in the batch even with unknown location.
-- **NeverBounce email validation** for the `/incentives` form, spec written in `projects/neverbounce-validation.md`, not yet built
-- **Phase 2 ad creative** still in production with Sami
-- **Builder data** for the incentive comparison page is hardcoded, not pulled from a CMS yet. When the third or fourth builder gets added we'll want a CMS or a JSON config file with rotation logic
-- **Quiz scoring logic** is functional but the buckets haven't been calibrated against actual lead quality yet (need data from first 50 leads)
+### Pre-restart blockers (must resolve before re-enabling ad spend)
+- 🟡 **Verify Automation 2.0 enrollment** for Lead Flow 54 → New Construction Incentives source. FUB API does not expose Automations to outside integrators (`/v1/automations` returns 403), so verification must be UI-based. Open any post-May-6 lead in FUB UI and confirm enrollment + email send events on timeline.
+
+### Manual outreach pending (high-priority leads from paused campaign)
+- 🟡 **Personal touch on Tammy Flores (FUB ID 31833)** — only confirmed in-market lead from the paused campaign. David Weekley card_modal submit. Original draft was in a CRM thread but staleness risk grows daily; outreach copy now drafted 2026-05-14 (see below).
+- 🟡 **Personal touch on Andrew Broughton (FUB ID 31885)** — submitted 3 builder modals (Empire $50K, Empire $25K, DW $30K) in 2 minutes. Highest engagement signal in the batch even with unknown location. Outreach copy now drafted 2026-05-14 (see below).
+
+### Done / shipped since 2026-05-11
+- ✅ **Killed Variants A and B** (single-offer creatives that didn't qualify intent)
+- ✅ **Built Variant D** (2026-05-13) with corrected tagging fix (2026-05-13)
+- ✅ **NeverBounce email validation** live on `/incentives` form (see `projects/neverbounce-validation.md`)
+
+### Backlog (not ad-restart-blocking)
+- **Phase 2 ad creative** in production with Sami — current scope NOT captured in brain; need to write up what's being made, what KPI it targets, and what Phase 1 (A/B/C/D) baseline it's compared against. Treat as a brain gap.
+- **Builder data** for the incentive comparison page is hardcoded. When the third or fourth builder gets added, move to CMS or JSON config with rotation logic.
+- **Quiz scoring logic calibration** — `/quiz` scoring buckets are functional but haven't been validated against actual lead quality. Plan was to wait for first 50 leads of data; with the campaign paused, that bar moves. Treat as a brain gap: the brain doesn't describe what the scoring logic actually does, what the buckets are, or what "calibration" would mean.
+
+### Brain gaps flagged 2026-05-14
+- **Phase 2 ad creative** — only documented as "in production with Sami". Needs: scope, deliverable list, target KPI, comparison baseline, expected ship date.
+- **Quiz scoring logic** — only documented as "functional but uncalibrated". Needs: what the buckets are, what inputs feed the score, what the score outputs decide (routing? auto-response? lead value?), and what "calibration" would change.
 
 ## Key learnings
 
@@ -108,8 +120,8 @@ Card_modal submissions self-identify a builder. Useful for future routing / foll
 
 ## Pickup notes
 
-- This is one of the actively-marketed funnels, Meta ad budget runs through here weekly (currently PAUSED as of 2026-05-11)
+- This is one of the actively-marketed funnels, Meta ad budget runs through here weekly. PAUSED 2026-05-11 → 2026-05-14: A/B killed, D built, tagging fixed, NeverBounce live. Pending one verification (Automation 2.0 enrollment, see Open / pending) before re-enabling spend.
 - Repo has a `META-PIXEL-CAPI-PLAYBOOK.md` at root that should be referenced (not duplicated) by future sites adopting the pattern
-- When NeverBounce validation ships, this is the first form it gets wired to (per spec in `projects/neverbounce-validation.md`)
+- ✅ NeverBounce validation shipped and live on `/incentives` form (per spec in `projects/neverbounce-validation.md`)
 - Ad targeting + creative work continues in HGPG - Ads project as of 2026-05-11
 - Lead pipeline work + automation verification continues in HGPG - CRM & Leads project
