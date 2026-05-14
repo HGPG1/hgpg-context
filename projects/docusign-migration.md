@@ -1,13 +1,31 @@
-<!-- Last Updated: 2026-05-08 (originally specced 2026-05-06) -->
+<!-- Last Updated: 2026-05-14 -->
 
 # DocuSign Migration off zipForms
 
-- **Status:** 🔵 Workflow scoped, no build, no template recreation yet
+- **Status:** 📋 Workflow scoped, no build yet. Build target: 2026-06-13 (30 days from 2026-05-14 commitment).
+- **Build trigger:** Calendar — start no later than the week of 2026-06-08 to leave buffer for the stress test gate.
+- **First action item:** Re-evaluate pain level before starting. If zipForms is still "redundant but not painful," consider deferring or stripping. Brian flagged 2026-05-14 that he hasn't actively felt pain from zipForms lately.
 - **Goal:** Eliminate zipForms entirely, consolidate all form workflows to DocuSign
 
 ## Why this is parked
 
 Currently using zipForms (Lone Wolf Transactions) for templates and DocuSign for signatures — two tools where one would do. DocuSign already has the blank NC and SC association forms accessible. The work is rebuilding the zipForms templates (pre-filled prompts, signing order, role assignments) inside DocuSign.
+
+## Honest check before building (read first, 2026-05-14)
+
+Brian's last gut check (2026-05-14): "I haven't thought about [zipForms pain] lately." This is a signal worth respecting.
+
+Before committing 8-16 hours of template-building, answer two questions:
+
+1. **What does zipForms actually cost per month?** Plug that number in. If it's $50-75/mo, payback on 12 hours of build is ~12-18 months (at a notional $50/hr). If it's $200+, payback is much faster.
+2. **What's the qualitative friction?** Examples that would justify the build:
+   - Re-typing the same fields across both tools every deal
+   - Form lookup is slower in zipForms than recall-from-DocuSign-recents would be
+   - Don asks where forms are because zipForms is unfamiliar to him
+   - Lone Wolf has had outages
+   - You've forgotten a form in zipForms because it's a separate context-switch
+
+If neither of these checks out at the 30-day reassessment point, **defer or strip** rather than building on autopilot.
 
 ## Hard truth: no direct export
 
