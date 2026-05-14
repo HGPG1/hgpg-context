@@ -1,6 +1,6 @@
 # HGPG Context (Brain)
 
-Last updated: 2026-05-14
+Last updated: 2026-05-13
 
 ## Who
 
@@ -16,22 +16,21 @@ See `team.md` for full roster.
 
 ## What's active right now
 
-- **CMA Engine** (cma.homegrownpropertygroup.com) - active build, see `projects/cma-engine.md` (+ `projects/cma-engine-bugs-2026-05-08.md` for tracked bug pass)
+- **CMA Engine** (cma.homegrownpropertygroup.com) - active build, see `projects/cma-engine.md`
 - **Transaction Manager** (closings.homegrownpropertygroup.com) - lifecycle tool, see `projects/transaction-manager.md`
-- **FUB AI Agent** - large active build inside the TM repo (closings.../agent surface). See `projects/fub-ai-agent.md`. Currently dev-on, `agent_enabled=false` in production until launch.
 - **TC Concierge** (tc.homegrownpropertygroup.com) - intake, live with Don running real deals
-- **Brain App** (brain.homegrownpropertygroup.com) - live; GitHub App auth shipped 2026-05-14, new `/api/external/commit` endpoint lets Claude push to any HGPG1 repo. See `projects/brain-app.md`.
-- **Buyer Alerts** - in build, see `projects/buyer-alerts.md`
-- **Buyers Guide** (buyersguide.homegrownpropertygroup.com) - React + Vite, see `projects/buyers-guide.md`
-- **Sellers Guide** (sellersguide.homegrownpropertygroup.com) - Meta Pixel + CAPI live, see `projects/sellers-guide.md`
-- **Charlotte New Construction** (newconstruction.homegrownpropertygroup.com) - see `projects/charlotte-new-construction.md` plus three phone-capture / speed-to-lead workstreams (`new-construction-phone-capture.md`, `new-construction-phone-capture-rate-review.md`, `new-construction-sms-speed-to-lead.md`)
-- **Listing Report Portal** (reports.homegrownpropertygroup.com) - see `projects/listing-report-portal.md`. Old "blocked on GitHub auth" issue resolved by GitHub App migration on 2026-05-14; Claude can now commit to this repo directly.
-- **Claude skills** - five skills shipped May 1 (objection-handler, referral-request-writer, showing-feedback-summarizer, offer-comparison-analyzer, market-update-writer). See `projects/claude-skills.md`.
-- **Smaller active builds:** TM $395 fee toggle (`tm-395-fee-toggle.md`), DocuSign migration (`docusign-migration.md`), Incentives Funnel (`incentives-funnel.md`), NeverBounce email validation (`neverbounce-validation.md`), PropStream caller (`propstream-caller.md`), Signature Marketing (`signature-marketing.md`), South Charlotte Report content brand (`south-charlotte-report.md`), Team Dashboard (`team-dashboard.md`), Team Photo Sync (`team-photo-sync.md`), Team Tools (`team-tools.md`), Main Site SEO (`main-site-seo.md`), Buyers Guide Manus migration (`buyers-guide-manus-migration.md`)
+- **Listing Report Portal** (reports.homegrownpropertygroup.com) - blocked on GitHub auth, see `projects/listing-report-portal.md`
+- **Claude skills** - five new skills shipped May 1 (objection-handler, referral-request-writer, showing-feedback-summarizer, offer-comparison-analyzer, market-update-writer)
+
+## Parked - run on a date
+
+- **New Construction phone capture rate review** - run between 2026-05-19 and 2026-05-26, see `projects/new-construction-phone-capture-rate-review.md`. Pull FUB data after 7-14 days post-shipping, evaluate if optional-phone nudges are pulling weight, decide if iteration needed.
+- **New Construction "For Builders" footer link** - low priority, bundle with next NC site touch, see `projects/new-construction-builder-submit-footer-link.md`. Adds a discreet footer link to /builder-submit so builder reps can find the incentive submission form without Brian manually sharing the URL.
 
 ## Recently completed
 
-- **GitHub App migration (2026-05-14)** - replaced all PATs with HGPG Brain Commit GitHub App; new `/api/external/commit` endpoint live; Claude can now push to any HGPG1 repo from any device. See `SESSION-HANDOFF.md` and `projects/brain-app.md`.
+- **New Construction SMS speed-to-lead** (2026-05-13) - Builder Intro instant SMS via Lead Flow + 5-min backup task via Automation 2.0, see `projects/new-construction-sms-speed-to-lead.md`. **Live end-to-end test pending** (Brian had to jet before final test).
+- **New Construction phone capture** (2026-05-12) - tiered downgrade, see `projects/new-construction-phone-capture.md`
 - IDX Broker migration (Ylopo cancelled, Showcase IDX cancelled, FUB lead routing done)
 - Main site SEO push (mobile PageSpeed 96/100)
 - Buyers guide migration from Manus to React + Vite
@@ -41,8 +40,19 @@ See `team.md` for full roster.
 
 See `SESSION-HANDOFF.md` for current scratchpad.
 
+- GitHub auth not configured on Mac Mini (blocks Listing Report Portal pushes)
 - Sherlock 403 on Transaction Manager (likely API key scope)
 - .net Google Workspace migration to .com (do not proactively remind)
+- GitHub PAT exposed in chat history needs rotation
+
+## Standing rules learned this week
+
+- **FUB Lead Flow conditions are restricted** to: Tags, Price, City, State, ZIP, MLS, Phone Number. Custom fields are NOT filterable at Lead Flow.
+- **FUB Automations 2.0 have NO Send Text step.** Only Lead Flow can send native auto-SMS.
+- **FUB custom field API names preserve uppercase runs in labels.** Always GET /customFields to verify after creating.
+- **FUB send-from number for new construction:** (980) 261-9222
+- **555-pattern phones get flagged invalid in FUB** and won't actually receive SMS. Use real phones for tests.
+- **Builder-rep submission page lives at `/builder-submit`** on the new construction site (unlinked from nav by design - shared back-channel for now)
 
 ## Where to look next
 
