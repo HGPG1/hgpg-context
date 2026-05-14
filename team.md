@@ -1,8 +1,8 @@
-<!-- Last Updated: 2026-05-07 -->
+<!-- Last Updated: 2026-05-14 -->
 
 # Team
 
-## HGPG Roster (as of 2026-05-07)
+## HGPG Roster (as of 2026-05-14)
 
 | Name | Role | FUB User |
 |---|---|---|
@@ -10,13 +10,27 @@
 | Ashley Johnson | Agent | Yes |
 | Brenda Bain | Agent | Yes |
 | Taylor Sheehan-Watson | Agent | Yes |
-| Don Broyles | Transaction Coordinator | No (TM primary user) |
+| Michael DeVita | Agent | Yes |
+| Don Broyles | Transaction Coordinator | Yes (TM primary user) |
 | Sami Clubb | Part-time marketing | No |
 
-## FUB IDs
+Lauren Williams is no longer on the team (removed 2026-05-14).
 
-- Taylor Sheehan-Watson: user ID 21
-- "Amanda Morgan" in FUB is **NOT a real person** - it's a pseudonym for the ISA account.
+## FUB User IDs
+
+| Name | FUB ID | FUB Email |
+|---|---|---|
+| Brian McCarron | 1 | brian@homegrownpropertygroup.com |
+| Don Broyles | 10 | closings@homegrownpropertygroup.com |
+| Owner Account (API auth) | 12 | admin@homegrownpropertygroup.com |
+| Brenda Bain | 14 | brenda@homegrownpropertygroup.com |
+| Ashley Johnson | 18 | ashley@homegrownpropertygroup.com |
+| Taylor Sheehan-Watson | 21 | taylor@homegrownpropertygroup.com |
+| Michael DeVita | 23 | michael@homegrownpropertygroup.com |
+
+"Amanda Morgan" (ID 15, ISA@homegrownpropertygroup.com) in FUB is **NOT a real person** - it's the ISA system account. Note FUB has her tagged as a Broker and team leader of Team 5, which can route leads/notifications unexpectedly if not intentional.
+
+Alec Conrad (ID 17) is a lender (Carolina Mortgage Advisors), not HGPG staff.
 
 ## Office space
 
