@@ -164,4 +164,4 @@ Set `ALLOWED_REPOS` env var to a comma-separated list to restrict commit targets
 - Pinned files on dashboard configured in `lib/config.ts` — edit that array to change pins
 - Stray bundle in `~/Downloads/fub-agent-tm-files/` is unrelated FUB lead-scoring agent work for `hgpg-transaction-manager`, NOT brain-app
 - Cleanup tip: `rm ~/package-lock.json` to clear the harmless "multiple lockfiles" Next.js warning (leftover from earlier npm misuse in home dir)
-- Diagnostic files at `_diagnostics/` in both `hgpg-context` and `brain-app` repos can be deleted whenever — they were one-shot verification artifacts from the 2026-05-14 migration
+- Diagnostic files from 2026-05-14 migration removed in cleanup commits `1d24043` (hgpg-context) and `6cd2536` (brain-app); `_diagnostics/` directories no longer exist
