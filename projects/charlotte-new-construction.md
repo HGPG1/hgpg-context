@@ -127,13 +127,11 @@ Card_modal submissions self-identify a builder. Useful for future routing / foll
 - ✅ **NeverBounce email validation** live on `/incentives` form (see `projects/neverbounce-validation.md`)
 
 ### Backlog (not ad-restart-blocking)
-- **Phase 2 ad creative** in production with Sami — current scope NOT captured in brain; need to write up what's being made, what KPI it targets, and what Phase 1 (A/B/C/D) baseline it's compared against. Treat as a brain gap.
 - **Builder data** for the incentive comparison page is hardcoded. When the third or fourth builder gets added, move to CMS or JSON config with rotation logic.
-- **Quiz scoring logic calibration** — `/quiz` scoring buckets are functional but haven't been validated against actual lead quality. Plan was to wait for first 50 leads of data; with the campaign paused, that bar moves. Treat as a brain gap: the brain doesn't describe what the scoring logic actually does, what the buckets are, or what "calibration" would mean.
+- **Quiz scoring logic calibration** — Now fully documented in `projects/nc-quiz-scoring.md`. Code in `src/app/quiz/QuizClient.tsx` is a community ranker, not a buyer-quality scorer. Two quiz inputs (`commute`, `firstTimeBuyer`) collected but unused in scoring. Calibration deferred until first 50 qualified leads.
 
-### Brain gaps flagged 2026-05-14
-- **Phase 2 ad creative** — only documented as "in production with Sami". Needs: scope, deliverable list, target KPI, comparison baseline, expected ship date.
-- **Quiz scoring logic** — only documented as "functional but uncalibrated". Needs: what the buckets are, what inputs feed the score, what the score outputs decide (routing? auto-response? lead value?), and what "calibration" would change.
+### Brain gaps filled 2026-05-14
+- **Quiz scoring logic** — ✅ Filled 2026-05-14. See `projects/nc-quiz-scoring.md`. (Surfaced 2 dead quiz inputs as a side finding.)
 
 ## Key learnings
 
