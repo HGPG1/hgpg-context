@@ -1,8 +1,8 @@
-<!-- Last Updated: 2026-05-13 -->
+<!-- Last Updated: 2026-05-14 -->
 
 # New Construction Site - SMS Speed-to-Lead (Builder Intro)
 
-**Status:** 🟢 SHIPPED 2026-05-13 (pending one live end-to-end test)
+**Status:** 🟢 SHIPPED 2026-05-13. Live end-to-end test 📋 PARKED for 2026-05-19+ (paired with phone capture rate review)
 **Repo:** `HGPG1/charlotte-new-construction-nextjs` (branch `main`)
 **Domain:** `newconstruction.homegrownpropertygroup.com`
 **Driver:** Builder Intro is the hottest funnel surface (hand-raise). Instant SMS auto-response on submission so HGPG is first in the door before the builder rep calls.
@@ -113,7 +113,7 @@ curl -s -u "fka_0cyqBULqHHKqrZiEJH6Njl7jqDkBBNTUYJ:" "https://api.followupboss.c
 
 ## Follow-ups (parked)
 
-- Live end-to-end test (5 min, do when back at desk)
+- Live end-to-end test (5 min, real phone needed) — 📋 PARKED for 2026-05-19+ window, pair with `new-construction-phone-capture-rate-review.md`
 - Decide whether to drop the `Sms Consent` label back to `SMS Consent` (caps) and patch the code in a 1-line follow-up PR. Today the FUB UI label reads lowercase-ms. Purely cosmetic. Operational over polish for now.
 - Consider extending the Automation: add a Day-1 follow-up email step after the task. Currently just SMS + task.
 
