@@ -1,4 +1,4 @@
-<!-- Last Updated: 2026-05-11 -->
+<!-- Last Updated: 2026-05-14 -->
 
 # Sellers Guide
 
@@ -117,10 +117,9 @@ End-to-end test from `?utm_source=meta&utm_campaign=preflight-final-20260511`:
 ### Before scaling ad spend
 - 🟡 **FUB Automation 2.0 not built yet** on `sellers-guide-2026` tag. Leads land in FUB tagged correctly but no automatic drip/assignment fires. Manual follow-up required until Automation is configured. Acceptable for initial ad launch (want eyes on first leads anyway) but blocks scaling.
 
-### SEO follow-through (not ad-blocking)
-- Resubmit sitemap in Google Search Console: https://sellersguide.homegrownpropertygroup.com/sitemap.xml
-- Request indexing for `/` and `/home-selling-score/` in GSC URL Inspection
-- These steps accelerate Google's reindex of the corrected canonical domain. Without them, Google will eventually recrawl but with significant lag.
+### SEO follow-through ✅ DONE 2026-05-14
+- ~~Resubmit sitemap in Google Search Console~~ — completed
+- ~~Request indexing for `/` and `/home-selling-score/` in GSC URL Inspection~~ — completed
 
 ### Cleanup later
 - "Phase 1 ads test markers" left in code from 2026-05-05 CAPI commit — flag for cleanup post-launch
