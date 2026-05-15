@@ -2,7 +2,48 @@
 
 # Session Handoff
 
-## Last session: 2026-05-15 — Tier 1 cleanups after team-dash + photo sync ship
+## Last session: 2026-05-15 PM — Sellers Guide Meta campaigns launched
+
+### What shipped
+
+- Sellers Guide Meta campaigns launched per `HGPG_Sellers_Guide_Meta_Ads_Plan.pdf` (in HGPG Ads project session)
+- TRAF campaign `52506271902963` ($10/day CBO) and CONV campaign `52506270109163` ($15/day CBO) built end-to-end by Viktor via FUB MCP
+- 12 ads total: Concept A + D in TRAF (6 ads), Concept B + C in CONV (6 ads). All 3 sizes (1x1, 4x5, 9x16) per concept.
+- Geo: 5 zip codes at 15-mile radius (28173, 28277, 29707, 29715, 29720)
+- Targeting: Homeowner / Real estate / Home improvement interests, Advantage+ Audience expansion ON
+- Special Ad Category: Housing confirmed on both
+- Pixel 861295553661596 + CAPI confirmed firing Lead events on score submission. Browser side deduplicated. Server side (CAPI) confirmed via Events Manager Overview but not in Test Events tab.
+- Custom Conversion `HGPG - Sellers Guide Lead` (ID 972661382159071) created in Events Manager. Rule: URL contains `sellersguide.homegrownpropertygroup.com`. Status: Active and listening.
+
+### Soft fails parked for day-30 rebuild
+
+Three Meta API limitations hit, all are reporting-cleanliness issues, none affect lead delivery. Logged in `marketing.md` under "Known soft fails on CONV ad set":
+
+1. CONV ad set optimization event stuck on raw Lead pixel event (not the custom conversion). Meta blocks `promoted_object` after publish. Fix at rebuild: duplicate ad set with custom conversion baked in.
+2. CONV attribution stuck at 7-day click only. Meta blocks `attribution_spec` after publish. Same fix.
+3. Both campaigns are CBO instead of ABO. Functionally equivalent with one ad set per campaign. Must switch to ABO when adding retargeting ad set at day 30.
+
+### Active issue on the Pixel (owned by Tech & Builds)
+
+Lead event passes `value` (the score, e.g. 71) without a `currency` parameter. Causes "Missing Lead Currency Parameter" warning in Events Manager. Two options:
+1. Remove `value` from the Lead event payload entirely (cleaner - score isn't really a monetary value)
+2. Add `currency: 'USD'` to the Lead event payload (suppresses the warning but the value field is still semantically wrong)
+
+Recommendation: option 1. Lives in the sellers guide site's pixel JS. Not a launch blocker.
+
+### Pickup for day 7 audit (2026-05-22)
+
+Use the audit prompt in `/mnt/user-data/outputs/HGPG_Sellers_Guide_Audit_Prompt.md` (or whatever the Ads project has on file). Brian pulls Ads Manager screenshot + FUB lead count for the prior 7 days, broken out by ad set and creative. Grade. Recommend pauses, copy refreshes, or budget shifts.
+
+### Pickup for day 30 audit (2026-05-15 + 30)
+
+- Rebuild CONV ad set to clear the 3 soft fails above
+- If audience pool >1,000 from Pixel data, spin up retargeting ad set per the launch plan day-30 milestone
+- This is also when CBO -> ABO migration happens
+
+---
+
+## Earlier 2026-05-15 session: 2026-05-15 — Tier 1 cleanups after team-dash + photo sync ship
 
 ### Carry-over from earlier 2026-05-15 work
 
