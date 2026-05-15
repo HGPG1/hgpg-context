@@ -1,10 +1,42 @@
-<!-- Last Updated: 2026-05-07 -->
+<!-- Last Updated: 2026-05-15 -->
 
 # Marketing
 
 > Account IDs and pixel IDs live in memory.
 
 ## Meta Ads
+
+- **Active campaigns (May 2026):** Sellers Guide launch + NYC-to-Charlotte relocation continuing
+- HGPG brand correction confirmed in account: NO green, NO Cormorant Garamond
+- All housing-related ads run under Special Ad Category: Housing
+
+### Sellers Guide campaign (launched 2026-05-15)
+
+- **Campaigns:**
+  - `HGPG-SellersGuide-TRAF-2026-Q2` (campaign ID 52506271902963), $10/day CBO, Traffic objective, LandingPageView optimization
+  - `HGPG-SellersGuide-CONV-2026-Q2` (campaign ID 52506270109163), $15/day CBO, Sales/Leads objective, Lead optimization
+- **Single ad set per campaign:**
+  - `TRAF-HSS-NCSC-Border` - Concepts A + D, 3 sizes each (6 ads)
+  - `CONV-HSS-NCSC-Border` (ad set ID 52506271965563) - Concepts B + C, 3 sizes each (6 ads)
+- **Geo:** 15-mile radius around 28173 Waxhaw, 28277 South Charlotte, 29707 Indian Land, 29715 Fort Mill, 29720 Lancaster
+- **Targeting:** Homeowner OR Real estate OR Home improvement interests, Advantage+ Audience expansion ON
+- **Pixel:** 861295553661596 with confirmed CAPI dedup
+- **Custom Conversion:** "HGPG - Sellers Guide Lead" (ID 972661382159071), rule = URL contains sellersguide.homegrownpropertygroup.com, source event = Lead
+- **Landing pages:**
+  - TRAF -> `sellersguide.homegrownpropertygroup.com/` (root)
+  - CONV -> `sellersguide.homegrownpropertygroup.com/home-selling-score/` (direct to score)
+- **Target CPL:** $35. Reference: New Construction Lead Gen running ~$22 CPL.
+- **Test plan:** 4-week launch cadence per `HGPG_Sellers_Guide_Meta_Ads_Plan.pdf`. Day 7 first read, day 14 first cull, day 30 retargeting ad set added if audience pool >1,000.
+
+#### Known soft fails on CONV ad set (revisit at day 30 rebuild)
+
+Three Meta API limitations hit during launch. None affect lead delivery, all affect reporting cleanliness.
+
+1. **Optimization event is raw Lead, not custom conversion.** Meta blocks `promoted_object` changes after ad set publish (error_subcode 3260011). Functionally identical - both fire on the same trigger. Ads Manager will show "Lead" column instead of "HGPG - Sellers Guide Lead". Counts match. Fix at rebuild: duplicate ad set with custom conversion baked in from creation, archive original.
+2. **Attribution is 7-day click only, missing 1-day view.** Meta blocks `attribution_spec` changes after ad set publish (error_subcode 1504040). Costs ~10-15% reporting visibility on view-through conversions. Same fix as above.
+3. **CBO instead of ABO.** Meta API blocks setting campaign budget to $0 to migrate to ABO. With one ad set per campaign, mathematically equivalent. Becomes a problem when adding the retargeting ad set at day 30 - must switch to ABO at that point (UI allows on live campaigns; only API create flow blocks).
+
+### NYC-to-Charlotte relocation (continuing)
 
 - **Targeting strategy:** NYC-to-Charlotte relocation
 - **Budget split (late March 2026 baseline, may have shifted):**
@@ -14,7 +46,7 @@
   - Traffic BK-AD1: $7.50/day
   - **Total: $57.50/day**
 - Two 60-day custom audiences created.
-- HGPG brand correction confirmed in account: NO green, NO Cormorant Garamond.
+- Retargeting RT-AD frequency hit 8.68 by 2026-05-15 - audience saturated, refresh needed soon.
 
 ## Meta Pixel + CAPI (multi-site rollout)
 
@@ -23,7 +55,7 @@ Each site has its own dedicated Pixel. Server-side CAPI mirror with event_id ded
 | Site | Pixel ID | Status |
 |---|---|---|
 | Charlotte New Construction | 1880396459290092 | Live, all 6 funnel events firing |
-| Sellers Guide | 861295553661596 | Live, QA in progress, Custom Conversion registration pending |
+| Sellers Guide | 861295553661596 | Live, Lead event firing confirmed 2026-05-15, Custom Conversion "HGPG - Sellers Guide Lead" (ID 972661382159071) active. Active issue: "Missing Lead Currency Parameter" warning - Lead event passes `value` (score) without `currency`. Cosmetic, not blocking. Fix: remove `value` from Lead event payload or add `currency: 'USD'`. Owned by HGPG - Tech & Builds. |
 | TM, marketing analyzer, signature | n/a | Playbook ready, ~30 min/site, not yet rolled out |
 
 **Reusable playbook:** `META-PIXEL-CAPI-PLAYBOOK.md` in charlotte-new-construction-nextjs repo root.
