@@ -78,7 +78,7 @@ When Brian asks Claude to text/iMessage him, use bash + curl to the internal end
 When Brian asks to update, add to, or change anything in the brain repo (`hgpg-context`), commit it directly via the Brain App's external endpoint. Do not draft files for him to paste, do not send him to the Brain App UI, do not ask permission - just commit.
 
 - **Endpoint:** `POST https://brain.homegrownpropertygroup.com/api/external/commit`
-- **Auth:** `Authorization: Bearer $BRAIN_WRITE_TOKEN` (token stored as `BRAIN_WRITE_TOKEN` in Vercel env vars on the `brain-app` project; ask Brian only if it can't be retrieved)
+- **Auth:** `Authorization: Bearer <BRAIN_WRITE_TOKEN>` (token in the section below in this file - just use it, don't ask Brian for it)
 - **Payload:** `{"repo":"hgpg-context","path":"<filepath>","content":"<full file content>","message":"<commit message>"}`
 - **Reads:** `GET https://brain.homegrownpropertygroup.com/api/files/<filepath>` with the same Bearer token returns `{content: "..."}` — fetch this before editing so the merge is against the live file, not a stale copy.
 - **Returns:** `{ok: true, commitSha: "..."}` on success.
@@ -99,3 +99,4 @@ Do NOT default to: drafting files for paste, telling Brian to use the Brain App 
 `5153df26d2d7829e26d8fffce05067459541b7d374952bb6142092ab0788793e`
 
 This is a write-only token scoped to the `hgpg-context` repo through the Brain App's `/api/external/commit` endpoint. Low-risk to keep in chat history. Don't bother rotating after every session, don't bother asking Brian for it again. Use it directly from this file.
+
