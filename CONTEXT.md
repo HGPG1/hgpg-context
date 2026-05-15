@@ -24,7 +24,7 @@ See `team.md` for full roster.
 - **CMA Engine** (cma.homegrownpropertygroup.com) - 🟢 production-ready, math sweep complete 2026-05-12, awaiting real-world reps from agents. QA checks are #1 in current priority queue. See `projects/cma-engine.md`
 - **Transaction Manager** (closings.homegrownpropertygroup.com) - 🟡 active build, ongoing Don feedback. See `projects/transaction-manager.md`
 - **TC Concierge** (tc.homegrownpropertygroup.com) - 🟢 live, Don running real deals. See `projects/tc-concierge.md`
-- **Team Photo Sync v1** (cron in hgpg-cma-tool) - 🟢 LIVE 2026-05-15. Rehosts team MLS photos to public Supabase Storage every 30 min. 1,591/1,653 backfilled, see `projects/team-photo-sync.md`.
+- **Team Photo Sync v1** (cron in hgpg-cma-tool) - 🟢 LIVE 2026-05-15. Rehosts team MLS photos to public Supabase Storage every 30 min. 1,652/1,653 backfilled (99.94%), see `projects/team-photo-sync.md`.
 - **Team Dashboard** (team.homegrownpropertygroup.com/inventory) - 🟢 hero photos now wired to mls_media.media_url_rehosted
 - **New Construction site** (newconstruction.homegrownpropertygroup.com) - 🟢 three production deploys shipped 2026-05-13 (phone capture tiering, SMS speed-to-lead, Scout admin cleanup). SMS speed-to-lead pending live end-to-end test from Brian's real phone. See `projects/new-construction-*.md` cluster.
 - **Sellers Guide** (sellersguide.homegrownpropertygroup.com) - 🟢 shipped + ad-ready. FUB Automation 2.0 parked for first real ad lead validation. Meta ad launch is #2 in priority queue. See `projects/sellers-guide.md`
