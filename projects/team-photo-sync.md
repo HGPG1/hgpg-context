@@ -1,121 +1,120 @@
 # Team Photo Sync
 
-**Repo:** `HGPG1/hgpg-cma-tool` (lives in CMA Engine repo since it owns MLS Grid pipeline)
-**Status:** v1 shipped 2026-05-14, awaiting first successful cron run
-**Owner:** Brian
+**Status:** ✅ Live in production. v1 backfill complete (96.2% of team photos rehosted).
+**Owner:** Brian.
+**Last touched:** 2026-05-15 (multi-day build session).
+
+---
 
 ## What it does
 
-Syncs MLS Media records for the team's listings (and, in v1.1, CMA tour subjects) into a public Supabase Storage bucket. The team dashboard reads the rehosted URLs so listing cards always have hero photos, with no MLS Grid TOS exposure (we never hotlink originals).
+Rehosts MLS photos for the HGPG team's own listings (`list_office_key='CAR118249224'`, MLS office ID `CARR04075`) from MLS Grid's signed-URL CDN onto public Supabase Storage at `mls-media-rehosted/carolina/<listing_key>/<media_key>.jpg`. Powers hero photos on the team dashboard (`team.homegrownpropertygroup.com/inventory`).
 
-## v1 scope (shipped)
+MLS Grid TOS requires that we host the bytes on infrastructure we control rather than hot-linking their `media.mlsgrid.com` signed URLs. The signed URLs also expire (24h tokens), so any UI surface that linked them directly would break daily.
 
-Team listings only, filtered by `mls_property.list_office_key = 'CAR118249224'`. About 63 lifetime listings (5 currently active).
+---
 
-CMA tour subjects parked for v1.1.
+## Architecture (Phase A + Phase B)
 
-## Architecture
+**Cron:** `/api/cron/team-media-sync` runs every 30 minutes (`vercel.json` cron `*/30 * * * *`). One Vercel function, two phases.
 
-```
-*/30 cron
-  └─> /api/cron/team-media-sync
-       ├─ Phase A: discover candidates (RPC team_media_sync_candidates)
-       │            └─ for each: fetch from MLS Grid /Media?$filter=...
-       │                 └─ upsert into mls_media (preserves rehost state)
-       └─ Phase B: drain rehost queue (up to 100/run)
-                    └─ download original → upload to mls-media-rehosted bucket
-                       → set rehost_status='ok', media_url_rehosted=...
-```
+**Phase A — discovery + queue:** Queries MLS Grid v2 `/Property?$filter=OriginatingSystemName eq 'carolina' and ListOfficeMlsId eq 'CARR04075'&$expand=Media&$select=ListingKey,OriginatingSystemName&$top=50` walking up to `MAX_PAGES_PER_RUN=5` pages. Each Property has nested `Media[]`. Upserts every Media record into `mls_media` keyed by `media_key`. Preserves existing `rehost_status='ok'` + `media_url_rehosted` + `rehost_attempted_at` so the worker queue order doesn't reset on every tick.
 
-### Files
+**Phase B — rehost worker:** `rehostPendingMedia({supabase, supabaseUrl, limit: MAX_REHOSTS_PER_RUN})`. Selects pending rows (and error rows older than 1 hour), ordered by `rehost_attempted_at ASC NULLS FIRST` (NULL = never attempted = process first). For each: downloads from `media_url_original` (24h-signed MLS Grid URL), uploads to public Supabase Storage, sets `rehost_status='ok'` + `media_url_rehosted` URL. 150ms throttle between downloads (MLS Grid media CDN limits to ~7-10 RPS).
 
-**hgpg-cma-tool:**
-- `lib/mls/mediaSync.ts` — per-ListingKey fetch + upsert
-- `lib/mls/mediaRehost.ts` — download → upload → mark rehosted
-- `app/api/cron/team-media-sync/route.ts` — Phase A + Phase B handler
-- `vercel.json` — cron registered `*/30 * * * *`
+**Defaults:**
+- `MAX_PAGES_PER_RUN=5` (Phase A)
+- `MAX_REHOSTS_PER_RUN=200` (steady state; was 500 during backfill)
+- `maxDuration=300s` (Vercel function timeout)
 
-**hgpg-team-dash:**
-- `src/lib/inventory.ts` — hero photo fallback: `portal?.hero ?? mls_media.media_url_rehosted ?? null`
+---
 
-**Supabase wdheejgmrqzqxvgjvfee:**
-- Storage bucket `mls-media-rehosted` (public, 10MB/file, image MIMEs)
-- RPC `team_media_sync_candidates(p_list_office_key text, p_limit int)`
+## Files (hgpg-cma-tool repo)
 
-### Per-run caps
+- `app/api/cron/team-media-sync/route.ts` — cron handler, Bearer-token verified
+- `lib/mls/mediaSync.ts` — `syncMediaForOffice()` Phase A logic
+- `lib/mls/mediaRehost.ts` — `rehostPendingMedia()` Phase B logic
+- `lib/mls/client.ts` — `fetchPage()` MLS Grid v2 client (shared with `mls-sync` cron)
+- `lib/mls/mappers.ts` — `mapMedia()` MLS Grid → `mls_media` row mapping
+- `vercel.json` — cron schedule
+- `app/api/cron/team-media-debug/route.ts` — neutralized 404 stub (was the dev debug endpoint)
+- `app/api/admin/team-media-debug/route.ts` — neutralized 404 stub (caused build SIGTERM earlier)
 
-- `MAX_LISTINGS_TO_SYNC_PER_RUN = 25` — Phase A fetches Media for at most 25 listings
-- `MAX_REHOSTS_PER_RUN = 100` — Phase B rehosts at most 100 pending records
-- `maxDuration = 300s`
+**Frontend integration:** `hgpg-team-dash` repo, `src/lib/inventory.ts` (commit `f36f333`) — hero photo fallback chain: `portal?.hero ?? mls_media.media_url_rehosted ?? null`. Selects preferred photo by `preferred_photo_yn=true` (always null on Canopy) then `order_num=0` then first available.
 
-### Photo serving — public bucket
+---
 
-Decided public over signed URLs. MLS photos are already public on Realtor/Zillow/the originating brokerage's site; TOS requires rehosting (not auth). Signed URLs add ~50-150ms per request without changing audit defensibility. If we ever sync non-public listings (off-market, private comps), put those in a separate private bucket.
+## Data layout
 
-## Storage layout
+**Supabase project:** HGPG Listing Reports + MLS (`wdheejgmrqzqxvgjvfee`)
 
-```
-mls-media-rehosted/{originating_system_name}/{resource_record_key}/{media_key}.{ext}
-e.g. mls-media-rehosted/carolina/CAR293583134/CARM4287199.jpg
-```
+**Tables:**
+- `mls_property` — full listing records. Team filter: `list_office_key='CAR118249224'`
+- `mls_media` — one row per photo. Columns we care about: `media_key` (PK), `resource_record_key` (=parent ListingKey, FK to mls_property.listing_key), `originating_system_name` (='carolina'), `media_url_original` (signed 24h URL), `media_url_rehosted` (public Supabase URL), `rehost_status` ('pending'|'ok'|'error'), `rehost_attempted_at`, `rehost_error`, `order_num`, `preferred_photo_yn`
 
-Cache-Control set to 1 year — MLS photos are immutable per MediaKey.
+**Storage:** Public bucket `mls-media-rehosted`, 10MB/file limit, image MIMEs only. Path pattern: `{originating_system_name}/{resource_record_key}/{media_key}.{ext}` → `carolina/CAR300982442/65abd5c....jpg`
 
-## Build error trail (2026-05-14)
+**RPC:** `public.team_media_sync_candidates(p_list_office_key text, p_limit int)` — unused by current office-wide approach but still exists. Can drop if confident.
 
-Three sequential failures before the first successful deploy. Worth knowing for future TS work on this repo:
+---
 
-1. **Unused constant lint:** `MAX_ATTEMPTS_BEFORE_GIVING_UP` declared but unused → ESLint blocked the build. Removed.
-2. **`Map.entries()` downlevelIteration:** cma-tool's tsconfig requires `Array.from()` around `Map.entries()` for iteration. The brain-app's tsconfig is more lenient.
-3. **TS inference cycle on `page`:** `'page' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.` Fix: explicit annotation `const page: MlsPage<MediaRow> = await fetchPage<MediaRow>(cfg, url)`.
+## MLS Grid v2 gotchas (learned the hard way)
 
-Final commits: c8174ec (mediaSync.ts), e955487 (mediaRehost.ts), 977c69b (cron route), 858e228 (vercel.json). Team-dash patch: f36f333.
+1. **Direct `/Media` queries are forbidden in v2** — must use `$expand=Media` on Property
+2. **`ListingKey` is NOT filterable on Property** — only `MlgCanView`, `ModificationTimestamp`, `OriginatingSystemName`, `StandardStatus`, `ListingId`, `PropertyType`, `ListOfficeMlsId` are
+3. **Hard 2 RPS rate limit** shared across all crons hitting MLS Grid (mls-sync, team-media-sync)
+4. **Response size matters**: without `$select`, Property records contain ~200 columns + nested Media. `$top=200` returns 10MB+ which gets a 400 HTML response from MLS Grid's edge. Use `$select=ListingKey,OriginatingSystemName` + `$top=50` to stay under the cap.
+5. **Nested Media records have a misleading `ResourceRecordKey`** — it's NOT the parent ListingKey. Override `resource_record_key=parentListingKey` after the `mapMedia` call.
+6. **Nested Media records DO NOT include `OriginatingSystemName`** — it's only on the parent Property. Override `originating_system_name=cfg.originatingSystemName`.
+7. **MLS Grid media CDN (`media.mlsgrid.com`) has a separate, tighter rate limit** — ~7-10 RPS. Burst downloads from tight for-loops cause `download 429`. Use 150ms throttle between rehost calls.
 
-## First-run debugging notes
+## PostgREST gotchas
 
-The 17:00 UTC 2026-05-14 first cron run returned 200 but inserted 0 rows. Added diagnostic logging (commits 62d843c, 1bd1a0d) to see:
-- whether `team_media_sync_candidates` RPC returns candidates inside the cron (vs my manual SQL test which returned 25)
-- the actual MLS Grid URL being hit
-- the per-page response from MLS Grid
+8. **`.in()` lookups exceed URL length limit at scale** — 1,653 media keys in `.in()` returns "Bad Request". Chunk into batches of 200 keys.
+9. **`upsert()` clobbers ALL columns by default** — `rehost_status`, `media_url_rehosted`, `rehost_attempted_at` get reset to whatever's in the row being upserted. Preserve existing values explicitly via lookup-and-merge before upsert.
 
-Next cron run at 17:30 UTC should populate Vercel logs. If MLS Grid returns 0 records for a known team listing key, the most likely cause is:
-- Media subscription not included in the Brokerage Back Office MLS Grid license (verify with Bridgett Bouvier at Canopy)
-- Or `ResourceName eq 'Property'` filter being too strict — try removing it (MLS Grid may use a different ResourceName value)
+## Vercel build gotchas
 
-## v1.1 scope (parked)
+10. **`SIGTERM` during build** = a route is doing outbound HTTP at build time during prerender. Add `export const dynamic = 'force-dynamic';` to any route that fetches external data, even debug routes.
 
-CMA tour subjects → MLS Media sync. Reads `cma_reports` from HGPG Core, resolves `subject_address` (free-form text) to a ListingKey via the existing `addressParse.ts` + `subjectDetect.ts` resolvers in this same repo (do NOT rebuild them), then feeds those keys to the existing `syncMediaForListing` function.
+---
 
-Interface is already plumbed — just need to extend the cron's Phase A to gather subjects from cma_reports in addition to team listings. ~30 min build once v1 is verified working.
+## v1 backfill timeline
 
-## What you'll see when working
+- 2026-05-13: First Phase A attempts, 0 rows returned (per-listing iteration approach + wrong filter)
+- 2026-05-14 18:00 UTC: Rewrote to office-wide query (`syncMediaForOffice`). Cascading TS errors and build SIGTERMs.
+- 2026-05-14 19:30 UTC: First successful Phase A — 63 listings, 1,653 Media records discovered, all upserted.
+- 2026-05-14 19:50 UTC: First successful Phase B — 5 photos rehosted end-to-end. URL verified accessible.
+- 2026-05-14 20:00–overnight: Production cron ran every 30 min, draining 500 rows/tick (temporarily bumped from 100).
+- 2026-05-15 10:30 UTC: 1,591/1,653 rehosted (96.2%), 0 pending, 62 errored (61 download 429 + 1 download 400).
+- 2026-05-15 10:35 UTC: 150ms download throttle added (`mediaRehost.ts`), `MAX_REHOSTS_PER_RUN` dropped to 200. 61 download-429 errors reset to pending for retry. 1 download-400 left as permanent fail.
 
-- Team dashboard at `team.homegrownpropertygroup.com/inventory` shows hero photos on listing cards
-- `mls_media` table grows to ~1,900 rows for team (63 listings × ~30 photos each)
-- Storage bucket `mls-media-rehosted` accumulates ~1,900 files at ~500KB each (~1GB total)
-- Cron run logs in Vercel show Phase A/B counts every 30 min
+**3 of 4 active listings have hero photos.** `CAR4336731` (all 33 photos errored 429) is queued for retry.
 
-## Monitoring queries
+---
 
-```sql
--- Backfill progress
-SELECT
-  count(*) AS total_rows,
-  count(*) FILTER (WHERE rehost_status='ok') AS rehosted,
-  count(*) FILTER (WHERE rehost_status='pending') AS pending,
-  count(*) FILTER (WHERE rehost_status='error') AS errored,
-  count(DISTINCT resource_record_key) AS listings_with_media
-FROM mls_media
-WHERE resource_record_key IN (
-  SELECT listing_key FROM mls_property WHERE list_office_key='CAR118249224'
-);
+## Open items
 
--- Listings still missing photos
-SELECT p.listing_key, p.standard_status, p.list_date
-FROM mls_property p
-WHERE p.list_office_key='CAR118249224'
-  AND p.listing_key NOT IN (
-    SELECT DISTINCT resource_record_key FROM mls_media WHERE rehost_status='ok'
-  )
-ORDER BY p.list_date DESC;
-```
+- **Verify all 4 active listings have hero photos after 11:00 UTC cron drain.** Hit `team.homegrownpropertygroup.com/inventory`.
+- **Investigate `download 400` on the single permanent-fail row** (`media_key`-level lookup). Likely an expired/broken signed URL from MLS Grid. Consider adding a `permanent_fail` status to skip it forever.
+- **Delete the two debug route files** from the Mac via `gh` (current Brain commit can only stub them, not remove). Files: `app/api/cron/team-media-debug/route.ts`, `app/api/admin/team-media-debug/route.ts`.
+- **5 orphaned storage objects** at `mls-media-rehosted/CAR118472288/*.jpg` (no `carolina/` prefix, from before the `originating_system_name` override fix). ~2 MB total. Delete via Supabase Storage API from the Mac (SQL DELETE is blocked by `storage.protect_delete()` trigger).
+- **Drop `public.team_media_sync_candidates` RPC** if not used by any other code path.
+
+---
+
+## Commits (v1)
+
+- `aa628cf` — Fix cron: `rehostPendingMedia` takes `{supabase, supabaseUrl, limit}`
+- `9858872` — Slim MLS Grid response: `$select` Property cols + `$top=50`
+- `cd8c630` — Chunk `.in()` lookup to 200 keys/batch
+- `3755b75` — Override `resource_record_key` to parent ListingKey
+- `03be600` — Override `originating_system_name` from parent cfg
+- `214828b` — Bump `MAX_REHOSTS_PER_RUN` to 500 for backfill
+- `e8ecef2` — Fix TS: preserve `rehost_attempted_at` across Phase A runs
+- `2cceaa6` — Throttle rehost downloads 150ms (media CDN was 429ing)
+- `f286811` — Drop `MAX_REHOSTS_PER_RUN` to 200 (steady state)
+- `5c4ad6f` — Neutralize debug endpoint to 404 stub
+
+Frontend (hgpg-team-dash):
+- `f36f333` — Hero photo fallback in inventory list + detail views
