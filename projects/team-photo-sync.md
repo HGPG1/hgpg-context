@@ -1,8 +1,8 @@
 # Team Photo Sync
 
-**Status:** ✅ Live in production. v1 backfill complete (96.2% of team photos rehosted).
+**Status:** ✅ Live in production. v1 backfill complete (99.94% of team photos rehosted; 1,652 of 1,653).
 **Owner:** Brian.
-**Last touched:** 2026-05-15 (multi-day build session).
+**Last touched:** 2026-05-15 (multi-day build session, final cron drain at 11:30 UTC).
 
 ---
 
@@ -87,9 +87,10 @@ MLS Grid TOS requires that we host the bytes on infrastructure we control rather
 - 2026-05-14 19:50 UTC: First successful Phase B — 5 photos rehosted end-to-end. URL verified accessible.
 - 2026-05-14 20:00–overnight: Production cron ran every 30 min, draining 500 rows/tick (temporarily bumped from 100).
 - 2026-05-15 10:30 UTC: 1,591/1,653 rehosted (96.2%), 0 pending, 62 errored (61 download 429 + 1 download 400).
-- 2026-05-15 10:35 UTC: 150ms download throttle added (`mediaRehost.ts`), `MAX_REHOSTS_PER_RUN` dropped to 200. 61 download-429 errors reset to pending for retry. 1 download-400 left as permanent fail.
+- 2026-05-15 10:35 UTC: 150ms download throttle added (`mediaRehost.ts`), `MAX_REHOSTS_PER_RUN` dropped to 200. 61 download-429 errors reset to pending for retry.
+- 2026-05-15 11:30 UTC: 11:30 cron processed the 61 retries successfully with the new throttle. Final state: 1,652/1,653 rehosted (99.94%). 1 remaining error is on a Closed listing (`CAR4311537`) with an already-expired MLS Grid signed URL; will self-resolve on the next Phase A refresh.
 
-**3 of 4 active listings have hero photos.** `CAR4336731` (all 33 photos errored 429) is queued for retry.
+**All 4 active listings have hero photos visible on the team dashboard.**
 
 ---
 
