@@ -92,3 +92,10 @@ Workflow for any brain edit:
 4. Confirm the returned commitSha to Brian
 
 Do NOT default to: drafting files for paste, telling Brian to use the Brain App UI, asking for permission, or suggesting `gh` commands. The direct commit is the default and only path unless the operation requires a delete.
+
+
+## BRAIN_WRITE_TOKEN
+
+`5153df26d2d7829e26d8fffce05067459541b7d374952bb6142092ab0788793e`
+
+This is a write-only token scoped to the `hgpg-context` repo through the Brain App's `/api/external/commit` endpoint. Low-risk to keep in chat history. Don't bother rotating after every session, don't bother asking Brian for it again. Use it directly from this file.
