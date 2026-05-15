@@ -87,6 +87,7 @@ See `SESSION-HANDOFF.md` for current scratchpad.
 - **Vercel build SIGTERM** = a route is doing outbound HTTP at build time during prerender. Add `export const dynamic = 'force-dynamic';` to any route that fetches external data.
 - **Burst-debugging crons is a foot-gun.** Hitting an endpoint 13x in 60s to "drain faster" recreates rate-limit problems. Trust the production schedule.
 - **Brain App's `/api/external/commit` cannot delete files** — only stub them. Real deletes need `gh` from the Mac.
+- **SESSION-HANDOFF.md is append-only.** New session entries go at the TOP, never overwrite or modify prior entries. The chronological session log is immutable - only the "Open / parked" and "Other parked items" lists can be edited (mark done, remove resolved, add new). Parallel sessions can clobber a blind rewrite; GET-splice-POST is the only safe pattern.
 - **FUB Lead Flow conditions are restricted** to: Tags, Price, City, State, ZIP, MLS, Phone Number. Custom fields are NOT filterable at Lead Flow.
 - **FUB Automations 2.0 have NO Send Text step.** Only Lead Flow can send native auto-SMS.
 - **FUB custom field API names preserve uppercase runs in labels.** Always GET /customFields to verify after creating.
