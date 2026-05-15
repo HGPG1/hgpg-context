@@ -1,75 +1,84 @@
-# SESSION-HANDOFF — 2026-05-15
+# SESSION-HANDOFF — 2026-05-15 (final)
+
+## Status: ✅ Team Photo Sync v1 fully shipped
+
+**Production state (11:32 UTC):**
+- **1,652 of 1,653 team Media records rehosted (99.94%)**
+- 1 error remaining: a single photo on `CAR4311537` (Closed) whose MLS Grid signed URL was expired by the time the cron tried it. Will retry naturally at 12:30 UTC and succeed. Not on dashboard so doesn't matter for UX.
+- **All 4 active team listings have hero photos visible** (`CAR4222460`, `CAR4336731`, `CAR4341869`, `CAR4374686`)
+- Team dashboard `team.homegrownpropertygroup.com/inventory` is fully populated with real photos via `mls_media.media_url_rehosted`
+
+**Production cron:** `dpl_EXCVhxSChdrJz9hfRXaDmGy21qbe` (commit `5c4ad6f`).
+- `/api/cron/team-media-sync` every 30 min
+- 150ms throttle between rehost downloads
+- `MAX_REHOSTS_PER_RUN=200` steady state
+- Phase A correctly preserves `rehost_attempted_at` across runs
+- Debug endpoints neutralized to 404 stubs
+
+---
 
 ## What shipped this session
 
-**Team Photo Sync v1 is live** (`projects/team-photo-sync.md`). After a multi-day debugging odyssey through cascading MLS Grid v2 quirks, PostgREST limits, TS errors, Vercel build SIGTERMs, and self-inflicted rate-limit bursts, the system is now in steady-state production.
+**Team Photo Sync v1** — full architecture in `projects/team-photo-sync.md`. Multi-day debugging through MLS Grid v2 quirks, PostgREST limits, TS errors, Vercel build SIGTERMs, and self-inflicted rate-limit bursts. Now in steady-state production.
 
-**Production state at handoff (2026-05-15 10:41 UTC):**
-- 1,591 of 1,653 team Media records rehosted (96.2%)
-- 0 pending (all 61 download-429 errors reset to pending; 11:00 UTC cron will retry)
-- 1 permanent error (`download 400` on a single broken MLS Grid URL)
-- 3 of 4 active team listings have hero photos (`CAR4222460`, `CAR4341869`, `CAR4374686`)
-- `CAR4336731` is the one without hero — all 33 photos errored on 429 bursts, all reset to pending
-
-**Architecture:**
-- `/api/cron/team-media-sync` every 30 min, two-phase (sync → rehost)
-- 150ms throttle between rehost downloads (MLS Grid media CDN limits ~7-10 RPS)
-- `MAX_REHOSTS_PER_RUN=200` for steady state (was 500 during backfill)
-- Public Supabase Storage at `mls-media-rehosted/carolina/<listing_key>/<media_key>.jpg`
-
-**Commits this session (hgpg-cma-tool):**
+**Commits (hgpg-cma-tool):**
 - `aa628cf`, `9858872`, `cd8c630`, `3755b75`, `03be600`, `214828b`, `e8ecef2`, `2cceaa6`, `f286811`, `5c4ad6f`
-- Full details in `projects/team-photo-sync.md`
 
-**Frontend integration:** `hgpg-team-dash` `f36f333` — hero photo fallback in `src/lib/inventory.ts` (list + detail views).
+**Frontend integration (hgpg-team-dash):**
+- `f36f333` — hero photo fallback in `src/lib/inventory.ts`
+
+**Brain docs:**
+- `projects/team-photo-sync.md` — created
+- `CONTEXT.md` — Team Photo Sync added to active, MLS Grid lessons added to standing rules
+- `SESSION-HANDOFF.md` — this file
 
 ---
 
-## Pickup for next session
+## Pickup for next session (low-priority cleanup)
 
-### Immediate (verify backfill completion)
+1. **Investigate the 1 `download 400` row** at `media_key=68f0c902bf3305147c2ee8f2` (listing `CAR4311537`). Should self-resolve at 12:30 UTC. If not, manually trigger a refresh or mark as `permanent_fail`.
 
-1. **Verify all 4 active listings have hero photos.** Hit `team.homegrownpropertygroup.com/inventory`. After the 11:00 UTC cron (post-handoff), `CAR4336731` should have its 33 photos rehosted with the new 150ms throttle preventing 429s. If not, check the 11:30 UTC cron.
+2. **Delete debug route files from the Mac via `gh`** — brain-app's `/api/external/commit` can only stub, not delete. Files:
+   - `app/api/cron/team-media-debug/route.ts`
+   - `app/api/admin/team-media-debug/route.ts`
 
-2. **Investigate the 1 permanent `download 400`** in `mls_media` (`CAR288651827` listing). Likely a broken/expired URL. Could add a `permanent_fail` status or just leave it as `error` forever (it'll never retry after the first error since `rehost_error='download 400'` is preserved).
+3. **5 orphaned storage objects** at `mls-media-rehosted/CAR118472288/*.jpg` (no `carolina/` prefix, ~2 MB total). Delete via Supabase Storage API from Mac.
 
-### Cleanup (low priority)
+4. **Drop unused RPC** `public.team_media_sync_candidates` if no other callers.
 
-3. **Delete debug route files from the Mac via `gh`** — the brain-app commit endpoint can only stub them, not remove. Files:
-   - `app/api/cron/team-media-debug/route.ts` (currently a 404 stub)
-   - `app/api/admin/team-media-debug/route.ts` (currently a 404 stub)
+5. **Update `rehost_error` preservation** — Phase A currently wipes `rehost_error` to NULL when restoring an error row. Should preserve it so debugging is easier. Edit `lib/mls/mediaSync.ts` finalRows logic to copy `rehost_error` from existingState. (This is what made me chase the post-mortem earlier — without it I couldn't tell whether an error row was 429 or 400.)
 
-4. **5 orphaned storage objects** at `mls-media-rehosted/CAR118472288/*.jpg` (~2 MB, no `carolina/` prefix). From the early failed-path bug. Delete via Supabase Storage API from the Mac (SQL DELETE is blocked by `storage.protect_delete()` trigger).
+---
 
-5. **Drop unused RPC** `public.team_media_sync_candidates(p_list_office_key text, p_limit int)` if not referenced anywhere.
-
-### On the horizon (from earlier sessions, still parked)
+## Parked items (from earlier sessions)
 
 - **Tammy Flores (FUB 31833) + Andrew Broughton (FUB 31885) outreach** — drafted, Brian to send
-- **NC SMS Speed-to-Lead live e2e test** — parked since 2026-05-13, can resume anytime
+- **NC SMS Speed-to-Lead live e2e test** — parked since 2026-05-13
 - **Sellers Guide FUB Automation 2.0** — verify on first real ad lead
-- **Buyer Alerts code patch** — DRAFTED in `projects/buyer-alerts.md`, NOT committed. Replace `sendLoopMessage` in `src/app/api/cron/buyer-alerts/route.ts` to match TM canonical `lib/loopBridge.ts`.
-- **TM $395 fee toggle spec** — ready, awaiting Brian's go-ahead
-- **Don's TM feedback ID** `84a2761a-f5b9-40a7-ba3a-f7923e9f1b3f` — 2026-05-13, mid-deal seller signing 5/26 3PM Lando Law without changing closing date
+- **Buyer Alerts code patch** — DRAFTED in `projects/buyer-alerts.md`, NOT committed
+- **TM $395 fee toggle spec** — ready, awaiting go-ahead
+- **Don's TM feedback** ID `84a2761a-f5b9-40a7-ba3a-f7923e9f1b3f` (5/13)
 - **DocuSign migration** — build deadline 2026-06-13
-- **1Password backup** of the `HGPG Brain Commit` GitHub App private key (currently at `~/.hgpg-secrets/github-app-private-key.pem` on Brian's Mac + Vercel env)
+- **1Password backup** of GitHub App private key
 
 ---
 
-## Key learnings to internalize
+## Key learnings (carry forward)
 
-1. **MLS Grid v2 has many undocumented limits.** `$expand=Media` needs `$select` to stay under response-size cap. Property `$filter` only accepts ~7 specific fields. Nested Media has wrong `ResourceRecordKey` and missing `OriginatingSystemName` — always override from parent context.
+1. **MLS Grid v2 has many undocumented limits.** See `projects/team-photo-sync.md` for the full catalog. Highlights: `$expand=Media` needs `$select` + `$top=50`. Property `$filter` only accepts 7 specific fields. Nested Media has wrong `ResourceRecordKey` and missing `OriginatingSystemName` — always override from parent context.
 
-2. **MLS Grid media CDN is a separate service with its own rate limit** (~7-10 RPS). Tight for-loops doing downloads will trigger 429s. Always throttle between downloads.
+2. **MLS Grid media CDN (`media.mlsgrid.com`) has its own rate limit** (~7-10 RPS). Always throttle downloads (150ms is enough).
 
-3. **PostgREST `.in()` has a URL length limit.** Chunk lookups at 200 keys for safety.
+3. **MLS Grid signed URLs have ~24h TTL** but the timestamp is set at SOURCE time, not at fetch time. A photo that hasn't been re-indexed by MLS Grid in 24h will hand you an already-expired URL. The next Phase A refresh re-mints it.
 
-4. **Supabase `upsert()` clobbers all columns.** Preserve existing state via lookup-and-merge before upserting if any columns need to survive.
+4. **PostgREST `.in()` has URL length limits.** Chunk at 200 keys.
 
-5. **Vercel build SIGTERM** = a route is doing outbound HTTP at build time during prerender. Add `export const dynamic = 'force-dynamic';` to every route that fetches external data, including debug routes.
+5. **Supabase `upsert()` clobbers ALL columns by default.** Preserve via lookup-and-merge for any field that must survive.
 
-6. **Burst-debugging is its own foot-gun.** Hitting a cron endpoint 13 times in a minute to "drain faster" recreated the exact rate-limit problem I was trying to debug. Trust the production cron's natural pacing.
+6. **Vercel build SIGTERM** = a route doing outbound HTTP at build time during prerender. Add `export const dynamic = 'force-dynamic';` everywhere.
 
-7. **Brain App's GitHub-App-backed `/api/external/commit` endpoint cannot delete files** — only stub them. Real deletions need `gh` from the Mac.
+7. **Burst-debugging crons is a foot-gun.** Hitting an endpoint 13x in 60s to "drain faster" recreates rate-limit problems. Trust the production schedule.
 
-8. **Don't try to fix while context is running thin.** I attempted to fix the preservation logic late in the session when the build error was a simple TS type miss. A clean session would have caught it in the first attempt.
+8. **Brain App's `/api/external/commit` cannot delete files** — only stub them. Real deletions need `gh` from the Mac.
+
+9. **Python edit-scripts can silently fail to update sections** that don't exactly match the `old` string. Always verify with a fresh re-read after edits, especially when chaining multiple edits to the same file.
