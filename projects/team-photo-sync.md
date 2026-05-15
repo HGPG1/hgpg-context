@@ -132,3 +132,32 @@ This mirrors the existing `authenticated_read_mls_property` policy. No deploy ne
 
 Frontend (hgpg-team-dash):
 - `f36f333` — Hero photo fallback in inventory list + detail views
+
+---
+
+## Deferred polish: hero photo quality
+
+**Identified:** 2026-05-15. Parked, no impact on dashboard usability today.
+
+The current fallback chain (`portal?.hero ?? mls_media.media_url_rehosted ?? null`) selects MLS hero by:
+1. `preferred_photo_yn = true`
+2. then `order_num ASC`
+3. then first available
+
+**Problem:** Canopy strips `preferred_photo_yn` from the MLS Grid feed (always `null` for the team's listings). So selection always falls through to `order_num = 0`, which is whatever the listing agent uploaded first into Matrix. That's frequently a render, floor plan, lot/aerial, or interior, NOT the agent's curated primary photo. Example: `CAR267743419` hero is currently a `long_description='Conceptual Render'`.
+
+**Why it doesn't matter right now:**
+- 4 of 5 active listings show a photo (just not always ideal)
+- CAR293583134 currently has 0/33 rehosted but that'll self-resolve as the worker grinds, or be a one-off
+- No agent complaints yet from Ashley/Brenda/Taylor
+
+**Pick this back up when:**
+- A render or floor plan ends up as hero on a high-profile listing
+- Agents flag bad photos during a demo
+- Doing a Tab 1 polish pass anyway
+
+**Likely fix when revisited (cheap path):**
+- Add a `long_description` heuristic to skip rows containing "render", "floor plan", "site plan", "aerial" before falling to `order_num`
+- Plus a `hero_media_key` override column on `mls_property` + tiny admin UI for one-click manual override on the remainder
+
+Avoid chasing `preferred_photo_yn` backfill from Canopy. Probably impossible if they strip it at the feed layer, not worth the spelunking without evidence it's recoverable.
