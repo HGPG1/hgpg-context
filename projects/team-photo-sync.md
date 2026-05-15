@@ -110,13 +110,12 @@ This mirrors the existing `authenticated_read_mls_property` policy. No deploy ne
 
 ## Open items
 
-- **Verify all 4 active listings have hero photos after 11:00 UTC cron drain.** Hit `team.homegrownpropertygroup.com/inventory`.
-- **Investigate `download 400` on the single permanent-fail row** (`media_key`-level lookup). Likely an expired/broken signed URL from MLS Grid. Consider adding a `permanent_fail` status to skip it forever.
-- **Delete the two debug route files** from the Mac via `gh` (current Brain commit can only stub them, not remove). Files: `app/api/cron/team-media-debug/route.ts`, `app/api/admin/team-media-debug/route.ts`.
-- **5 orphaned storage objects** at `mls-media-rehosted/CAR118472288/*.jpg` (no `carolina/` prefix, from before the `originating_system_name` override fix). ~2 MB total. Delete via Supabase Storage API from the Mac (SQL DELETE is blocked by `storage.protect_delete()` trigger).
-- **Drop `public.team_media_sync_candidates` RPC** if not used by any other code path.
-
----
+- ✅ **Drop `public.team_media_sync_candidates` RPC** — done 2026-05-15 (migration `drop_unused_team_media_sync_candidates_rpc`).
+- ✅ **Confirm 5 orphaned storage objects are safe to delete** — verified 2026-05-15. DB rows point to `carolina/`-prefixed dupes which also exist in storage. Top-level files at `mls-media-rehosted/CAR118472288/65abd5c90095d833e379530{7..b}.jpg` are genuinely orphaned.
+- **Delete the 5 orphaned storage objects** via Supabase Storage API from the Mac (raw SQL DELETE is blocked by `storage.protect_delete()` trigger). Recipe in `SESSION-HANDOFF.md` of the same date.
+- **Delete the two debug route files** from the Mac via `gh` (currently neutralized to 404 stubs). Files: `app/api/cron/team-media-debug/route.ts`, `app/api/admin/team-media-debug/route.ts`.
+- **Investigate `download 400` on the single permanent-fail row** (`CAR4311537` — Closed listing, expired signed URL). Likely self-resolves on next Phase A refresh. Consider adding a `permanent_fail` status to skip it forever.
+- **Phase A doesn't preserve `rehost_error` across runs** — nice-to-have fix in `lib/mls/mediaSync.ts`. Currently the error reason is cleared on every Phase A upsert, making triage harder.
 
 ## Commits (v1)
 
