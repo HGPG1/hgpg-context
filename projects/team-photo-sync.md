@@ -94,6 +94,20 @@ MLS Grid TOS requires that we host the bytes on infrastructure we control rather
 
 ---
 
+## Post-launch fix: RLS policy missing on mls_media
+
+2026-05-15 ~12:00 UTC, Brian reported no photos on the inventory page despite 1,652/1,653 rehosted in the DB. Cause: `mls_media` had `rowsecurity=true` with **zero RLS policies**. PostgreSQL RLS default = deny, so the team-dash (which uses the `authenticated`-role client via `getSupabaseServer()`) got empty result sets silently. The fix:
+
+```sql
+CREATE POLICY authenticated_read_mls_media
+  ON public.mls_media
+  FOR SELECT
+  TO authenticated
+  USING (true);
+```
+
+This mirrors the existing `authenticated_read_mls_property` policy. No deploy needed. Lesson: when creating a new table in `wdheejgmrqzqxvgjvfee` that the team-dash will query, **always create an `authenticated SELECT` policy** at table-creation time. Check `pg_policies WHERE schemaname='public'` to verify.
+
 ## Open items
 
 - **Verify all 4 active listings have hero photos after 11:00 UTC cron drain.** Hit `team.homegrownpropertygroup.com/inventory`.
