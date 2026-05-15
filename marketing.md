@@ -26,6 +26,7 @@
   - TRAF -> `sellersguide.homegrownpropertygroup.com/` (root)
   - CONV -> `sellersguide.homegrownpropertygroup.com/home-selling-score/` (direct to score)
 - **Target CPL:** $35. Reference: New Construction Lead Gen running ~$22 CPL.
+- **Budget reality vs plan:** $25/day total ($750/mo) is above the original $300-500/mo plan envelope. Conscious decision 2026-05-15 to leave it at this level - faster Learning Phase exit (~2 weeks vs 3+ at lower budget), better creative rotation across 12 ads, knowable downside (~$175 worst-case week 1). Revisit at day 7 audit based on actual CPL trend.
 - **Test plan:** 4-week launch cadence per `HGPG_Sellers_Guide_Meta_Ads_Plan.pdf`. Day 7 first read, day 14 first cull, day 30 retargeting ad set added if audience pool >1,000.
 
 #### Known soft fails on CONV ad set (revisit at day 30 rebuild)
