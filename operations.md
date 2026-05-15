@@ -71,3 +71,24 @@ When Brian asks Claude to text/iMessage him, use bash + curl to the internal end
 - Squarespace `.net` registration stays (defensive, $15/yr auto-renew Oct 26).
 - No email forwarding (too much junk).
 - Search Console `.net` property to be removed.
+
+
+## Brain repo commits (default workflow)
+
+When Brian asks to update, add to, or change anything in the brain repo (`hgpg-context`), commit it directly via the Brain App's external endpoint. Do not draft files for him to paste, do not send him to the Brain App UI, do not ask permission - just commit.
+
+- **Endpoint:** `POST https://brain.homegrownpropertygroup.com/api/external/commit`
+- **Auth:** `Authorization: Bearer $BRAIN_WRITE_TOKEN` (token stored as `BRAIN_WRITE_TOKEN` in Vercel env vars on the `brain-app` project; ask Brian only if it can't be retrieved)
+- **Payload:** `{"repo":"hgpg-context","path":"<filepath>","content":"<full file content>","message":"<commit message>"}`
+- **Reads:** `GET https://brain.homegrownpropertygroup.com/api/files/<filepath>` with the same Bearer token returns `{content: "..."}` — fetch this before editing so the merge is against the live file, not a stale copy.
+- **Returns:** `{ok: true, commitSha: "..."}` on success.
+- **Cannot delete files** — only stub them. Real deletes need `gh` from the Mac.
+- Backed by GitHub App "HGPG Brain Commit" (read+write across all HGPG1 repos, no PAT rotation).
+
+Workflow for any brain edit:
+1. Fetch the current file via `/api/files/<path>`
+2. Modify the content
+3. POST to `/api/external/commit` with the full new content
+4. Confirm the returned commitSha to Brian
+
+Do NOT default to: drafting files for paste, telling Brian to use the Brain App UI, asking for permission, or suggesting `gh` commands. The direct commit is the default and only path unless the operation requires a delete.
