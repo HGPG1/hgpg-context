@@ -29,7 +29,7 @@ See `team.md` for full roster.
 - **New Construction site** (newconstruction.homegrownpropertygroup.com) - 🟢 three production deploys shipped 2026-05-13 (phone capture tiering, SMS speed-to-lead, Scout admin cleanup). SMS speed-to-lead pending live end-to-end test from Brian's real phone. See `projects/new-construction-*.md` cluster.
 - **Sellers Guide** (sellersguide.homegrownpropertygroup.com) - 🟢 shipped + ad-ready. FUB Automation 2.0 parked for first real ad lead validation. Meta ad launch is #2 in priority queue. See `projects/sellers-guide.md`
 - **Buyers Guide** (buyersguide.homegrownpropertygroup.com) - 🟢 Manus migration Sessions 1+2 complete 2026-05-12, Sessions 3-4 queued. See `projects/buyers-guide.md`
-- **Brain App** (brain.homegrownpropertygroup.com) - 🟢 MVP shipped 2026-05-06, single-user lock. `/api/external/commit` endpoint allows external commits (no deletes - real deletes need `gh` from the Mac). See `projects/brain-app.md`
+- **Brain App** (brain.homegrownpropertygroup.com) - 🟢 MVP shipped 2026-05-06, single-user lock. Backed by GitHub App **HGPG Brain Commit** (installed 2026-05-14, read+write across all HGPG1 repos, no PAT rotation needed). `/api/external/commit` endpoint allows external commits but cannot delete files - real deletes need `gh` from the Mac. See `projects/brain-app.md`
 - **Listing Report Portal** (reports.homegrownpropertygroup.com) - 🟢 live, GitHub auth resolved 2026-05-06. See `projects/listing-report-portal.md`
 - **HGPG FUB MCP** (fub.homegrownpropertygroup.com/mcp) - 🟢 hosted remote MCP live with OAuth 2.0 + PKCE + DCR, 134 FUB tools in safe mode. Tier 2 workflow-layer tools is #4 in priority queue.
 - **Signature Marketing Collection** (signature.homegrownpropertygroup.com) - 🟢 live. See `projects/signature-marketing.md`
@@ -56,6 +56,7 @@ See `team.md` for full roster.
 - **New Construction site phone capture** (2026-05-12) - tiered downgrade, see `projects/new-construction-phone-capture.md`
 - **CMA Engine math sweep** (2026-05-07 to 2026-05-12) - 7 PRs (#25-#31) fixing Bugs 1, 3-11 to Fannie Mae URAR Form 1004 standards
 - **HGPG FUB MCP migration to hosted remote** (2026-05-14) - OAuth 2.0 + PKCE + DCR, 134 FUB tools in safe mode, accessible from web/Desktop/mobile without local Node
+- **GitHub App "HGPG Brain Commit" installation** (2026-05-14) - read+write across all HGPG1 repos, replaces PAT-based auth for the Brain App
 - **Brain App MVP** (2026-05-06)
 - IDX Broker migration (Ylopo cancelled, Showcase IDX cancelled, FUB lead routing done)
 - Main site SEO push (mobile PageSpeed 96/100)
