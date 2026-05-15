@@ -39,6 +39,23 @@ Already reflected in `CONTEXT.md` and `projects/team-photo-sync.md`:
 - ✅ Verified the 5 orphaned storage objects at `mls-media-rehosted/CAR118472288/*.jpg` (top-level, no `carolina/` prefix) ARE genuinely orphaned. DB `mls_media` rows all point to the `carolina/`-prefixed dupes, which also exist in storage. Safe to delete from the Mac via Storage API (raw SQL blocked by `storage.protect_delete` trigger).
 - ⚠️ `test.md` accidentally committed to root during API probe of `/api/external/write` shape — the endpoint doesn't support delete. File is neutralized to a TODO placeholder; needs `gh rm test.md` from Mac.
 
+### Sellers Guide Meta campaigns launched (Ads project, 2026-05-15 PM)
+
+Documented in detail in `marketing.md` under "Sellers Guide campaign (launched 2026-05-15)".
+
+- TRAF campaign `52506271902963` ($10/day CBO) and CONV campaign `52506270109163` ($15/day CBO) live
+- 12 ads total: Concept A + D in TRAF, Concept B + C in CONV, all 3 sizes per concept
+- Pixel `861295553661596` + CAPI confirmed firing Lead events. Custom Conversion `HGPG - Sellers Guide Lead` (ID `972661382159071`) active.
+- 5-zip geo radius across NC/SC border (Waxhaw, S. Charlotte, Indian Land, Fort Mill, Lancaster)
+- HGPG - Ads project instructions revised to mirror Tech & Builds pattern (brain write API explicit, token embedded, session start/end discipline). Brian to paste into project settings.
+
+3 soft fails parked for day-30 rebuild (logged in `marketing.md`):
+1. CONV ad set optimization stuck on raw Lead pixel event - Meta blocks `promoted_object` after publish
+2. CONV attribution stuck at 7-day click only - Meta blocks `attribution_spec` after publish
+3. Both campaigns on CBO not ABO - functionally fine with 1 ad set, must switch when adding retargeting
+
+Active Pixel issue (Tech & Builds): Lead event passes `value` (score) without `currency` - "Missing Lead Currency Parameter" warning. Fix: remove `value` from Lead event payload in the sellers guide site's pixel JS.
+
 ### Open / parked
 
 **Cleanup leftovers (do from Mac):**
@@ -61,6 +78,10 @@ Already reflected in `CONTEXT.md` and `projects/team-photo-sync.md`:
 - TM $395 fee toggle
 - DocuSign migration (6/13 deadline)
 - 1Password backup of GitHub App private key
+- **Revise sister project prompts** to match new Tech & Builds + Ads pattern (brain write API explicit, token embedded, CONTEXT.md + SESSION-HANDOFF.md fetch at start, SESSION-HANDOFF.md update at end). Pending: HGPG - Marketing & Content, HGPG - CRM & Leads.
+- **Sellers Guide day-7 audit** (target 2026-05-22): Brian pulls Ads Manager last-7-days CSV broken out by ad set + creative, plus FUB lead count for `sellers-guide-2026` + `utm:meta`. Run audit prompt from Ads project.
+- **Sellers Guide day-30 rebuild** (target 2026-06-14): Rebuild CONV ad set to clear 3 soft fails (optimization event, attribution, CBO->ABO). If audience pool >1,000, spin up retargeting ad set per launch plan.
+- **Sellers Guide lander fix** (Tech & Builds owns): Remove `value` parameter from Lead event payload, OR add `currency: 'USD'`. Suppresses "Missing Lead Currency Parameter" warning. Cosmetic, not blocking.
 
 ### Storage API delete recipe (run from Mac)
 
