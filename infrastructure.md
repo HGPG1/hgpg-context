@@ -98,11 +98,29 @@ Registered in `hgpg-transaction-manager/vercel.json`. All UTC schedules.
 
 ## Resend SMTP
 
-- Custom SMTP wired into HGPG Core Supabase
+Custom SMTP via Resend is wired into **two** Supabase projects (any new project that sends auth emails needs its own SMTP config — Supabase scopes SMTP per-project).
+
+**HGPG Core** (`ioypqogunwsoucgsnmla`)
 - Sender: `noreply@homegrownpropertygroup.com` (name: HGPG)
 - Rate limit: 30/hr (was 2/hr on Supabase default)
 - API key in 1Password as "Supabase HGPG Core SMTP"
-- Affects ALL apps on HGPG Core: TM, CMA, TC Concierge, brain-app, Team Tools
+- Affects: TM, CMA, TC Concierge, brain-app
+
+**HGPG Listing Reports + MLS** (`wdheejgmrqzqxvgjvfee`) — added 2026-05-15
+- Sender: `noreply@homegrownpropertygroup.com` (name: HGPG Team Dashboard)
+- Rate limit: 30/hr (Supabase default once custom SMTP is enabled)
+- API key shared with Core (re-used same Resend key)
+- Affects: hgpg-team-dash magic-link auth, anything else later added to this Supabase project
+
+**SMTP host config (both projects):**
+```
+Host:     smtp.resend.com
+Port:     465
+Username: resend
+Password: re_... (Resend API key)
+```
+
+**Where it lives in Supabase dashboard:** Authentication → Notifications → Email → enable Custom SMTP. Rate limits are on Authentication → Rate Limits.
 
 ## Active subdomains
 
