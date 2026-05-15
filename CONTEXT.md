@@ -1,6 +1,6 @@
 # HGPG Context (Brain)
 
-Last updated: 2026-05-13
+Last updated: 2026-05-15
 
 ## Who
 
@@ -19,6 +19,8 @@ See `team.md` for full roster.
 - **CMA Engine** (cma.homegrownpropertygroup.com) - active build, see `projects/cma-engine.md`
 - **Transaction Manager** (closings.homegrownpropertygroup.com) - lifecycle tool, see `projects/transaction-manager.md`
 - **TC Concierge** (tc.homegrownpropertygroup.com) - intake, live with Don running real deals
+- **Team Photo Sync v1** (cron in hgpg-cma-tool) - LIVE 2026-05-15. Rehosts team MLS photos to public Supabase Storage every 30 min. 1,591/1,653 backfilled, see `projects/team-photo-sync.md`.
+- **Team Dashboard** (team.homegrownpropertygroup.com/inventory) - hero photos now wired to mls_media.media_url_rehosted
 - **Listing Report Portal** (reports.homegrownpropertygroup.com) - blocked on GitHub auth, see `projects/listing-report-portal.md`
 - **Claude skills** - five new skills shipped May 1 (objection-handler, referral-request-writer, showing-feedback-summarizer, offer-comparison-analyzer, market-update-writer)
 
@@ -47,6 +49,15 @@ See `SESSION-HANDOFF.md` for current scratchpad.
 - GitHub PAT exposed in chat history needs rotation
 
 ## Standing rules learned this week
+
+- **MLS Grid v2 has many undocumented limits.** See `projects/team-photo-sync.md` for the full list. Highlights: `$expand=Media` needs `$select` + `$top=50` to stay under response cap. Property `$filter` only accepts 7 specific fields. Nested Media has wrong `ResourceRecordKey` and missing `OriginatingSystemName` — always override from parent context.
+- **MLS Grid media CDN (`media.mlsgrid.com`) is rate-limited separately** (~7-10 RPS). Always throttle between rehost downloads (150ms is enough).
+- **PostgREST `.in()` has URL length limits.** Chunk to 200 keys/batch.
+- **Supabase `upsert()` clobbers ALL columns by default.** Preserve via lookup-and-merge.
+- **Vercel build SIGTERM** = a route is doing outbound HTTP at build time during prerender. Add `export const dynamic = 'force-dynamic';` to any route that fetches external data.
+- **Burst-debugging crons is a foot-gun.** Hitting an endpoint 13x in 60s to "drain faster" recreates rate-limit problems. Trust the production schedule.
+- **Brain App's `/api/external/commit` cannot delete files** — only stub them. Real deletes need `gh` from the Mac.
+
 
 - **FUB Lead Flow conditions are restricted** to: Tags, Price, City, State, ZIP, MLS, Phone Number. Custom fields are NOT filterable at Lead Flow.
 - **FUB Automations 2.0 have NO Send Text step.** Only Lead Flow can send native auto-SMS.
