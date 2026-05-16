@@ -4,7 +4,7 @@
 
 ## Print specs
 
-- **Vendor:** Mailbox Power (Pro membership)
+- **Vendor:** Geosential LITE ($47/mo)
 - **Size:** 5.5 x 8.5 (jumbo, postcard rate)
 - **Stock:** Standard gloss, full color both sides
 - **Postage:** $0.78/piece (USPS jumbo postcard rate)
@@ -99,15 +99,16 @@ QR URLs:
 - Phone number larger than the QR (we want them online, not calling)
 - Any green (brand violation)
 
-## Mailbox Power-specific setup
+## Geosential LITE-specific setup
 
-When uploading to Mailbox Power:
+When uploading to Geosential (print.geosential.com/login):
 
 1. Upload three separate designs as 5.5x8.5 templates (one per farm)
-2. Tag each with the farm name in their design library
+2. Tag each with the farm name in the design library
 3. Enable dynamic QR with text alert routing to Brian's phone (803-902-3700)
-4. If using their Street View merge feature, enable it for the BACK of the card only - it gets a thumbnail of each recipient's home next to the body copy, replacing the generic stat tile if necessary. Decide whether to use this for June or hold for July depending on how it looks in proof.
-5. Upload the three address CSVs from iCloud workspace:
+4. If Street View merge is available on LITE (verify with Geosential chat before signup), enable it for the BACK of the card only - thumbnail of each recipient's home next to body copy. Decide whether to use for June or hold for July depending on proof quality.
+5. Enable USPS Informed Delivery ride-along image upload if available - free second digital touch via the daily mailbox preview email.
+6. Upload the three address CSVs from iCloud workspace:
    - farm-addresses-bent-creek.csv (430 homes)
    - farm-addresses-bridgemill.csv (600 homes)
    - farm-addresses-queensbridge.csv (315 homes)
@@ -144,11 +145,11 @@ Use the returned qr_code_slug values as the `?c=` parameter on each farm's QR.
 
 | Line | Amount |
 |---|---|
-| Mailbox Power Pro (annual, $990) | $82.50 amortized to June |
+| Geosential LITE ($47/mo) | $47 |
 | Postage 1,345 x $0.78 | $1,049 |
 | Postcards (free, included in membership) | $0 |
 | Canva design time (in-house) | $0 |
-| **Total June outlay** | **$1,131** |
+| **Total June outlay** | **$1,096** |
 
 ## What success looks like for this drop
 
