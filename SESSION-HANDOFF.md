@@ -2,82 +2,43 @@
 
 # Session Handoff
 
-## Last session: 2026-05-15 — New Construction incentives triage 🟢
-
-### What got done
-- Triaged `nc_incentives` table on the New Construction site (Supabase project HGPG Signature + Relocation, `fkxgdqfnowskflgbuxhm`).
-- Started: 79 total / 45 active. Ended: 77 total / 35 active.
-- 10 stale or duplicate rows soft-deactivated (preserved for audit, not deleted).
-- 4 new rows added (M/I Homes 5.875% investment rate + Zero Down 2026; Lennar weekly-rotation placeholder; DR Horton division-wide $9,500 closing cost placeholder).
-- Toll Brothers row extended through 6/30 with note about ~2-week refresh cycle.
-
-### Created `projects/new-construction.md`
-Captures data layer (table schemas, RLS), admin PIN/API surface, triage protocol, and the **builder refresh cadences** I worked out from web-search verification:
-- Lennar = weekly rotation (Dream Savings, generic placeholder is the right move)
-- Toll Brothers = 2-week rolling 2/1 buydown, division-wide
-- DR Horton = monthly Red Tag events + community-specific buydowns (don't extrapolate division-wide)
-- M/I Homes = stable named programs (easy to keep accurate)
-- Meritage = slow rotation, "Blue Homes" = move-in-ready identifier
-- Empire = community-specific (multiple rows are NOT dupes)
-
-### Open / parked
-- **M/I `85cca8ac`** — 4.875% Great Low Rate expires 5/29 (2 weeks out). Verify with M/I rep whether it rolls forward, or replace.
-- **Meritage `3373880f`** — $3,000 May closing bonus expires 5/31.
-- Consider an admin dashboard "Expiring This Week" widget so Brian can triage on-demand without waiting for the list to balloon.
-
-### Pickup notes for next session
-- New Construction site has its own brain file now: `projects/new-construction.md`. Read it before any triage work.
-- For incentive triage: pull active list with builder name, group by builder, flag 3+ active rows, look for stale dates in description vs null `expiration_date`. Soft-deactivate, don't delete.
-- Don't chase Lennar weekly specifics — keep the generic placeholder.
-
----
-
-## Prior session: 2026-05-06 — Brain App MVP shipped 🟢
+## Last session: 2026-05-15 — CMA packet narrative persistence fix shipped 🟢
 
 ### What got built
-- New Vercel project: `brain-app` on team `team_FietQPKCmnyioG2n0FdteQCV`
-- New repo: `HGPG1/brain-app` (private)
-- Live at: `https://brain.homegrownpropertygroup.com`
-- Stack: Next.js 16.2.4, Tailwind v4, CodeMirror 6, Supabase Auth (magic link)
-- Single-user lock: `BRIAN_EMAIL=brian@homegrownpropertygroup.com` allow-list
-- GitHub auth: fine-grained PAT scoped to `HGPG1/hgpg-context`, contents:write only
-- Round-trip verified: edit file in browser → commit lands on `main` with author `brian@homegrownpropertygroup.com`
+- Diagnosed mobile "Load failed" issue in CMA packet generation. Two issues conflated:
+  1. **Anchor shifted on Candlestick re-run** — NOT A BUG. Auto-Find pulled fresh MLS data; Spelman Drive ($875K pending → $845K closed) and Regal Way ($925K pending → $915K closed) had closed lower than their pending list prices, and McPherson Street + Sturminster Drive joined the comp set. Result: anchor moved from $1,026,037 (May 12 baseline `7cb7ef75`) to $929,748 (new draft `4fffae6f`), -$96,289 / -9.4%. Math doing its job. May 12 baseline still in /history as status=presented.
+  2. **Packet "Load failed" was real** — `/api/packet/seller` returned 200 server-side both times Brian retried, but `cma_reports.narrative` and `narrative_generated_at` stayed null. Root cause: persistence happens client-side via `useSaveNarrative` AFTER `await res.json()`. If browser drops connection mid-response (mobile Wi-Fi handoff, tab backgrounded, Safari "Load failed"), narrative never persists. Function also had no `export const maxDuration` so was getting Vercel platform default (60s) while Anthropic client was configured for 120s — likely contributing factor.
 
-### Infra changes that affect other apps
-- Resend custom SMTP wired into `HGPG Core` Supabase (project `ioypqogunwsoucgsnmla`)
-  - Sender: `noreply@homegrownpropertygroup.com`, name: HGPG
-  - API key stored under "Supabase HGPG Core" in Resend
-  - Rate limit went from 2/hr (Supabase default) to 30/hr (Resend default), can be raised
-  - This affects ALL apps using this Supabase: TM, CMA, TC Concierge, brain-app
-- Supabase project renames for hygiene:
-  - `ioypqogunwsoucgsnmla` → "HGPG Core"
-  - `ngdrliyjtqcwhhfrbxao` → "HGPG FUB Integration" (verify)
-  - `wdheejgmrqzqxvgjvfee` → "HGPG Listing Reports + MLS" (verify)
-  - `fkxgdqfnowskflgbuxhm` → "HGPG Signature + Relocation" (verify)
-- Supabase `HGPG Core` redirect URLs added:
-  - `https://brain.homegrownpropertygroup.com/**`
-  - `http://localhost:3000/**`
-  - (Existing tools.hgpg entries left intact)
+### Fix shipped: commit cd36dee on hgpg-cma-tool main
+- `app/api/packet/seller/route.ts`:
+  - Added `export const maxDuration = 120;` `export const dynamic = "force-dynamic";` `export const runtime = "nodejs";`
+  - Added server-side persistence: when `workingSet.reportId` is present, route writes narrative + strategy_prices + recommended_price to `cma_reports` BEFORE returning response, using service-role Supabase client (same env pattern as `/api/cron/mls-sync`). Best-effort: failures logged, client-side useSaveNarrative still fires on successful response. Belt + suspenders.
+- Deployed: dpl_DXM8xK7F5Rb2Jae3ydGHrYfa8ArJ, ready 23:39 ET (03:39 UTC)
+- Pushed via Brain App `/api/external/commit` endpoint (Claude session has write access to any HGPG1 repo via GitHub App credential)
 
-### Bugs found and fixed mid-session
-- Magic link redirected to `tools.homegrownpropertygroup.com` (Supabase Site URL fallback) — fixed by adding `/auth/callback` route handler that was missing from initial scaffold + pointing `emailRedirectTo` at it
-- Supabase free SMTP rate limit (2/hr) hit during testing — fixed permanently by switching to Resend custom SMTP
-
-### Project status updates
-- `projects/brain-app.md` — status now 🟢 SHIPPED (was 🟡)
-- `projects/hgpg-team-tools2.md` — Site URL in Supabase still points here for the broken app's eventual fix
-- `projects/transaction-manager.md` — no changes today, but TM benefits from Resend SMTP upgrade
-
-### Deferred / Phase 2 for brain-app
-- iPhone smoke test (CodeMirror + iOS soft keyboard scroll behavior)
-- Cooper Hewitt self-hosted (currently falling back to system sans)
-- File rename and delete
-- Diff view before save
-- Cross-file search
+### Discovered tonight
+- Brain App ships THREE external endpoints (not just write):
+  - `/api/external/read` — POST or GET, reads any HGPG1 repo file. Optional `ref` for branch/sha.
+  - `/api/external/write` — POST, hgpg-context only (legacy compat).
+  - `/api/external/commit` — POST, ANY HGPG1 repo. Uses `BRAIN_WRITE_TOKEN`. `repo` + `path` + `content` + optional `message` + optional `branch` (defaults main).
+- All three endpoints share one bearer token in env var `BRAIN_WRITE_TOKEN`. Memory entry on the token is in chat history.
+- The commit endpoint auto-deploys via Vercel push-to-main → Claude can ship Vercel-deployed code changes end-to-end without Brian's gh CLI for small surgical patches.
+- `ALLOWED_REPOS` env var can scope the endpoint to a specific list if needed (currently empty = all HGPG1 repos).
 
 ### Pickup notes for next session
-- Brain-app is live and working — use it for any future updates to `hgpg-context`
-- Resend API key is in 1Password ("Supabase HGPG Core SMTP")
-- Brain-app local dev: `cd ~/brain-app && npm run dev` on Mac mini (work machine)
-- Brain-app local on iMac: same setup, repo at `~/Developer/brain-app` if rebuilt, otherwise needs fresh `gh repo clone HGPG1/brain-app` + `npm install` + `cp env.example .env.local`
-- The `package-lock.json` may differ between iMac and Mac mini — push from whichever machine you most recently ran `npm install` on
+- Verify the fix lands narrative on next live Candlestick or fresh CMA run. Expected: `cma_reports.narrative IS NOT NULL` and `narrative_generated_at IS NOT NULL` even on a "Load failed" client experience.
+- Vercel runtime logs for `/api/packet/seller` will now include `[/api/packet/seller] server-side narrative persisted for report <id>` log lines on success, or warnings on persistence failure.
+
+### Open / parked
+- **PR-mode endpoint for the brain commit API**: tonight's push went straight to main. Decision was tonight's fix is small and surgical enough for direct-main, but for bigger changes (CMA math, TM messaging, anything not 1-file surgical) we want a PR path. Roughly: create branch ref, commit file to branch, open PR. New endpoint at `/api/external/pr` on brain-app. ~70 lines. Next session: draft it, self-host it via the existing commit endpoint (commit it to brain-app via /api/external/commit), Vercel deploys, future Claude sessions default to PR mode for app repos and direct mode for hgpg-context.
+- Stack consolidation (parked 2-3 weeks from late April): dead concierge repo, deals → transactions migration, Title Case vs snake_case status mismatch, absorb tc-concierge into TM as /intake.
+- MLS Grid API token from Canopy (Bridgett Bouvier, data@canopyrealtors.com).
+- Sellers Guide Meta ads launch.
+- TM deferred: addendum body block injection, per-party messaging capability tracking, calendar gate logic backfill.
+- Agent TM onboarding Phase 3 (Ashley, Taylor, Brenda).
+
+### Prior session (2026-05-06): Brain App MVP shipped 🟢
+- New Vercel project `brain-app`, repo HGPG1/brain-app, live at brain.homegrownpropertygroup.com
+- Next.js 16.2.4, Tailwind v4, CodeMirror 6, Supabase Auth (magic link), single-user lock
+- Resend custom SMTP wired into HGPG Core Supabase, 30/hr (was 2/hr default), affects ALL apps on this Supabase: TM, CMA, TC Concierge, brain-app
+- Supabase project renames for hygiene (Core, FUB Integration, Listing Reports + MLS, Signature + Relocation)
