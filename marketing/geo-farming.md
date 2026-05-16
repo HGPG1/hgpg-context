@@ -95,50 +95,72 @@ Files in iCloud workspace at `~/Library/Mobile Documents/com~apple~CloudDocs/HGP
 1. Layer in Lancaster County tax-roll data (county GIS exports parcel + owner)
 2. Use EDDM (Every Door Direct Mail) saturation through any vendor - bypasses the address-list problem entirely
 
-## Print Vendor (LOCKED 2026-05-15)
+## Print Vendor (LOCKED 2026-05-15, switched to LITE)
 
-**Mailbox Power Pro membership** at $990/year (annual billing, saves 2 months over monthly).
+**Geosential LITE** at $47/month ($564/year). Postcard-only tier of Janine Sasso's Geosential platform, which is a white-labeled Mailbox Power reseller.
 
 ### Why this vendor
 
-After pricing all named alternatives at our actual volume (1,345 homes x 12 sends = 16,140 pieces/yr), Mailbox Power Pro is the cheapest option AND has the strongest differentiating features. The all-in numbers:
+After pricing all named alternatives at our actual volume (1,345 homes × 12 sends = 16,140 pieces/yr), LITE is the cheapest option AND covers the features we actually need. Full numbers:
 
-| Vendor | Format | Annual cost |
-|---|---|---|
-| **Mailbox Power Pro (5.5x8.5)** | jumbo postcard | **$13,579** |
-| Mailbox Power Pro (4x6) | standard postcard | $10,835 |
-| ProspectsPLUS! (8.5x5.5, standard mail) | jumbo postcard | $12,589 |
-| ProspectsPLUS! (8.5x5.5, first class) | jumbo postcard | $15,010 |
-| Wise Pelican (6x9 jumbo) | jumbo postcard | $16,786 |
-| Geosential (Mailbox Power white-label) | jumbo postcard | $14,577 |
+| Plan | Platform/yr | Postage/yr | **Total Year 1** |
+|---|---|---|---|
+| **Geosential LITE** ✅ | $564 | $12,589 | **$13,153** |
+| Mailbox Power Pro annual | $990 | $12,589 | $13,579 |
+| Geosential PRO annual | $1,988 | $12,589 | $14,577 |
+| ProspectsPLUS! standard | included | included | $12,589 |
+| ProspectsPLUS! first class | included | included | $15,010 |
+| Wise Pelican 6x9 jumbo | included | included | $16,786 |
+| Geosential ELITE (one-time setup) | $6,000 + $1,988 yr 2+ | $12,589 | $18,589 yr 1 |
 
-### What Mailbox Power Pro includes
+### What LITE includes
 
-- Unlimited free 4x6 AND 5.5x8.5 postcards (we pay only USPS postage)
-- $0.78/piece postage on 5.5x8.5 jumbo, $0.61/piece on 4x6
-- Dynamic QR codes with real-time text scan notifications to Brian
-- Google Street View auto-merge (postcard shows recipient's actual home)
-- First-name personalization at scale
-- Built-in list builder at ~$0.10/contact for filtering by income, age, credit score
-- White-labeled fulfillment (HGPG return address, never Mailbox Power)
-- FUB integration documented and supported
-- 50 free greeting cards/month (use for client gifting + birthday automation)
-- Month-to-month after Year 1, no long-term contract
+- Unlimited free 4x6 and 5.5x8.5 postcards (we pay only USPS postage)
+- Postage: $0.78/piece on 5.5x8.5 jumbo, $0.61/piece on 4x6
+- Smart QR codes with real-time text scan notifications to Brian
+- USPS Informed Delivery integration (need to verify exact behavior - cosmetic optimization vs full ride-along color preview)
+- List builder access (~$0.10/contact)
+- Automation builder for scheduling campaigns
+- 6 stock postcard templates (we will use our own Canva designs instead)
+- Weekday chat support (Mon-Fri)
+- Month-to-month, cancel anytime
 
-### Format decision
+### What LITE excludes (and why that is fine for HGPG)
 
-**5.5x8.5 jumbo, not 4x6.** The bigger card costs $0.17 more per piece (~$2,744/yr extra) but is impossible to miss in a mailbox stack, and matches the affluence of our $700K+ farm medians. Year 1 launch is about being unmissable, not optimizing postage.
+- Janine's private templates → we are designing in Canva on HGPG brand
+- Full CRM and dashboard → we have FUB
+- 15+ lead generation funnels → we have /farm/[slug] landing pages
+- Website builder + Google reviews management → we have homegrownpropertygroup.com
+- Live chat + popup widgets → not part of our funnel
+- Integrated inbox (email/SMS/FB/Google) → FUB handles this
+- Client gifting + birthday automations → we can add this separately if it becomes valuable
+- Done-for-you setup, 1:1 calls with Janine → we have technical infrastructure already built
+- 7-day direct community access to Janine → not a fit for our workflow
+
+### Pre-signup verification (DO THIS FIRST)
+
+Before paying, ask Geosential support via chat at https://geosential.com:
+
+1. Confirm USPS Informed Delivery does the full color ride-along (digital preview emailed to recipient morning-of-delivery), not just cosmetic grayscale optimization
+2. Confirm LITE supports Mailbox Power's Google Street View auto-merge on postcard backs (this is the main differentiator vs Wise Pelican / ProspectsPLUS!)
+3. Confirm the list builder pricing matches Mailbox Power direct (~$0.10/contact)
+4. Confirm we can upload our own designs (Canva PDF/X-1a exports) and not be locked to their template library
+5. Confirm scan data exports somehow (CSV download or webhook) for our Supabase tracker
+
+If any of those come back negative on LITE, the answer flips to Mailbox Power Pro at $990/yr.
 
 ### Vendors not chosen and why
 
-- **Geosential** - same underlying platform as Mailbox Power, $998/yr more. Worth it for an agent without infrastructure; redundant for HGPG which already has CRM (FUB), CMS (homegrownpropertygroup.com), funnels (/farm landing pages), and tracking (Supabase farm_leads).
-- **Wise Pelican** - $3,200/yr more, no Street View merge, no platform-level lock-in (could be a fallback if MP becomes problematic).
-- **ProspectsPLUS!** - close on cost but no Street View, dated templates, less differentiated.
-- **Corefact / Cactus Mailing** - higher cost or less real-estate-specific.
+- **Geosential PRO** - $1,424/yr more than LITE. Worth it for an agent without infrastructure (CRM, website, funnels). Redundant for HGPG which already has FUB, homegrownpropertygroup.com, /farm landing pages, and Supabase farm_leads.
+- **Geosential ELITE** - $6,000 one-time install. For agents who want Janine to personally build their farming system over 12 1:1 calls. We have the technical chops to skip this.
+- **Mailbox Power Pro direct** - $990/yr (vs $564 for LITE). Adds 50 free greeting cards/month for client gifting. Worth considering if HGPG starts a separate sphere-of-influence card program; for farming-only it is unnecessary.
+- **Wise Pelican** - $3,633/yr more, no Street View merge, no platform-level automation. Could be a fallback if Geosential becomes problematic.
+- **ProspectsPLUS!** - Comparable cost, no Street View, dated templates, less differentiated.
+- **Corefact / Cactus Mailing** - Higher cost or less real-estate-specific.
 
-### Janine Sasso / Geosential
+### Janine Sasso context
 
-Geosential is a white-labeled Mailbox Power reseller (Janine appears as a testimonial on Mailbox Power's own marketing). Janine's offer adds done-for-you setup, templates, and community for $998/yr premium. We chose to skip the premium because HGPG already has the technical infrastructure her platform layer provides. If a Mailbox Power Pro discount is available through her team, worth re-evaluating - ask her directly.
+Janine Sasso runs The Hyper Local Agent training brand and built Geosential as a Mailbox Power-powered platform (Mailbox Power runs a public white-label agency program). She appears as "Janine S. Texas" in Mailbox Power's marketing testimonials. Her business model bundles platform access + training + community + done-for-you services into three tiers (LITE/PRO/ELITE). For our use case, LITE captures the underlying tool without paying the bundle premium for services we do not need.
 
 
 ## Key Principles
@@ -156,7 +178,7 @@ Geosential is a white-labeled Mailbox Power reseller (Janine appears as a testim
 
 ## Next Decisions
 
-- [x] Pick vendor - LOCKED 2026-05-15: Mailbox Power Pro annual ($990)
+- [x] Pick vendor - LOCKED 2026-05-15: Geosential LITE ($47/mo, $564/yr)
 - [ ] Decide whether to supplement MLS-derived address lists with county tax roll (or use EDDM saturation)
 - [ ] Build FUB integration in `/api/farm/lead/route.ts` - currently writes to Supabase only
 - [ ] Decide on agent assignment per farm (currently HQ-led) - if assigning to Ashley, Brenda, or Taylor, update `farm_neighborhoods.assigned_agent_id`
