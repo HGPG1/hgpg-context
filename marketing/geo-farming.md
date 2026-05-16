@@ -95,32 +95,51 @@ Files in iCloud workspace at `~/Library/Mobile Documents/com~apple~CloudDocs/HGP
 1. Layer in Lancaster County tax-roll data (county GIS exports parcel + owner)
 2. Use EDDM (Every Door Direct Mail) saturation through any vendor - bypasses the address-list problem entirely
 
-## Print Vendor Options
+## Print Vendor (LOCKED 2026-05-15)
 
-### Primary: Mailbox Power (likely via Geosential)
+**Mailbox Power Pro membership** at $990/year (annual billing, saves 2 months over monthly).
 
-Janine Sasso ("the Mailer Mom") works with **Geosential**, which evidence strongly suggests is a white-labeled **Mailbox Power** reseller. Mailbox Power runs a public white-label agency program; multiple resellers exist under different brands. The underlying platform features match what Geosential markets:
+### Why this vendor
 
-- White-labeled fulfillment (your return address, never the platform's brand)
-- Dynamic QR codes with scan-tracking + text notifications
-- Auto-merge Google Street View image of each recipient's home
+After pricing all named alternatives at our actual volume (1,345 homes x 12 sends = 16,140 pieces/yr), Mailbox Power Pro is the cheapest option AND has the strongest differentiating features. The all-in numbers:
+
+| Vendor | Format | Annual cost |
+|---|---|---|
+| **Mailbox Power Pro (5.5x8.5)** | jumbo postcard | **$13,579** |
+| Mailbox Power Pro (4x6) | standard postcard | $10,835 |
+| ProspectsPLUS! (8.5x5.5, standard mail) | jumbo postcard | $12,589 |
+| ProspectsPLUS! (8.5x5.5, first class) | jumbo postcard | $15,010 |
+| Wise Pelican (6x9 jumbo) | jumbo postcard | $16,786 |
+| Geosential (Mailbox Power white-label) | jumbo postcard | $14,577 |
+
+### What Mailbox Power Pro includes
+
+- Unlimited free 4x6 AND 5.5x8.5 postcards (we pay only USPS postage)
+- $0.78/piece postage on 5.5x8.5 jumbo, $0.61/piece on 4x6
+- Dynamic QR codes with real-time text scan notifications to Brian
+- Google Street View auto-merge (postcard shows recipient's actual home)
 - First-name personalization at scale
-- Built-in list builder (homeowners, renters, income, credit score filters)
-- ~$0.10 per contact for list rental, postcard pricing varies by volume
-- Tight CRM integration patterns (works with FUB)
+- Built-in list builder at ~$0.10/contact for filtering by income, age, credit score
+- White-labeled fulfillment (HGPG return address, never Mailbox Power)
+- FUB integration documented and supported
+- 50 free greeting cards/month (use for client gifting + birthday automation)
+- Month-to-month after Year 1, no long-term contract
 
-If interested in Janine's exact stack, sign up directly through Geosential to get her training/templates. If we want better pricing, signing up direct with Mailbox Power skips the reseller margin (typically 15-30%).
+### Format decision
 
-### Alternates worth considering
+**5.5x8.5 jumbo, not 4x6.** The bigger card costs $0.17 more per piece (~$2,744/yr extra) but is impossible to miss in a mailbox stack, and matches the affluence of our $700K+ farm medians. Year 1 launch is about being unmissable, not optimizing postage.
 
-- **Wise Pelican** (~$0.35/piece) - real-estate-specific, no minimum, MLS import, draw-tool for custom areas at $0.10/address, QR codes + landing pages built in. Cleanest design templates in the category.
-- **ProspectsPLUS!** - Janine's other commonly cited vendor; deeper real-estate template library, MapMyMail for list-building, strong EDDM support.
-- **Corefact** - premium feel, more swag/extras (notepads, calendars, magnets). Higher per-piece cost. Good fit for value-add months (October maintenance checklist, January year-in-review).
-- **Cactus Mailing** - generic but reliable; built-in call-tracking phone numbers if we want a non-digital response channel.
+### Vendors not chosen and why
 
-### Decision needed
+- **Geosential** - same underlying platform as Mailbox Power, $998/yr more. Worth it for an agent without infrastructure; redundant for HGPG which already has CRM (FUB), CMS (homegrownpropertygroup.com), funnels (/farm landing pages), and tracking (Supabase farm_leads).
+- **Wise Pelican** - $3,200/yr more, no Street View merge, no platform-level lock-in (could be a fallback if MP becomes problematic).
+- **ProspectsPLUS!** - close on cost but no Street View, dated templates, less differentiated.
+- **Corefact / Cactus Mailing** - higher cost or less real-estate-specific.
 
-Pick one default vendor and commit to it for 12 months. Switching mid-program costs design-system rebuilds and breaks visual continuity. Recommend Mailbox Power direct (or Geosential if we want Janine's templates) for the dynamic QR + Street View features alone - both make our QR attribution simpler and the mailer harder to ignore.
+### Janine Sasso / Geosential
+
+Geosential is a white-labeled Mailbox Power reseller (Janine appears as a testimonial on Mailbox Power's own marketing). Janine's offer adds done-for-you setup, templates, and community for $998/yr premium. We chose to skip the premium because HGPG already has the technical infrastructure her platform layer provides. If a Mailbox Power Pro discount is available through her team, worth re-evaluating - ask her directly.
+
 
 ## Key Principles
 
@@ -137,7 +156,7 @@ Pick one default vendor and commit to it for 12 months. Switching mid-program co
 
 ## Next Decisions
 
-- [ ] Pick vendor (Mailbox Power direct vs Geosential reseller vs Wise Pelican) by ~May 22 to allow June 1 drop
+- [x] Pick vendor - LOCKED 2026-05-15: Mailbox Power Pro annual ($990)
 - [ ] Decide whether to supplement MLS-derived address lists with county tax roll (or use EDDM saturation)
 - [ ] Build FUB integration in `/api/farm/lead/route.ts` - currently writes to Supabase only
 - [ ] Decide on agent assignment per farm (currently HQ-led) - if assigning to Ashley, Brenda, or Taylor, update `farm_neighborhoods.assigned_agent_id`
