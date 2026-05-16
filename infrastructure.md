@@ -1,4 +1,4 @@
-<!-- Last Updated: 2026-05-14 -->
+<!-- Last Updated: 2026-05-16 -->
 
 # Infrastructure
 
@@ -18,16 +18,24 @@
 - **App name:** HGPG Brain Commit
 - **App ID:** 3712986
 - **Installation ID:** 132322328 (HGPG1 org, installed on all repositories)
-- **Permissions:** Contents read/write, Metadata read-only
+- **Permissions:** Contents read/write, Pull requests read/write (added 2026-05-16), Metadata read-only
 - **Private key:** stored as Vercel env var `GITHUB_APP_PRIVATE_KEY` on brain-app project. Local backup at `~/.hgpg-secrets/github-app-private-key.pem` on iMac (chmod 600). Keep a copy in 1Password as well.
 - **Auth helper:** `lib/octokit-app.ts` in brain-app repo. Mints fresh installation tokens (auto-rotate every hour).
 
 ### What this enables
 
 - Claude sessions (any device, including mobile) can write to `hgpg-context` via `POST https://brain.homegrownpropertygroup.com/api/external/write`
-- Claude sessions can commit code to ANY HGPG1 repo via `POST https://brain.homegrownpropertygroup.com/api/external/commit`
-- Both endpoints use the same bearer token (`BRAIN_WRITE_TOKEN` in Vercel env vars), stored in Claude memory and 1Password ("HGPG Brain Write Token")
+- Claude sessions can read any file from any HGPG1 repo via `GET https://brain.homegrownpropertygroup.com/api/external/read?repo=...&path=...`
+- Claude sessions can commit code directly to main on ANY HGPG1 repo via `POST https://brain.homegrownpropertygroup.com/api/external/commit`
+- Claude sessions can open multi-file PRs against any HGPG1 repo via `POST https://brain.homegrownpropertygroup.com/api/external/pr` (auto-branch `claude/YYYY-MM-DD-<slug>`, appends to existing PR if branch already has one open)
+- All four endpoints use the same bearer token (`BRAIN_WRITE_TOKEN` in Vercel env vars), stored in Claude memory and 1Password ("HGPG Brain Write Token")
 - No PAT exists anywhere in the stack
+
+### Workflow split (since 2026-05-16)
+
+- **hgpg-context** (brain notes): write directly to main via `/api/external/write`. No review gate needed for brain files.
+- **App repos** (hgpg-cma-tool, hgpg-transaction-manager, charlotte-sellers-guide-vercel, etc.): default to `/api/external/pr` for code changes. Use `/api/external/commit` (direct to main) only for: one-byte retriggers when Vercel misses a webhook, Brian explicitly requesting direct push, or emergency hotfix that can't wait.
+- Multi-commit debug cycles land on a single review branch instead of polluting production with diagnostic commits.
 
 ### Local development
 
@@ -175,3 +183,4 @@ Password: re_... (Resend API key)
 ## PINs and admin credentials
 
 All in memory. PIN 2026 standard across CMA Engine, Transaction Manager. PIN 1847 for Property Marketing Analyzer.
+
