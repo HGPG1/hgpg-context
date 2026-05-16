@@ -158,6 +158,18 @@ Set `ALLOWED_REPOS` env var to a comma-separated list to restrict commit targets
 - First Write API deploy read wrong env var (`GITHUB_TOKEN` only). Brain-app's existing PAT was `GITHUB_PAT`. Fix in commit `127cc0c` added `GITHUB_PAT` as first lookup. (Obsoleted 2026-05-14 by GitHub App migration — all PAT env var lookups removed.)
 - PAT leak 2026-05-13 — a fine-grained PAT was exposed in a chat. All PATs revoked. Brain-app went down for writes (502 "GitHub read failed"). Fixed 2026-05-14 by migrating from PAT to GitHub App (commit `bc8a0bf`). New `/api/external/commit` endpoint added in the same migration.
 
+
+## Security: /api/files gating (2026-05-15)
+
+Until 2026-05-15, `GET /api/files` and `GET /api/files/<path>` were anonymous - the full brain repo tree and per-file contents were readable by anyone on the internet. Patched by adding `middleware.ts` at the repo root that intercepts `/api/files/*` and requires one of:
+
+1. A valid Supabase auth session cookie (so the brain editor UI works for logged-in Brian)
+2. `Authorization: Bearer <BRAIN_WRITE_TOKEN>` (so programmatic readers authenticate the same way the write endpoints do)
+
+Anonymous requests return 401 with `{"error":"Unauthorized"}`. All other routes pass through untouched. Write endpoints (`/api/external/write`, `/api/external/commit`) unaffected - they already gated themselves.
+
+Verified post-deploy: anonymous reads 401, Bearer reads 200, write APIs 200, home page redirect to login still works.
+
 ## Pickup notes
 
 - The `package-lock.json` may differ between iMac and Mac mini — push from whichever machine you most recently ran `npm install` on
