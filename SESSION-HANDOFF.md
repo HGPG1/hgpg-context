@@ -2,395 +2,95 @@
 
 # Session Handoff
 
-## Latest session: 2026-05-17 - Geo-farming FUB integration shipped 🚀
-
-## TL;DR
-
-The geo-farming form-submission flow now pushes leads to FUB with proper tags, source, and assignment. End-to-end verified with two real submissions across two farms. June 2026 campaigns are logged in `farm_campaigns` with correct attribution slugs. The handoff doc's pre-launch checklist is functionally complete for June 1 — only physical mailer order and (optional) county-tax-roll list expansion remain.
-
-This session also proved out a new deploy pipeline: the brain-app's `/api/external/commit` endpoint authorizes writes to ANY HGPG1 repo, not just `hgpg-context`. Web Claude can now push app code without going through Brian's Mac. Discovered during this session and used to ship the FUB integration directly to `homegrown-property-group-site` master.
-
-## What shipped
-
-### FUB push on form submissions
-
-`app/api/farm/lead/route.ts` in `HGPG1/homegrown-property-group-site` on master, deployed 2026-05-17 13:25 UTC. Now:
-
-1. Validates input (existing)
-2. Resolves attributed campaign from `?c=<slug>` (existing)
-3. Looks up neighborhood NAME from `farm_neighborhoods.id` (new - needed for FUB tags)
-4. Inserts `farm_leads` row (existing)
-5. **Fires `POST /v1/events` to FUB with tags `Geo Farm`, `<Neighborhood>`, `Touch 1 - Intro` and source `Geo Farm - <Neighborhood>` (new)**
-6. **Writes `fub_person_id` back to `farm_leads` on success (new)**
-
-FUB push is non-blocking. If FUB is down, the Supabase row is still the source of truth and the form still returns 200 to the user.
-
-Tested end-to-end:
-- Test 1 (Bent Creek + bc-2026-06): farm_leads row created → FUB person 32072 created with tags `Geo Farm`/`Bent Creek`/`Touch 1 - Intro` and source `Geo Farm - Bent Creek`
-- Test 2 (Bridgemill + bm-2026-06): farm_leads row created → FUB person 32073 created → `fub_person_id` written back to Supabase
-
-Test rows deleted from `farm_leads`; FUB persons 32072/32073 are tagged `DELETE-ME-test-data` for FUB-UI bulk cleanup (no FUB delete tool exposed in MCP).
-
-### June 2026 campaigns logged
-
-Three rows in `farm_campaigns`:
-
-| qr_code_slug | neighborhood | pieces_sent | mailer_type | send_date |
-|---|---|---|---|---|
-| bc-2026-06 | Bent Creek | 430 | introduction | 2026-06-01 |
-| bm-2026-06 | Bridgemill | 600 | introduction | 2026-06-01 |
-| qb-2026-06 | Queensbridge | 315 | introduction | 2026-06-01 |
-
-`cost_total` set to 0 as placeholder. Update via `UPDATE farm_campaigns SET cost_total = X WHERE qr_code_slug = '...'` once Geosential invoices land.
-
-Note: the handoff's original INSERT used wrong column names (`theme`, `quantity`, `format`, `design_notes`). Real schema is `mailer_type`, `pieces_sent`, `cost_total` (NOT NULL), `vendor`, `notes`, `campaign_name`, `design_url`. Fixed when running.
-
-### Agent assignment: HQ-led for Year 1 — locked
-
-All three farms keep `farm_neighborhoods.assigned_agent_id = NULL`. New geo-farm leads route to Brian by default via FUB lead-flow rules. Revisit Q3 2026 once we see lead volume per farm.
-
-### Brain commit pipeline discovered
-
-The `/api/external/commit` endpoint on brain-app accepts `{repo, path, content, branch?, message?}` and writes to any HGPG1 repo via the HGPG Brain Commit GitHub App. Tested writes to `homegrown-property-group-site` on `master`. Vercel auto-deploys fired on each commit.
-
-The companion `/api/external/read?repo=X&path=Y&ref=Z` returns file content + SHA. Critical for diffing before overwrite.
-
-Bearer token same as for brain write (`BRAIN_WRITE_TOKEN`). Default branch is `main`; pass `branch:"master"` or `branch:"<feature>"` explicitly when needed. **Most HGPG1 app repos use `master` as default, NOT `main`.** The site repo, for example, has a stale README on `main` from the Manus era — production deploys come from `master`. Always check before assuming.
-
-Workflow that worked this session:
-1. GET `/api/external/read?repo=...&path=...&ref=master` to see existing content
-2. Splice edits locally
-3. POST `/api/external/commit` with full content + `branch:"master"`
-4. Poll Vercel for deploy state via Vercel MCP `list_deployments`
-5. Run end-to-end test via curl POST to the live API
-6. Verify Supabase + FUB sides via their MCPs
-
-This means future sessions can ship app code end-to-end without round-tripping through Brian's Mac. Worth documenting more formally in `projects/brain-app.md` next session.
-
-## Open / parked (for next session or Brian)
-
-1. **Manual cleanup on Brian's Mac (cosmetic):**
-   ```
-   cd ~/Documents/homegrown-property-group-site && git checkout master && git pull
-   gh repo set-default HGPG1/homegrown-property-group-site
-   git rm _brain_commit_probe.txt _brain_commit_probe_master.txt 2>/dev/null || true
-   # main branch also has _brain_commit_probe.txt - either delete the main branch entirely
-   # if it's unused, or push the deletion to main too.
-   git commit -m "chore: remove brain commit probe stubs" && git push
-   ```
-   Both files are 1-byte stubs. Harmless but ugly in repo root.
-
-2. **FUB cleanup:** open FUB → People → filter by tag `DELETE-ME-test-data`, bulk delete persons 32072 and 32073.
-
-3. **Order June 2026 mailers from Geosential.** Campaigns are pre-logged in DB; just need the physical drop. Print the QR URLs:
-   - `https://www.homegrownpropertygroup.com/farm/bent-creek?c=bc-2026-06`
-   - `https://www.homegrownpropertygroup.com/farm/bridgemill?c=bm-2026-06`
-   - `https://www.homegrownpropertygroup.com/farm/queensbridge?c=qb-2026-06`
-
-4. **Decide on county tax-roll list expansion** (still parked from prior session). MLS-derived lists cover ~65-75% of each farm. Lancaster County GIS export would close the gap. Defer to Q3 2026; six months of mailers to MLS-derived list is fine.
-
-5. **Document the new brain commit pipeline in `projects/brain-app.md`** so future Claude sessions know it exists.
-
-## Prior session: 2026-05-16 (afternoon) - Geo-farming launch 🌱
-
-## TL;DR
-
-HGPG is launching a three-farm geographic mailer program June 1, 2026. Infrastructure is built end-to-end (landing pages live, tracking working, brain doc current). Brian needs to verify five questions with Geosential support, sign up for LITE, design postcards in Canva, and ship.
-
-## What is fully done
-
-**Three farms picked, seeded in Supabase HGPG Core (project `ioypqogunwsoucgsnmla`):**
-- Bent Creek (29720 Lancaster) - 430 homes - median $785K - id `4f3b0cbf-8009-4573-a130-c1df11a91a28`
-- Bridgemill (29707 Indian Land) - 600 homes - median $819,990 - id `d8983d8c-8004-4f41-8cae-367f013340d7`
-- Queensbridge (29707 Indian Land) - 315 homes - median $724,500 - id `5114a40e-1bc4-4701-9451-64a12b575086`
-
-**Watch list (not Year 1, revisit later):**
-- The Retreat at Rayfield - Kimberly Magette has 25% share (too entrenched for Year 1)
-- The Estates at Sugar Creek - 100% Taylor Morrison builder sellout (revisit Q1 2028)
-
-**Supabase tables and view created in HGPG Core:**
-- `farm_neighborhoods`, `farm_campaigns`, `farm_leads`
-- `farm_campaign_roi` view rolls up spend, leads, closings, commission, ROI per farm
-- Run anytime: `SELECT * FROM farm_campaign_roi;`
-
-**Landing pages LIVE in production at homegrownpropertygroup.com:**
-- `/farm/bent-creek`, `/farm/bridgemill`, `/farm/queensbridge`
-- QR URL pattern: `https://www.homegrownpropertygroup.com/farm/<slug>?c=<campaign-slug>`
-- The `?c=` parameter matches `farm_campaigns.qr_code_slug` for attribution
-- Server logs every page hit to `farm_leads` with `lead_source = 'qr_scan'`
-- Form submissions write `lead_source = 'landing_page'` rows via `/api/farm/lead`
-- Verified end-to-end working as of 2026-05-15
-
-**Code lives in `HGPG1/homegrown-property-group-site` on master:**
-- `app/farm/[slug]/page.tsx`
-- `app/farm/[slug]/FarmLandingClient.tsx`
-- `app/api/farm/lead/route.ts`
-- Uses Supabase REST via plain fetch (no `@supabase/supabase-js` dep - site doesn't carry the SDK)
-- Vercel env vars set: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
-
-**Address CSVs exported and in iCloud HGPG-Cowork workspace:**
-- `farm-addresses-bent-creek.csv` (227 unique MLS addresses, expect ~430 homes total in farm)
-- `farm-addresses-bridgemill.csv` (524 MLS addresses, ~600 homes total)
-- `farm-addresses-queensbridge.csv` (232 MLS addresses, ~315 homes total)
-- MLS-derived = homes that have ever been listed. To reach the full universe, layer in Lancaster County tax-roll or use EDDM saturation.
-
-**Brain documentation committed to `HGPG1/hgpg-context`:**
-- `marketing/geo-farming.md` - program plan, vendor analysis, locked decisions
-- `marketing/farms/june-2026-introduction.md` - June mailer brief (template for monthly briefs going forward)
-- `projects/brain-app.md` updated with security note
-
-**Security patch shipped to brain-app:**
-- `middleware.ts` deployed to `HGPG1/brain-app` on main
-- `/api/files` now requires Supabase session cookie OR Bearer token
-- Was previously anonymous-readable (full brain repo leak via GET)
-- Verified post-deploy: anonymous reads 401, Bearer reads 200, editor UI still works
-
-## Vendor decision: LOCKED 2026-05-15
-
-**Geosential LITE at $47/month ($564/year)**
-
-This is the postcard-only tier of Janine Sasso's Geosential platform, which is a white-labeled Mailbox Power reseller. We chose LITE because:
-
-- Cheapest option at our volume ($13,153/year all-in vs Mailbox Power Pro at $13,579 and Geosential PRO at $14,577)
-- Includes unlimited free 4x6 and 5.5x8.5 postcards (we pay only USPS postage)
-- Smart QR with text alerts on scans
-- USPS Informed Delivery integration (behavior unverified, see below)
-- List builder and automation builder
-- Month-to-month, cancel anytime
-
-We skip PRO/ELITE because their platform layer (CRM, funnels, website builder, inbox) is redundant for HGPG - we already have FUB, homegrownpropertygroup.com, /farm landing pages, and Supabase farm_leads.
-
-## What Brian needs to do next
-
-### Step 1: COMPLETE - Geosential answers received 2026-05-16
-
-Five questions answered by Janine Sasso directly:
-
-1. Informed Delivery on LITE: grayscale only (skip as selling point)
-2. Street View merge: YES on LITE
-3. List builder: $0.10/contact
-4. Custom design upload: YES on LITE
-5. Scan data export: NO - PRO only
-
-**Decision: LITE confirmed.** Scan export is fine to skip - our /farm landing pages already track scans into Supabase `farm_leads`. Geosential is print + mail fulfillment only. See `marketing/geo-farming.md` "Scan tracking architecture" for details.
-
-### Step 2: Sign up for Geosential LITE
-
-- URL: https://geosential.com/lite-payment
-- $47/month, no annual lock
-- Login afterward at https://print.geosential.com/login
-
-### Step 3: Design three June Introduction postcard variants in Canva
-
-- Brand kit: **kAHFKMi4Q7g**
-- Size: 5.5 x 8.5 jumbo
-- Brief at `marketing/farms/june-2026-introduction.md` in brain repo
-- One design system, three variants (one per farm)
-- Brand rules: navy #2A384C, steel #A0B2C2, light steel #D1D9DF, off-white #F0F0F0. NO green. No em dashes. Cooper Hewitt (body), Sansita Regular (display).
-- Tagline: "Growth Starts Here, At the Roots."
-- Footer: Real Broker LLC, 7612 Charlotte Highway, Indian Land, SC 29707
-- Export each as PDF/X-1a for print
-- Can have Claude review proofs before submitting
-
-### Step 4: Log the three June campaigns to Supabase
-
-Run in HGPG Core SQL editor BEFORE the drop:
-
-    INSERT INTO farm_campaigns (neighborhood_id, qr_code_slug, send_date, theme, format, vendor, quantity, design_notes)
-    VALUES
-      ('4f3b0cbf-8009-4573-a130-c1df11a91a28', 'bc-2026-06', '2026-06-01', 'introduction', '5.5x8.5 jumbo', 'geosential-lite', 430, 'Year 1 Touch 1 - introduction with Q1 stats'),
-      ('d8983d8c-8004-4f41-8cae-367f013340d7', 'bm-2026-06', '2026-06-01', 'introduction', '5.5x8.5 jumbo', 'geosential-lite', 600, 'Year 1 Touch 1 - introduction with Q1 stats'),
-      ('5114a40e-1bc4-4701-9451-64a12b575086', 'qb-2026-06', '2026-06-01', 'introduction', '5.5x8.5 jumbo', 'geosential-lite', 315, 'Year 1 Touch 1 - introduction with Q1 stats');
-
-QR codes on each variant should encode:
-
-    Bent Creek:   https://www.homegrownpropertygroup.com/farm/bent-creek?c=bc-2026-06
-    Bridgemill:   https://www.homegrownpropertygroup.com/farm/bridgemill?c=bm-2026-06
-    Queensbridge: https://www.homegrownpropertygroup.com/farm/queensbridge?c=qb-2026-06
-
-### Step 5: Upload, proof, schedule, ship
-
-- Upload three CSVs from iCloud HGPG-Cowork workspace to Geosential
-- Upload three Canva PDFs as 5.5x8.5 templates
-- Enable Smart QR with text alerts routing to Brian (803-902-3700)
-- Enable Informed Delivery ride-along if available
-- Enable Street View merge on back of card if available (or hold for July if proof looks weird)
-- Request proof, review for compliance (broker line, Equal Housing icon, all required elements present)
-- Approve, schedule June 1 drop
-
-## Year 1 budget
-
-| Line | Amount |
-|---|---|
-| Geosential LITE | $564 |
-| Postage (16,140 pieces × $0.78) | $12,589 |
-| **Total Year 1** | **$13,153** |
-
-Break-even: ~12% of one closing at $780K median × 2.75% commission ($21,450).
-
-## 12-month content calendar
-
-| Month | Theme |
-|---|---|
-| June 2026 | Introduction |
-| July 2026 | Q2 Market Update |
-| Aug 2026 | Just Sold |
-| Sept 2026 | Neighborhood Story |
-| Oct 2026 | Value-Add (fall maintenance) |
-| Nov 2026 | Q3 Market Update |
-| Dec 2026 | Just Sold + Holiday |
-| Jan 2027 | Year in Review |
-| Feb 2027 | Spring Prep |
-| Mar 2027 | Just Listed / Spring |
-| Apr 2027 | Q1 2027 Market Update |
-| May 2027 | Anniversary |
-
-Each month gets a brief at `marketing/farms/<month>-<year>-<theme>.md`. Use June as the template.
-
-## Open items deferred (not blocking June launch)
-
-- Add FUB push to `/api/farm/lead/route.ts` so form submissions create a FUB person with proper tags (`Geo-Farm`, `Bent-Creek`, etc.)
-- Decide whether to layer Lancaster County tax-roll into mailing universe, or accept the MLS-list ~30% gap and use EDDM for full coverage on certain months
-- Decide agent assignment per farm (currently HQ-led). If assigning to Ashley/Brenda/Taylor, update `farm_neighborhoods.assigned_agent_id`
-- Re-evaluate vendor at Q1 2027 review
-
-## Key infrastructure references
-
-**Brain repo (canonical source):**
-- `HGPG1/hgpg-context` on main
-- Editable at brain.homegrownpropertygroup.com
-- Local at `~/Documents/hgpg-context`, push with `brain` shell function
-
-**Brain write API (for Claude sessions):**
-- `BRAIN_WRITE_TOKEN` stored in Claude memory
-- POST `https://brain.homegrownpropertygroup.com/api/external/write` (brain repo only)
-- POST `https://brain.homegrownpropertygroup.com/api/external/commit` (any HGPG1 repo)
-- Bearer auth required
-
-**Supabase HGPG Core:**
-- Project ID: `ioypqogunwsoucgsnmla`
-- Tables: `farm_neighborhoods`, `farm_campaigns`, `farm_leads`
-- View: `farm_campaign_roi`
-
-**Vercel:**
-- Team: `team_FietQPKCmnyioG2n0FdteQCV`
-- Site project: `prj_aBejJuBUr5BN0atTOiO5xyHL7qxj`
-
-**Output files in iCloud HGPG-Cowork:**
-- `HGPG_Farm_Analysis_2026-05-15.pdf`
-- `HGPG_Farm_Plan_2026-05-15.pdf`
-- `farm-addresses-*.csv` (three farms)
-
-## What this session got wrong and corrected
-
-1. Initially quoted Wise Pelican at $0.35/piece - actual is $1.04 all-in. Corrected after pricing fetch.
-2. Initially recommended Mailbox Power Pro at $990/yr - found Geosential LITE at $47/mo is cheaper for same Mailbox Power underlying tech. Final answer flipped to LITE.
-3. Initially suggested staging farms (Bridgemill first, others later) - Brian correctly pushed back that staged starts break the consistency model that makes farming work. All three launch June 1.
-4. Claimed Informed Delivery was a clear LITE feature - actually unverified. Listed as one of the five questions to confirm before signup.
-
-## What to ask Brian in the next session
-
-If picking up this conversation cold, the right opening question is:
-
-> "Have you signed up for Geosential LITE and started the Canva designs?"
-
-States:
-- Not signed up yet → walk through https://geosential.com/lite-payment, then move to Canva
-- Signed up, no designs → offer to draft three variants based on the June brief at `marketing/farms/june-2026-introduction.md`
-- Designs in flight → offer to review proofs for compliance and brand
-- Designs approved, drop scheduled → confirm the Supabase INSERT was run, then we wait for June 1
-
-Vendor question is settled. Next session is execution, not analysis.
-
----
-
-## Latest session: 2026-05-16 (morning) — PR-mode endpoint shipped 🟢
-
-### What got built
-- **`/api/external/pr` on brain-app** — multi-file PR open/update endpoint for any HGPG1 repo. Same bearer auth + same guardrails as `/api/external/commit`. Auto-generates branch name `claude/YYYY-MM-DD-<slug>` from PR title if not specified. If the branch + open PR already exist, additional commits append to it. Live at https://brain.homegrownpropertygroup.com/api/external/pr (commit `a9d057f` on brain-app main).
-- **GitHub App permission flip**: HGPG Brain Commit App granted `Pull requests: Read and write` (was missing). App settings: https://github.com/settings/apps/hgpg-brain-commit. Brian approved the permission update.
-- **Smoke test passed**: PR #45 on hgpg-cma-tool opened end-to-end via the endpoint. https://github.com/HGPG1/hgpg-cma-tool/pull/45 (close + delete branch when convenient — both throwaway).
-
-### Endpoint shape
-
-    POST https://brain.homegrownpropertygroup.com/api/external/pr
-    Authorization: Bearer <BRAIN_WRITE_TOKEN>
-    Content-Type: application/json
-    {
-      "repo": "hgpg-cma-tool",
-      "title": "Fix packet narrative persist",
-      "body": "Markdown PR description",
-      "files": [
-        { "path": "app/api/foo/route.ts", "content": "..." },
-        { "path": "lib/foo.ts", "content": "..." }
-      ],
-      "branch": "claude/2026-05-16-my-fix",   // optional, auto-derived from title
-      "base": "main",                          // optional, defaults to main
-      "commitMessage": "..."                   // optional, defaults to title
-    }
-
-Response includes `prNumber`, `prUrl` (tappable on phone), `prState`, `branchCreated`, `created` (true if PR opened by this call, false if appended), and `commits[]`.
-
-### New default workflow for Claude sessions
-
-**For hgpg-context (brain repo)**: keep using `/api/external/write` (direct to main). Brain notes don't need a review gate.
-
-**For app repos (hgpg-cma-tool, hgpg-transaction-manager, charlotte-sellers-guide-vercel, etc.)**: default to `/api/external/pr`. Direct-to-main via `/api/external/commit` is now reserved for:
-- One-byte retriggers when Vercel misses a webhook
-- Brian explicitly asks for direct push
-- Emergency hotfix that can't wait for Brian to review on phone
-
-Multi-commit debug cycles (like last night's 5-commit chase) should now all land on a single review branch instead of polluting production with diagnostic commits.
-
-### Gotcha tracked tonight
-**brain-app builds went ERROR x3** before I figured out the issue. TypeScript strict mode rejected `app.data.owner.login` because the Octokit response type has `owner` as a union (`SimpleUser | Enterprise`) where one variant lacks `login`. Stub-replaced the diagnostic route to unblock the build. Brain-app is back to green; `/api/external/app-info` returns 410. **Lesson: every brain-app endpoint Claude adds needs to pass `tsc` against the strict tsconfig, not just look right. If unsure, lean on `unknown` casts at the response boundary instead of indexing into Octokit response types.**
-
-### Cleanup outstanding (tap-on-phone tasks for Brian)
-- Close PR #45 on hgpg-cma-tool and delete the test branch (`claude/2026-05-16-test-pr-endpoint-safe-to-close`). Both safe to remove.
-- Optional: clean up the test file from the branch first if you'd rather keep the branch for future reference. Either way works.
+## Last session: 2026-05-17 — June 2026 geo-farming postcards built 🟡
+
+### What shipped
+- Three print-ready PDFs for Geosential June 1 drop:
+  - `HGPG_postcard_bent_creek_2026-06.pdf`
+  - `HGPG_postcard_bridgemill_2026-06.pdf`
+  - `HGPG_postcard_queensbridge_2026-06.pdf`
+- Spec: 5.5 x 8.5 in jumbo postcard, portrait, 0.125 in bleed, 300 DPI sRGB, two pages per file (front + back)
+- All three QR codes scan-verified to farm-specific URLs with campaign tags (`bc-2026-06`, `bm-2026-06`, `qb-2026-06`)
+- Full design system established for touches 2-12: typographic hero + grayscale photo, navy headline band, three stat tiles, steel intro panel, recent sales table, navy Quick Take callout, contact row, navy compliance footer with combined HGPG + Real Broker LLC lockup
+- New brief at `marketing/farms/june-2026-introduction.md`
+
+### Design decisions made
+- **Portrait, not landscape** — brief specified portrait; design absorbed the content well; postal sorting handles slightly worse than landscape but acceptable. Test landscape on touch #2 (July) and compare scan rates.
+- **Grayscale photo treatment** (not duotone) — cleaner editorial / market-brief feel, no blue tint, brand chrome pops on top. Stock photo placeholders for v1 (suburban brick home for Bent Creek, golf course for Bridgemill, gray craftsman for Queensbridge); swap for real neighborhood photos if Brian sources them before May 22.
+- **Combined HGPG + Real Broker LLC lockup** on both front bottom strip (large, navy bg) and back compliance footer (small, navy-deep bg). Satisfies Real Broker compliance requirement.
+- **Tagline kept as "Growth Starts Here, At the Roots."** — Brian raised "Your Neighborhood Realtors" as an alternative; deferred because (a) NAR Realtor trademark + Real Broker team-not-brokerage compliance risk, (b) we haven't earned the right on touch #1. Plan: keep this tagline through touch #4, drop tagline touches #5-8, revisit "Your Neighborhood Realtors" for touches #9-12 once data has done the credibility work.
+- **Brian's title** = "Team Lead, Home Grown Property Group" everywhere on the card. NOT Broker/Owner (per project standing rule). Brief had it wrong; corrected silently.
+- **Body text bumped from 28pt to 32pt** on both intro panel and Quick Take after Brian flagged readability. Body panel height expanded from 320 to 380, Quick Take from 200 to 230.
+
+### MLS data findings (HGPG Listing Reports + MLS Supabase, `wdheejgmrqzqxvgjvfee`)
+- Brief stats 2-of-3 accurate. Bridgemill brief was significantly wrong: brief said $820K / 19 / 98.1%, real trailing-12-month combined is $690K / 39 / 98.6%. Brief was likely citing partial-year or older data.
+- **Bridgemill segments into two markets**: Single Family Residences (26 sales, $584K-$1.175M, median $780K) and Townhomes (10 sales, $390K-$486K, median $438K). Reporting a combined median misrepresents both audiences.
+- **Decision: Bridgemill card uses SFH-only data.** Townhome segment is 4.6x smaller in volume and a different farming play. SFH-only stats: $780K / 26 / 98.6%. "Single Family Residences" segment label rendered under the recent sales section header. Townhomes excluded from the recent sales rows.
+- **Bent Creek (Lancaster 29720 with some 29707)** and **Queensbridge (29707)** are 100% SFH. No segmentation needed. Brief stats matched reality exactly.
+- **Header changed from "Q1 2026 Market Snapshot" to "Trailing 12-Month Snapshot"** — brief stats were trailing-12-month not Q1, so the header was misleading.
+- **Section title changed from "Recent Sales, Last 90 Days" to "Recent Sales In Your Neighborhood"** — Queensbridge only had 3 sales in 90 days, needed to pull a 4th from January, so "Last 90 Days" was false advertising.
+- **Data error caught**: `3145 Hartson Pointe Drive` shows close price $2,695 on 2026-04-27. Almost certainly a lease record miscategorized as a sale or a missing-zeros entry. Filtered with `close_price >= 100000`. Worth a Canopy ticket if not corrected upstream.
 
 ### Open / parked
-- Drop `/api/debug/persist-test` route + `_cma_packet_debug` table once the packet fix has a week of stable use.
-- Delete `lib/supabase.ts` (vestigial, points at wrong project) on the cma-tool — combine with the diag-route removal as one PR.
-- **Original Candlestick anchor drop** — NOT A BUG, captured below. Auto-Find pulled fresh MLS data; two pendings (Spelman, Regal) closed lower than their pending list prices. Anchor moved $1,026,037 → $929,748 (-9.4%). Math correct. May 12 baseline `7cb7ef75` still in /history.
-- Stack consolidation (parked 2-3 weeks from late April): dead concierge repo, deals → transactions migration, Title Case vs snake_case status mismatch, absorb tc-concierge into TM as /intake.
-- MLS Grid API token from Canopy (Bridgett Bouvier, data@canopyrealtors.com).
-- Sellers Guide Meta ads launch.
-- TM deferred: addendum body block injection, per-party messaging capability tracking, calendar gate logic backfill.
-- Agent TM onboarding Phase 3 (Ashley, Taylor, Brenda).
+- **Geosential upload** — PDFs are ready, Brian to upload to print.geosential.com by May 22 for June 1 drop. Quantities: Bent Creek 430, Bridgemill 600, Queensbridge 315, total 1,345.
+- **Hero photos** — currently stock-with-grayscale placeholders. Brian to decide whether to swap to real neighborhood photos (Bent Creek gate, Bridgemill clubhouse, Queensbridge home) before upload. Stock-with-grayscale works as a design system if not swapped.
+- **EHO icon** — custom-drawn approximation, not the official Equal Housing Opportunity vector. Acceptable for v1, swap to official mark when convenient.
+- **Lander attribution check** — verify that `?c=bc-2026-06` / `bm-2026-06` / `qb-2026-06` query params land in FUB as lead source / source detail when forms are submitted on farm landing pages. Route to HGPG-Tech project to confirm.
+- **Touch #2 (July) test plan** — flip orientation to landscape on all three farms, hold everything else constant, compare scan rates touch #1 vs touch #2 per farm. Three within-subject comparisons instead of cross-subject.
+
+### Pickup notes for next session
+- Source files at `/home/claude/postcards/` are ephemeral (session container). If a rebuild is needed in a future session: re-pull MLS data via Supabase MCP (same query patterns above), re-fetch fonts (Sansita Bold + Inter Variable from Google Fonts), re-extract HGPG mark from `1.png`/`3.png` and combined lockup from `7.png`. All build scripts are reproducible from the brief.
+- Bridgemill SFH-only farming pattern should carry forward to touches 2-12. If Brian wants a Townhome variant added later, it gets its own card design with its own data.
+- If Brian sources real neighborhood photos between sessions, regen heroes (`heroes_final.py`) and rebuild cards (`build_cards_final.py`). Photos should land at high resolution (>2000px wide), landscape orientation; grayscale treatment is applied automatically.
 
 ---
 
-## Prior session: 2026-05-16 (late night) — CMA packet narrative persistence ACTUALLY fixed 🟢
+## Previous session: 2026-05-06 — Brain App MVP shipped 🟢
 
-### What got built (commit chain on hgpg-cma-tool main)
-- `cd36dee` — first attempt: maxDuration=120, force-dynamic, server-side persist using SUPABASE_URL/SERVICE_ROLE. **Didn't work** — those env vars on cma-tool point at HGPG Listing Reports + MLS (set up for mls-sync cron), not HGPG Core where cma_reports lives.
-- `f0a7683`, `b1c435d` — diagnostic versions logging full PostgREST error fields. Still couldn't see them due to Vercel log UI truncation.
-- `f01119e` — standalone `/api/debug/persist-test` GET endpoint that returns env-check + supabase-js error + raw fetch result + read-back. **This is what cracked it.** Returned PGRST205 "Could not find table cma_reports in schema cache" pointing at the wrong project.
-- `8572dea` — **the fix.** Switched persist to `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` (those target Core, where cma_reports + cma_reports_open_all RLS policy live). Anon key against RLS-open table works identically to service role for this write.
+### What got built
+- New Vercel project: `brain-app` on team `team_FietQPKCmnyioG2n0FdteQCV`
+- New repo: `HGPG1/brain-app` (private)
+- Live at: `https://brain.homegrownpropertygroup.com`
+- Stack: Next.js 16.2.4, Tailwind v4, CodeMirror 6, Supabase Auth (magic link)
+- Single-user lock: `BRIAN_EMAIL=brian@homegrownpropertygroup.com` allow-list
+- GitHub auth: fine-grained PAT scoped to `HGPG1/hgpg-context`, contents:write only
+- Round-trip verified: edit file in browser → commit lands on `main` with author `brian@homegrownpropertygroup.com`
 
-### Verification (2026-05-16 02:51-02:55 UTC / 10:51-10:55 PM ET)
-Two consecutive successful runs on mobile against new Candlestick draft `b755f9cd`:
-- narrative_generated_at populated
-- recommended_price $930,000
-- has_narrative=true
+### Infra changes that affect other apps
+- Resend custom SMTP wired into `HGPG Core` Supabase (project `ioypqogunwsoucgsnmla`)
+  - Sender: `noreply@homegrownpropertygroup.com`, name: HGPG
+  - API key stored under "Supabase HGPG Core" in Resend
+  - Rate limit went from 2/hr (Supabase default) to 30/hr (Resend default), can be raised
+  - This affects ALL apps using this Supabase: TM, CMA, TC Concierge, brain-app
+- Supabase project renames for hygiene:
+  - `ioypqogunwsoucgsnmla` → "HGPG Core"
+  - `ngdrliyjtqcwhhfrbxao` → "HGPG FUB Integration" (verify)
+  - `wdheejgmrqzqxvgjvfee` → "HGPG Listing Reports + MLS" (verify)
+  - `fkxgdqfnowskflgbuxhm` → "HGPG Signature + Relocation" (verify)
+- Supabase `HGPG Core` redirect URLs added:
+  - `https://brain.homegrownpropertygroup.com/**`
+  - `http://localhost:3000/**`
+  - (Existing tools.hgpg entries left intact)
 
-Server-side persist confirmed working on iPhone Safari mid-session, which was the original failure mode (mobile fetch abort dropping the client-side useSaveNarrative hook).
+### Bugs found and fixed mid-session
+- Magic link redirected to `tools.homegrownpropertygroup.com` (Supabase Site URL fallback) — fixed by adding `/auth/callback` route handler that was missing from initial scaffold + pointing `emailRedirectTo` at it
+- Supabase free SMTP rate limit (2/hr) hit during testing — fixed permanently by switching to Resend custom SMTP
 
-### Architecture gotcha now documented
-**The cma-tool Vercel project has TWO Supabase target patterns:**
-- `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` → HGPG Listing Reports + MLS (wdheejgmrqzqxvgjvfee). Used by `/api/cron/mls-sync`, `/api/cron/team-media-sync`. Reads/writes `mls_property`, `team_media`, etc.
-- `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` → HGPG Core (ioypqogunwsoucgsnmla). Used by `lib/supabase-browser.ts`, `app/api/packet/seller/route.ts` (post-fix). Reads/writes `cma_reports`.
+### Project status updates
+- `projects/brain-app.md` — status now 🟢 SHIPPED (was 🟡)
+- `projects/hgpg-team-tools2.md` — Site URL in Supabase still points here for the broken app's eventual fix
+- `projects/transaction-manager.md` — no changes today, but TM benefits from Resend SMTP upgrade
 
-`lib/supabase.ts` (server, anon, no NEXT_PUBLIC prefix) is **vestigial** — points at SUPABASE_URL which is HGPG Listing Reports + MLS. Don't use it for cma_reports writes. Worth deleting on the next cleanup pass.
+### Deferred / Phase 2 for brain-app
+- iPhone smoke test (CodeMirror + iOS soft keyboard scroll behavior)
+- Cooper Hewitt self-hosted (currently falling back to system sans)
+- File rename and delete
+- Diff view before save
+- Cross-file search
 
-### Brain App / commit endpoint gotcha discovered
-Commit `1d6b19b` via `/api/external/commit` didn't auto-trigger Vercel build. Pushing the same file content with a one-byte trailing-newline change as commit `f01119e` did trigger. Unclear why — possibly the GitHub App webhook silently dropped that specific push event. Workaround when an expected deploy doesn't appear: re-commit with any byte-level difference.
-
----
-
-## Prior session (2026-05-06): Brain App MVP shipped 🟢
-- New Vercel project `brain-app`, repo HGPG1/brain-app, live at brain.homegrownpropertygroup.com
-- Next.js 16.2.4, Tailwind v4, CodeMirror 6, Supabase Auth (magic link), single-user lock
-- Resend custom SMTP wired into HGPG Core Supabase, 30/hr (was 2/hr default), affects ALL apps on this Supabase: TM, CMA, TC Concierge, brain-app
-- Supabase project renames for hygiene (Core, FUB Integration, Listing Reports + MLS, Signature + Relocation)
+### Pickup notes for next session
+- Brain-app is live and working — use it for any future updates to `hgpg-context`
+- Resend API key is in 1Password ("Supabase HGPG Core SMTP")
+- Brain-app local dev: `cd ~/brain-app && npm run dev` on Mac mini (work machine)
+- Brain-app local on iMac: same setup, repo at `~/Developer/brain-app` if rebuilt, otherwise needs fresh `gh repo clone HGPG1/brain-app` + `npm install` + `cp env.example .env.local`
+- The `package-lock.json` may differ between iMac and Mac mini — push from whichever machine you most recently ran `npm install` on
