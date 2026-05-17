@@ -137,17 +137,28 @@ After pricing all named alternatives at our actual volume (1,345 homes × 12 sen
 - Done-for-you setup, 1:1 calls with Janine → we have technical infrastructure already built
 - 7-day direct community access to Janine → not a fit for our workflow
 
-### Pre-signup verification (DO THIS FIRST)
+### Pre-signup verification (CONFIRMED 2026-05-16 by Janine Sasso directly)
 
-Before paying, ask Geosential support via chat at https://geosential.com:
+Five questions answered:
 
-1. Confirm USPS Informed Delivery does the full color ride-along (digital preview emailed to recipient morning-of-delivery), not just cosmetic grayscale optimization
-2. Confirm LITE supports Mailbox Power's Google Street View auto-merge on postcard backs (this is the main differentiator vs Wise Pelican / ProspectsPLUS!)
-3. Confirm the list builder pricing matches Mailbox Power direct (~$0.10/contact)
-4. Confirm we can upload our own designs (Canva PDF/X-1a exports) and not be locked to their template library
-5. Confirm scan data exports somehow (CSV download or webhook) for our Supabase tracker
+1. **USPS Informed Delivery on LITE: grayscale only.** No color ride-along. Skip this as a selling point - it does not provide a meaningful second digital touch on LITE.
+2. **Google Street View auto-merge on LITE: yes.** Each postcard shows recipient's actual home. This is the real differentiator and is included.
+3. **List builder pricing on LITE: $0.10/contact.** Market rate, confirmed.
+4. **Custom design upload on LITE: yes.** We can upload our own Canva-designed PDFs in addition to the 6 stock templates. Not locked in.
+5. **Scan data export on LITE: no.** CSV/webhook export is gated to PRO. We DO NOT rely on Geosential for scan tracking - see "Scan tracking architecture" below.
 
-If any of those come back negative on LITE, the answer flips to Mailbox Power Pro at $990/yr.
+Janine's framing: *"LITE is a tool, PRO is a system."* That is correct, and is exactly why LITE is right for HGPG - we have already built the system (FUB, /farm landing pages, Supabase farm_leads, brain repo, etc.). We need a tool that prints and mails. LITE is that tool.
+
+### Scan tracking architecture (why LITE is enough)
+
+Our QR codes encode URLs in our own domain: `https://www.homegrownpropertygroup.com/farm/<slug>?c=<campaign-slug>`. Every scan hits our Next.js route, our server logs it to `farm_leads`, and the `farm_campaign_roi` view rolls it up. Geosential never sees this data - they only know "a card was mailed." We are the canonical source of scan + attribution data.
+
+Two consequences:
+
+- **We lose Geosential's text-on-scan notification feature** (PRO-only via their system anyway, and would alert based on their tracking, which we are not using). If real-time scan alerts become valuable, we rebuild it as a Supabase trigger → Resend/Twilio → Brian's phone (~30 min of work). Add to deferred items if/when it matters.
+- **Geosential's dashboard becomes reference-only.** Use it for design management, list management, print scheduling. Not for analytics. Our Supabase view is canonical.
+
+This is the right architecture: Geosential is interchangeable. If we ever switch vendors (Mailbox Power direct, ProspectsPLUS!, etc.), our scan/lead data and attribution survive untouched because they live in our own infrastructure.
 
 ### Vendors not chosen and why
 
