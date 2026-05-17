@@ -1,4 +1,4 @@
-<!-- Last Updated: 2026-05-15 -->
+<!-- Last Updated: 2026-05-17 -->
 
 # Geographic Farming
 
@@ -47,19 +47,33 @@ Run anytime to check program health:
 
 ## Landing Pages (homegrownpropertygroup.com)
 
-Route: `/farm/[slug]` (LIVE as of 2026-05-15)
+Route: `/farm/[slug]` (LIVE as of 2026-05-15, FUB push wired 2026-05-17)
 
-Each mailer's QR code encodes a URL like `https://homegrownpropertygroup.com/farm/bent-creek?c=bc-2026-06`. The slug identifies the farm, the `c=` param links to `farm_campaigns.qr_code_slug` for attribution. Scans are logged server-side, form submissions write to `farm_leads`.
+Each mailer's QR code encodes a URL like `https://homegrownpropertygroup.com/farm/bent-creek?c=bc-2026-06`. The slug identifies the farm, the `c=` param links to `farm_campaigns.qr_code_slug` for attribution. Scans are logged server-side. Form submissions write to `farm_leads` AND push to FUB.
 
 Code lives in `HGPG1/homegrown-property-group-site` on master:
 
 - `app/farm/[slug]/page.tsx` - dynamic landing page (server component, logs QR scan)
 - `app/farm/[slug]/FarmLandingClient.tsx` - form UI in HGPG brand colors
-- `app/api/farm/lead/route.ts` - form submission API
+- `app/api/farm/lead/route.ts` - form submission API (Supabase insert + FUB event push)
 
-Implementation note: uses Supabase REST via plain fetch (no `@supabase/supabase-js` dep, since the site doesn't carry the SDK). Required env vars in Vercel: `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (set 2026-05-15).
+Implementation note: uses Supabase REST and FUB REST via plain fetch (no `@supabase/supabase-js` dep, since the site doesn't carry the SDK). Required env vars in Vercel: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (set 2026-05-15), and `FUB_API_KEY` (verified 2026-05-17).
 
-End-to-end verified: hitting any farm URL writes a `qr_scan` row to `farm_leads` with the correct neighborhood_id. Form submission tested and writes `landing_page` rows.
+### FUB integration
+
+Form submissions fire `POST /v1/events` to FUB (not `/v1/people`) so the lead gets proper routing, source attribution, and Brian's new-lead notification. Each submission produces a FUB person with:
+
+- **Tags:** `Geo Farm`, `<Neighborhood>` (e.g. `Bent Creek`), `Touch 1 - Intro`
+- **Source:** `Geo Farm - <Neighborhood>` (e.g. `Geo Farm - Bridgemill`)
+- **Stage:** `Lead`
+- **Assigned to:** Owner Account (Brian) - HQ-led for Year 1
+- **Address:** stored as `home` type (FUB has no `property` type)
+
+FUB push is non-blocking: if FUB is down or returns an error, the Supabase `farm_leads` row is still the source of truth and the form still confirms to the user. The route writes `fub_person_id` back to `farm_leads` on success for audit. The route also tolerates FUB's inconsistent event-response shape (some versions return `data.person.id`, others don't) and falls back to an email lookup against `/v1/people` to resolve the FUB id.
+
+For future Touch N campaigns, the tag pattern stays the same (`Touch 2 - Market Update`, etc.) and `mergeTags=true` is implicit (FUB API default), so a returning visitor gets the new tag appended rather than replacing prior tags.
+
+End-to-end verified 2026-05-17 with two real form submissions: Bent Creek + bc-2026-06 attribution → FUB person 32072, Bridgemill + bm-2026-06 attribution → FUB person 32073. Both rows linked correctly in `farm_leads.fub_person_id`. Test data has since been deleted from `farm_leads`; test FUB persons are tagged `DELETE-ME-test-data` for FUB-UI bulk cleanup.
 
 ## 12-Month Content Calendar
 
@@ -190,8 +204,10 @@ Janine Sasso runs The Hyper Local Agent training brand and built Geosential as a
 ## Next Decisions
 
 - [x] Pick vendor - LOCKED 2026-05-15: Geosential LITE ($47/mo, $564/yr)
+- [x] Build FUB integration in `/api/farm/lead/route.ts` - shipped 2026-05-17, end-to-end verified
+- [x] Decide on agent assignment per farm - HQ-led for Year 1 (logged 2026-05-17). All three farms route to Owner Account (Brian) via FUB default assignment. Revisit Q3 2026 once lead volume per farm is known. To switch later: update `farm_neighborhoods.assigned_agent_id` AND change the route or rely on FUB lead-flow rules.
+- [x] June 2026 campaigns logged in `farm_campaigns` (2026-05-17): `bc-2026-06`, `bm-2026-06`, `qb-2026-06`. `cost_total` placeholder = 0; update with `UPDATE farm_campaigns SET cost_total = X WHERE qr_code_slug = ...` once Geosential invoices land.
 - [ ] Decide whether to supplement MLS-derived address lists with county tax roll (or use EDDM saturation)
-- [ ] Build FUB integration in `/api/farm/lead/route.ts` - currently writes to Supabase only
-- [ ] Decide on agent assignment per farm (currently HQ-led) - if assigning to Ashley, Brenda, or Taylor, update `farm_neighborhoods.assigned_agent_id`
-- [ ] Order June 2026 mailers and log to `farm_campaigns` once they drop
+- [ ] Order June 2026 mailers from Geosential (campaigns already logged in DB; just need the physical drop)
 - [ ] **July or later: set up USPS Informed Delivery color ride-along** via https://www.usps.com/business/informed-delivery.htm (Mailer Campaign Portal). Free direct from USPS, gives recipients a branded color preview image + clickable URL in their daily Informed Delivery email instead of the default fuzzy grayscale scan. Effectively a free second digital touch per drop. Not for June launch (too much new at once), defer until design system is locked and we have rhythm.
+
