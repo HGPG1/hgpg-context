@@ -35,6 +35,7 @@ The brain has two write paths. Claude sessions use the write API. Brian uses the
 - **Charlotte New Construction** (newconstruction.homegrownpropertygroup.com) - shipped, 4 FUB-routed lead capture forms, Meta Pixel + CAPI live. Active sub-projects: incentives funnel, NC quiz scoring, builder submit footer link (parked), phone capture rate review (parked, 2026-05-19+). Recently shipped sub-projects (in archive/projects/): phone capture, scout admin cleanup, SMS speed-to-lead. See `projects/charlotte-new-construction.md`, `projects/new-construction.md`, and related project files.
 - **Brain App** (brain.homegrownpropertygroup.com) - shipped, MVP + Phase 1.5 + write/commit APIs + GitHub App migration + /api/files auth gate. See `projects/brain-app.md`.
 - **FUB AI Agent** - active build, see `projects/fub-ai-agent.md`.
+- **CRM & Lead Management** - FUB campaign state, pipeline, automations, tagging strategy. See `projects/crm.md` (stub - populate as work happens).
 - **Team Dashboard / Team Tools / Team Photo Sync** - see `projects/team-dashboard.md`, `projects/team-tools.md`, `projects/team-photo-sync.md`.
 - **PropStream Caller** - see `projects/propstream-caller.md`.
 - **Geo-farming postcards** - June 2026 drop ready (Bent Creek, Bridgemill, Queensbridge). See latest SESSION-HANDOFF.md entry.
