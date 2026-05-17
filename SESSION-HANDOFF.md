@@ -19,7 +19,21 @@
 **CONTEXT.md refresh:**
 - Old version (last updated 2026-05-15) was missing brain API surface, listed tc.homegrownpropertygroup.com as live (it's decommissioned), missing 8+ active projects (FUB AI Agent, team-dashboard, team-photo-sync, propstream-caller, new-construction sub-projects), still listed resolved blockers (GitHub PAT rotation, Mac Mini gh CLI auth).
 - New version adds: "How to update the brain" section (write API + commit API + read API + manual paths), corrected active project list (11 active + claude skills), standing infra rules pulled inline, decommissioned section, recently completed bumped with brain-app/GitHub App/Resend SMTP/NeverBounce milestones.
-- Commit `dfd98b5`.
+- Commit `dfd98b5`, later patched in commits `38b82b2` (NC sub-project list correction after archive) and `08ee67b` (added projects/crm.md reference to active list). Final CONTEXT.md commit: `08ee67b`.
+
+**Archive cleanup:**
+- Archived 3 confirmed-shipped NC sub-projects to `archive/projects/`: `new-construction-phone-capture.md`, `new-construction-scout-admin-cleanup.md`, `new-construction-sms-speed-to-lead.md` (commits `a43fad0`, `5671c61`, `a40f10c`). Originals removed from `projects/` by Brian via `git rm` (commit `079fe0d`).
+- Archived `cma-engine-bugs-2026-05-08.md` (bugs confirmed fixed) to `archive/projects/` (commit `5b1e330`). Original removed by Brian (commit `c73d8f2`).
+- 31 -> 28 project files in `projects/`. 4 files now in `archive/projects/`.
+
+**projects/crm.md stub created (commit `f8a945f`):**
+- New file giving FUB campaign state, pipeline experiments, tagging strategy, and Automations 2.0 builds a canonical home in the brain.
+- Replaces the floating CRM/FUB state that was living in session handoffs and memory.
+- Status: 🟡 Stub. Populate as FUB work happens.
+
+**Memory additions:**
+- #27: Brain repo local/remote sync gotcha. Always include `git fetch && git reset --hard origin/main` when handing Brian brain-repo git commands to avoid CONTEXT.md/SESSION-HANDOFF.md merge conflicts from stale local clone.
+- #28: SESSION-HANDOFF.md discipline rule. At end of every session that ships material work, update SESSION-HANDOFF.md before stopping. Updating project files is not a substitute.
 
 ### Open / parked
 
@@ -30,9 +44,12 @@
 
 ### Pickup notes for next session
 
-- Memory is in clean state for the first time in months. If a future session needs to add memory, the 30-entry cap leaves ~4 slots. New entries should be focused and topic-scoped, NOT consolidated dumps.
-- The brain write API + commit API work is now properly documented across: project instructions (Tech & Builds done, CRM & Leads done, Home Base done), memory (#10, #12), brain-app.md project file, and CONTEXT.md. Future sessions should not need re-education.
-- raw.githubusercontent.com URLs may CDN-cache for minutes after a brain write. For fresh state during a session that just wrote, prefer `GET /api/files/<path>` with bearer auth.
+- Memory at 28 of 30 entries, all focused. ~2 slots remaining; new entries should stay focused and topic-scoped.
+- The brain write API + commit API work is documented across: project instructions (Tech & Builds, CRM & Leads, Home Base all regenerated), memory (#10, #12), brain-app.md, and CONTEXT.md. Future sessions should not need re-education.
+- raw.githubusercontent.com URLs CDN-cache for minutes after a brain write. For fresh state during a session that just wrote, prefer `GET /api/files/<path>` with bearer auth.
+- When handing Brian brain-repo git commands, ALWAYS prefix with `git fetch && git reset --hard origin/main` (memory #27). Today's session hit a merge-conflict cascade because local clone was stale.
+- `projects/crm.md` is a stub. Next FUB campaign work should populate "Active campaigns" and "Recent FUB work" sections rather than landing FUB state in handoff entries.
+- `/api/files` tree response appears to filter or aggregate `archive/` subdirectories. Direct fetches via `/api/files/archive/projects/<file>` work (200), but the tree listing only shows `archive/fub-agent-handoff.md`. Not a functional problem, just a quirk.
 
 ---
 
