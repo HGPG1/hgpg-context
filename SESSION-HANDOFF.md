@@ -2,7 +2,41 @@
 
 # Session Handoff
 
-## Last session: 2026-05-17 — June 2026 geo-farming postcards built 🟡
+## Last session: 2026-05-17 — Brain capability audit + project instructions refresh 🟢
+
+### What shipped
+
+**Project instructions regenerated:**
+- HGPG - CRM & Leads project instructions rewritten with full brain API surface (write + commit endpoints), GitHub App auth model, Lauren Williams removed, FUB MCP corrected as hosted (not Claude-Desktop-only), Twilio A2P language updated to "fully deprecated" matching Tech & Builds, standing rules added (MCP-first, Brain-first, HGPG-is-a-team), Terminal formatting block added.
+- HGPG - Home Base project instructions rewritten with same brain API surface, build workflow updated to reflect that web/sandbox Claude can now commit directly (commit API, 2026-05-14), team list tightened to canonical names, standing rules added.
+
+**Memory cleanup (entry #13 split into focused entries):**
+- Old monolithic entry #13 (~8000 chars of mixed content) deleted along with patches #14 (1Password supersede) and #15 (web-sandbox-cannot-push supersede).
+- Replaced by 14 focused entries (#13-#26), each under 500 chars, each on a single topic: people & phones, Transaction Manager, Sellers Guide, legacy decommissioned, on the horizon, repos, platforms, working principles, gotchas part 1, gotchas part 2, output rules, terminal formatting, cowork & dispatch, purpose & context.
+- Memory entries #10 and #12 corrected in place (commit API documented, web/sandbox push restriction removed).
+- Net memory state: 26 entries, all focused, no "supersedes" patches, room for ~4 more.
+
+**CONTEXT.md refresh:**
+- Old version (last updated 2026-05-15) was missing brain API surface, listed tc.homegrownpropertygroup.com as live (it's decommissioned), missing 8+ active projects (FUB AI Agent, team-dashboard, team-photo-sync, propstream-caller, new-construction sub-projects), still listed resolved blockers (GitHub PAT rotation, Mac Mini gh CLI auth).
+- New version adds: "How to update the brain" section (write API + commit API + read API + manual paths), corrected active project list (11 active + claude skills), standing infra rules pulled inline, decommissioned section, recently completed bumped with brain-app/GitHub App/Resend SMTP/NeverBounce milestones.
+- Commit `dfd98b5`.
+
+### Open / parked
+
+- **Tech & Builds project instructions** still contains the stale "Web/sandbox sessions cannot push to HGPG1 app repos. Brian pushes from his Mac via gh CLI" line. Most-likely-to-be-wrong-in-practice project. Worth regen for symmetry with CRM & Leads + Home Base.
+- **Brain doesn't have a projects/leads.md or projects/crm.md.** CRM & Leads project instructions reference fetching leads.md "if present" but it doesn't exist. Active FUB campaign state has nowhere to live except memory or handoff. Worth creating a stub.
+- **Token sitting in plaintext memory** is a minor risk. Brain write token is embedded in memory entry #12. Rotation playbook documented in brain-app.md. Awareness item only.
+- **CONTEXT.md will need pruning over time.** Currently inline-lists 11 active projects plus sub-projects. Once the new-construction sub-project set settles or rolls up under the parent, can consolidate to keep this file scannable.
+
+### Pickup notes for next session
+
+- Memory is in clean state for the first time in months. If a future session needs to add memory, the 30-entry cap leaves ~4 slots. New entries should be focused and topic-scoped, NOT consolidated dumps.
+- The brain write API + commit API work is now properly documented across: project instructions (Tech & Builds done, CRM & Leads done, Home Base done), memory (#10, #12), brain-app.md project file, and CONTEXT.md. Future sessions should not need re-education.
+- raw.githubusercontent.com URLs may CDN-cache for minutes after a brain write. For fresh state during a session that just wrote, prefer `GET /api/files/<path>` with bearer auth.
+
+---
+
+## Previous session: 2026-05-17 — June 2026 geo-farming postcards built 🟡
 
 ### What shipped
 - Three print-ready PDFs for Geosential June 1 drop:
@@ -45,7 +79,7 @@
 
 ---
 
-## Previous session: 2026-05-06 — Brain App MVP shipped 🟢
+## Earlier session: 2026-05-06 — Brain App MVP shipped 🟢
 
 ### What got built
 - New Vercel project: `brain-app` on team `team_FietQPKCmnyioG2n0FdteQCV`
