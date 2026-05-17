@@ -1,8 +1,97 @@
-<!-- Last Updated: 2026-05-16 -->
+<!-- Last Updated: 2026-05-17 -->
 
 # Session Handoff
 
-## Latest session: 2026-05-16 (afternoon) - Geo-farming launch 🌱
+## Latest session: 2026-05-17 - Geo-farming FUB integration shipped 🚀
+
+## TL;DR
+
+The geo-farming form-submission flow now pushes leads to FUB with proper tags, source, and assignment. End-to-end verified with two real submissions across two farms. June 2026 campaigns are logged in `farm_campaigns` with correct attribution slugs. The handoff doc's pre-launch checklist is functionally complete for June 1 — only physical mailer order and (optional) county-tax-roll list expansion remain.
+
+This session also proved out a new deploy pipeline: the brain-app's `/api/external/commit` endpoint authorizes writes to ANY HGPG1 repo, not just `hgpg-context`. Web Claude can now push app code without going through Brian's Mac. Discovered during this session and used to ship the FUB integration directly to `homegrown-property-group-site` master.
+
+## What shipped
+
+### FUB push on form submissions
+
+`app/api/farm/lead/route.ts` in `HGPG1/homegrown-property-group-site` on master, deployed 2026-05-17 13:25 UTC. Now:
+
+1. Validates input (existing)
+2. Resolves attributed campaign from `?c=<slug>` (existing)
+3. Looks up neighborhood NAME from `farm_neighborhoods.id` (new - needed for FUB tags)
+4. Inserts `farm_leads` row (existing)
+5. **Fires `POST /v1/events` to FUB with tags `Geo Farm`, `<Neighborhood>`, `Touch 1 - Intro` and source `Geo Farm - <Neighborhood>` (new)**
+6. **Writes `fub_person_id` back to `farm_leads` on success (new)**
+
+FUB push is non-blocking. If FUB is down, the Supabase row is still the source of truth and the form still returns 200 to the user.
+
+Tested end-to-end:
+- Test 1 (Bent Creek + bc-2026-06): farm_leads row created → FUB person 32072 created with tags `Geo Farm`/`Bent Creek`/`Touch 1 - Intro` and source `Geo Farm - Bent Creek`
+- Test 2 (Bridgemill + bm-2026-06): farm_leads row created → FUB person 32073 created → `fub_person_id` written back to Supabase
+
+Test rows deleted from `farm_leads`; FUB persons 32072/32073 are tagged `DELETE-ME-test-data` for FUB-UI bulk cleanup (no FUB delete tool exposed in MCP).
+
+### June 2026 campaigns logged
+
+Three rows in `farm_campaigns`:
+
+| qr_code_slug | neighborhood | pieces_sent | mailer_type | send_date |
+|---|---|---|---|---|
+| bc-2026-06 | Bent Creek | 430 | introduction | 2026-06-01 |
+| bm-2026-06 | Bridgemill | 600 | introduction | 2026-06-01 |
+| qb-2026-06 | Queensbridge | 315 | introduction | 2026-06-01 |
+
+`cost_total` set to 0 as placeholder. Update via `UPDATE farm_campaigns SET cost_total = X WHERE qr_code_slug = '...'` once Geosential invoices land.
+
+Note: the handoff's original INSERT used wrong column names (`theme`, `quantity`, `format`, `design_notes`). Real schema is `mailer_type`, `pieces_sent`, `cost_total` (NOT NULL), `vendor`, `notes`, `campaign_name`, `design_url`. Fixed when running.
+
+### Agent assignment: HQ-led for Year 1 — locked
+
+All three farms keep `farm_neighborhoods.assigned_agent_id = NULL`. New geo-farm leads route to Brian by default via FUB lead-flow rules. Revisit Q3 2026 once we see lead volume per farm.
+
+### Brain commit pipeline discovered
+
+The `/api/external/commit` endpoint on brain-app accepts `{repo, path, content, branch?, message?}` and writes to any HGPG1 repo via the HGPG Brain Commit GitHub App. Tested writes to `homegrown-property-group-site` on `master`. Vercel auto-deploys fired on each commit.
+
+The companion `/api/external/read?repo=X&path=Y&ref=Z` returns file content + SHA. Critical for diffing before overwrite.
+
+Bearer token same as for brain write (`BRAIN_WRITE_TOKEN`). Default branch is `main`; pass `branch:"master"` or `branch:"<feature>"` explicitly when needed. **Most HGPG1 app repos use `master` as default, NOT `main`.** The site repo, for example, has a stale README on `main` from the Manus era — production deploys come from `master`. Always check before assuming.
+
+Workflow that worked this session:
+1. GET `/api/external/read?repo=...&path=...&ref=master` to see existing content
+2. Splice edits locally
+3. POST `/api/external/commit` with full content + `branch:"master"`
+4. Poll Vercel for deploy state via Vercel MCP `list_deployments`
+5. Run end-to-end test via curl POST to the live API
+6. Verify Supabase + FUB sides via their MCPs
+
+This means future sessions can ship app code end-to-end without round-tripping through Brian's Mac. Worth documenting more formally in `projects/brain-app.md` next session.
+
+## Open / parked (for next session or Brian)
+
+1. **Manual cleanup on Brian's Mac (cosmetic):**
+   ```
+   cd ~/Documents/homegrown-property-group-site && git checkout master && git pull
+   gh repo set-default HGPG1/homegrown-property-group-site
+   git rm _brain_commit_probe.txt _brain_commit_probe_master.txt 2>/dev/null || true
+   # main branch also has _brain_commit_probe.txt - either delete the main branch entirely
+   # if it's unused, or push the deletion to main too.
+   git commit -m "chore: remove brain commit probe stubs" && git push
+   ```
+   Both files are 1-byte stubs. Harmless but ugly in repo root.
+
+2. **FUB cleanup:** open FUB → People → filter by tag `DELETE-ME-test-data`, bulk delete persons 32072 and 32073.
+
+3. **Order June 2026 mailers from Geosential.** Campaigns are pre-logged in DB; just need the physical drop. Print the QR URLs:
+   - `https://www.homegrownpropertygroup.com/farm/bent-creek?c=bc-2026-06`
+   - `https://www.homegrownpropertygroup.com/farm/bridgemill?c=bm-2026-06`
+   - `https://www.homegrownpropertygroup.com/farm/queensbridge?c=qb-2026-06`
+
+4. **Decide on county tax-roll list expansion** (still parked from prior session). MLS-derived lists cover ~65-75% of each farm. Lancaster County GIS export would close the gap. Defer to Q3 2026; six months of mailers to MLS-derived list is fine.
+
+5. **Document the new brain commit pipeline in `projects/brain-app.md`** so future Claude sessions know it exists.
+
+## Prior session: 2026-05-16 (afternoon) - Geo-farming launch 🌱
 
 ## TL;DR
 
