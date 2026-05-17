@@ -92,7 +92,7 @@ All queries add: `standard_status = 'Closed'`, `close_price >= 100000` (filters 
 | Farm | Median Sold | Sold Count | Sale-to-List | Segment |
 |---|---|---|---|---|
 | Bent Creek | $785,000 | 19 | 98.3% | All SFH |
-| Bridgemill | $780,000 | 26 | 98.6% | **Single Family only** (townhomes excluded) |
+| Bridgemill | $780,000 | 26 | 98.3% | **Single Family only** (townhomes excluded) |
 | Queensbridge | $724,500 | 10 | 98.4% | All SFH |
 
 ### Bridgemill segmentation note
