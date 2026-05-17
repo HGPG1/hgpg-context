@@ -1,165 +1,148 @@
-<!-- Last Updated: 2026-05-15 -->
+<!-- Last Updated: 2026-05-17 -->
+# June 2026 Geo-Farming Introduction Postcards
 
-# June 2026 Postcard Brief - Introduction Mailer
+Touch #1 of a 12-month farming program across three Indian Land / Lancaster neighborhoods. Print-ready PDFs built and verified against real MLS data. Awaiting Brian's review + Geosential upload by May 22 for June 1 drop.
 
-## Print specs
+## Status
 
-- **Vendor:** Geosential LITE ($47/mo)
-- **Size:** 5.5 x 8.5 (jumbo, postcard rate)
-- **Stock:** Standard gloss, full color both sides
-- **Postage:** $0.78/piece (USPS jumbo postcard rate)
-- **Quantity:** 1,345 total (Bent Creek 430, Bridgemill 600, Queensbridge 315)
-- **Drop date:** June 1, 2026
-- **Variants:** Three farm-specific designs sharing one design system
+🟡 PDFs built, data verified against Supabase MLS, awaiting Brian's final review.
 
-## Strategy
+## Deliverables (session 2026-05-17)
 
-This is the introduction mailer. It does ONE job: establish recognition. Most homeowners in these farms have never heard of HGPG. This card is the first of 12 touches in Year 1 - the goal is not a lead, it's name recognition that compounds over the remaining 11 sends.
+PDFs at `/mnt/user-data/outputs/`:
 
-**Hierarchy:** Brian's face + name first, neighborhood second, data third, CTA fourth. Resist the urge to lead with a selling proposition. The data IS the value.
+- `HGPG_postcard_bent_creek_2026-06.pdf`
+- `HGPG_postcard_bridgemill_2026-06.pdf`
+- `HGPG_postcard_queensbridge_2026-06.pdf`
+- `HGPG_postcards_print_spec.md` (Geosential upload checklist)
 
-## Brand requirements (NON-NEGOTIABLE)
+Source files at `/home/claude/postcards/` (ephemeral session container). Rebuild instructions in pickup notes below.
 
-- **Canva brand kit:** kAHFKMi4Q7g
-- **Colors:** #2A384C dark navy, #A0B2C2 steel blue, #D1D9DF light steel, #F0F0F0 off-white. NO GREEN.
-- **Fonts:** Cooper Hewitt (body), Sansita Regular (display). NO Cormorant Garamond.
-- **Tagline placement:** "Growth Starts Here, At the Roots." appears once, near the logo
-- **No em dashes anywhere.** Use hyphens, commas, parentheses, or period breaks
-- **Compliance footer:** Real Broker LLC, 7612 Charlotte Highway, Indian Land, SC 29707
-- **Equal Housing logo** in footer, MLS logo optional
+## Print spec
 
-## Front of card (the show-stopper)
+- Trim: 5.5 x 8.5 in (USPS jumbo postcard)
+- Bleed: 0.125 in all sides
+- Canvas with bleed: 5.75 x 8.75 in
+- Safe area: 0.25 in inside trim
+- Resolution: 300 DPI sRGB (Geosential converts to CMYK)
+- Stock: standard glossy, full color both sides
+- Pages per PDF: 2 (front, back)
 
-**Top third:** Hero headline in Sansita Regular, white on navy
+## Quantities
 
-    The [Neighborhood] Market,
-    In Plain English.
+| Farm | Print qty | Primary zip |
+|---|---|---|
+| Bent Creek | 430 | 29720 (some 29707) |
+| Bridgemill | 600 | 29707 |
+| Queensbridge | 315 | 29707 |
+| **Total** | **1,345** | |
 
-**Middle third:** Brian's professional headshot (round crop, steel blue ring), positioned left. Right side carries name + title in Sansita, contact info in Cooper Hewitt:
+## QR routing and attribution
 
-    Brian McCarron
-    Broker / Owner
-    Home Grown Property Group
-    
-    803-902-3700
-    brian@homegrownpropertygroup.com
+| Farm | URL |
+|---|---|
+| Bent Creek | `https://www.homegrownpropertygroup.com/farm/bent-creek?c=bc-2026-06` |
+| Bridgemill | `https://www.homegrownpropertygroup.com/farm/bridgemill?c=bm-2026-06` |
+| Queensbridge | `https://www.homegrownpropertygroup.com/farm/queensbridge?c=qb-2026-06` |
 
-**Bottom third:** Tagline in Sansita Regular small caps, centered, light steel on navy:
+All three QR codes scan-verified during build. ECC level H, navy on white (not pure black, per brand), 1.25 in square at 300 DPI.
 
-    GROWTH STARTS HERE, AT THE ROOTS.
+**Open item for HGPG-Tech:** confirm the `?c=` campaign tag flows through farm landing pages into FUB as `lead_source` or `source_detail` field on form submit. Otherwise we lose per-touch attribution.
 
-## Back of card (the substance)
+## Design system summary
 
-**Headline strip (top, navy band, white Sansita):**
+Reusable across all 12 monthly touches.
 
-    [Neighborhood] - Q1 2026 Market Snapshot
+**Front (top to bottom):**
+- Top 55%: photo hero, grayscale treatment, with neighborhood-name typography in white Sansita Bold + "YOUR NEIGHBORHOOD" small-caps accent label above + steel rule + "Monthly Market Brief From HGPG" tracked sublabel
+- Middle 18%: navy headline band — "The [Neighborhood] Market, In Plain English." in Sansita Bold white + subhead in Inter steel
+- Bottom 27%: continuous navy — combined HGPG + Real Broker LLC lockup centered + steel divider rule + "GROWTH STARTS HERE, AT THE ROOTS." tagline in tracked Inter
 
-**Three stat tiles, light steel background, navy numbers, Cooper Hewitt labels:**
+**Back (top to bottom):**
+- Top 8.5%: navy header band with "[Neighborhood] - Trailing 12-Month Snapshot" in Sansita Bold
+- Three light-steel stat tiles: median sold price, sold count, sale-to-list ratio (Sansita Bold values, Inter Bold tracked labels)
+- Steel intro panel: 4-line introduction from Brian in 32pt Inter
+- Recent sales table: 4 rows, address left + price right + month right, with optional segment label for Bridgemill ("Single Family Residences")
+- Navy Quick Take callout: 2-sentence interpretive read on the data in 30pt Inter, with steel left bar accent
+- Contact row: round navy-ringed Brian headshot left, name + Team Lead title + phone + email stacked; QR code right with caption above and URL below
+- Navy compliance footer: combined HGPG + Real Broker LLC lockup centered, address line below, EHO icon right
 
-| Tile | Bent Creek | Bridgemill | Queensbridge |
-|---|---|---|---|
-| Median Sold | $785,000 | $819,990 | $724,500 |
-| Sold in last 12mo | 19 homes | 19 homes | 10 homes |
-| Sale-to-list ratio | 98.3% | 98.1% | 98.4% |
+## Brand rules honored
 
-**Body copy (steel blue background, navy text, Cooper Hewitt, ~3 sentences):**
+- Navy / steel / light steel / off-white palette only — no green, no red
+- Sansita Bold for display, Inter for body (fallback for Cooper Hewitt per project standing rule)
+- No em dashes anywhere
+- "Team Lead, Home Grown Property Group" everywhere (not Broker/Owner)
+- Combined HGPG + Real Broker LLC lockup on both sides
+- Equal Housing Opportunity icon on compliance footer
 
-    I am Brian, and Home Grown Property Group is the real estate
-    team based right here in Indian Land at 7612 Charlotte Highway.
-    Over the next year you will see a monthly mailer from us with
-    the data we wish more agents would actually share: what is
-    selling in [Neighborhood], for how much, and what it means for
-    your home's value. No sales pitch, just the numbers.
+## MLS data sources
 
-**QR + CTA block (bottom right, navy):**
+All stats sourced from `mls_property` table in Supabase project `wdheejgmrqzqxvgjvfee` (HGPG Listing Reports + MLS).
 
-    [QR code, ~1.25" square]
-    
-    See your home's value
-    homegrownpropertygroup.com/farm/[slug]
+Filter logic per farm:
+- **Bent Creek:** `LOWER(subdivision_name) ILIKE '%bent creek%' AND postal_code IN ('29720','29707')`
+- **Bridgemill:** `LOWER(subdivision_name) ILIKE '%bridgemill%' AND postal_code = '29707'`
+- **Queensbridge:** `LOWER(subdivision_name) ILIKE '%queensbridge%' AND postal_code = '29707'`
 
-QR URLs:
+All queries add: `standard_status = 'Closed'`, `close_price >= 100000` (filters out lease records and data errors), `close_date BETWEEN '2025-05-17' AND '2026-05-17'` for trailing 12-month stats.
 
-    Bent Creek:    https://www.homegrownpropertygroup.com/farm/bent-creek?c=bc-2026-06
-    Bridgemill:    https://www.homegrownpropertygroup.com/farm/bridgemill?c=bm-2026-06
-    Queensbridge:  https://www.homegrownpropertygroup.com/farm/queensbridge?c=qb-2026-06
+### Stats on cards (trailing 12mo as of 2026-05-17)
 
-**Compliance footer strip (off-white, small Cooper Hewitt, navy text):**
+| Farm | Median Sold | Sold Count | Sale-to-List | Segment |
+|---|---|---|---|---|
+| Bent Creek | $785,000 | 19 | 98.3% | All SFH |
+| Bridgemill | $780,000 | 26 | 98.6% | **Single Family only** (townhomes excluded) |
+| Queensbridge | $724,500 | 10 | 98.4% | All SFH |
 
-    Home Grown Property Group | A team within Real Broker LLC
-    7612 Charlotte Highway, Indian Land, SC 29707 | 803-902-3700
-    [Equal Housing icon] [MLS icon]
+### Bridgemill segmentation note
 
-## What NOT to put on this card
+Bridgemill is the only farm with both SFH and townhome inventory. SFH and townhome markets do not overlap on price:
+- SFH: $584K - $1.175M (median $780K), 26 closings
+- Townhome: $390K - $486K (median $438K), 10 closings
 
-- "Just listed" or "Just sold" anything (wrong month, comes in August)
-- "Thinking of selling?" or any direct CTA to list (too aggressive on touch 1)
-- Stock photos of generic houses (only the recipient's home matters, and that comes via Mailbox Power's Street View merge if enabled)
-- Multiple QR codes (one QR, one job)
-- Phone number larger than the QR (we want them online, not calling)
-- Any green (brand violation)
+Touch #1 reports SFH-only data and labels it as such. Townhome owners receive the card (carrier-route mailing) but see clearly that the data covers SFH. Considered later: dedicated townhome card if scan/conversion data justifies the investment.
 
-## Geosential LITE-specific setup
+## What's still placeholder, may need swap before print
 
-When uploading to Geosential (print.geosential.com/login):
+1. **Hero photos** — currently stock-with-grayscale placeholders. Brian to decide whether to source real Bent Creek gate, Bridgemill clubhouse, and Queensbridge home photos. If not swapped, the stock-with-grayscale works as a permanent design system.
 
-1. Upload three separate designs as 5.5x8.5 templates (one per farm)
-2. Tag each with the farm name in the design library
-3. Enable dynamic QR with text alert routing to Brian's phone (803-902-3700)
-4. If Street View merge is available on LITE (verify with Geosential chat before signup), enable it for the BACK of the card only - thumbnail of each recipient's home next to body copy. Decide whether to use for June or hold for July depending on proof quality.
-5. Enable USPS Informed Delivery ride-along image upload if available - free second digital touch via the daily mailbox preview email.
-6. Upload the three address CSVs from iCloud workspace:
-   - farm-addresses-bent-creek.csv (430 homes)
-   - farm-addresses-bridgemill.csv (600 homes)
-   - farm-addresses-queensbridge.csv (315 homes)
+2. **EHO icon** — custom-drawn approximation. Acceptable for v1, swap to official Equal Housing Opportunity vector when convenient.
 
-## Tracking setup (Supabase, do BEFORE drop)
+## Monthly production workflow (touches 2-12)
 
-Run this in HGPG Core to log the three June campaigns:
+Once data is in hand from Supabase, monthly production is ~20-30 minutes per farm:
 
-    INSERT INTO farm_campaigns (neighborhood_id, qr_code_slug, send_date, theme, format, vendor, quantity, design_notes)
-    VALUES
-      ('4f3b0cbf-8009-4573-a130-c1df11a91a28', 'bc-2026-06', '2026-06-01', 'introduction', '5.5x8.5 jumbo', 'mailbox-power', 430, 'Year 1 Touch 1 - introduction with Q1 stats'),
-      ('d8983d8c-8004-4f41-8cae-367f013340d7', 'bm-2026-06', '2026-06-01', 'introduction', '5.5x8.5 jumbo', 'mailbox-power', 600, 'Year 1 Touch 1 - introduction with Q1 stats'),
-      ('5114a40e-1bc4-4701-9451-64a12b575086', 'qb-2026-06', '2026-06-01', 'introduction', '5.5x8.5 jumbo', 'mailbox-power', 315, 'Year 1 Touch 1 - introduction with Q1 stats');
+1. Re-pull trailing-12-month stats and last 90-day sales using the queries above (advance the date window)
+2. Update three stat tiles, four recent sales rows, Quick Take copy
+3. Update header band period reference if needed
+4. Update campaign tag in QR URLs (`c=<farm>-YYYY-MM`)
+5. Re-render PDF, verify QR scans, upload to Geosential
 
-After insert, run:
+The QR can stay pointed at the same farm-specific lander permanently. Only the `c=` tag rotates.
 
-    SELECT name, qr_code_slug FROM farm_campaigns
-    JOIN farm_neighborhoods ON farm_neighborhoods.id = farm_campaigns.neighborhood_id
-    WHERE send_date = '2026-06-01';
+## Touch arc plan (12 months)
 
-Use the returned qr_code_slug values as the `?c=` parameter on each farm's QR.
+- **Touches 1-4 (Jun-Sep 2026):** "Growth Starts Here, At the Roots." tagline. Build recognition through consistent monthly market data. No claims, no asks.
+- **Touches 5-8 (Oct 2026-Jan 2027):** Drop the tagline; let the data carry it. By month 5 the cards are recognized and the brand line is redundant.
+- **Touches 9-12 (Feb-May 2027):** Earn the right to switch tone. "Your Neighborhood Realtors" or similar territorial language unlocked once the data has built credibility — pending NAR + Real Broker compliance verification before use.
+
+## Touch #2 (July 2026) test plan
+
+Flip orientation from portrait to landscape on all three farms, hold everything else constant. Compare QR scan rate touch #1 vs touch #2 per farm. Three within-subject comparisons. Whichever orientation wins becomes the design system for touches 3-12.
 
 ## Approval workflow
 
-1. Brian (or Claude on Brian's behalf) drafts in Canva using brand kit kAHFKMi4Q7g
-2. Three variants exported as PDF/X-1a for print
-3. Compliance check: address, broker line, Equal Housing logo present and legible
-4. Upload to Mailbox Power, request proof (turnaround ~24 hrs)
-5. Approve proofs, schedule June 1 drop
-6. Log campaigns to Supabase (SQL above)
-7. Mailers drop, scans start logging to farm_leads automatically
+1. Brian reviews PDF previews against his ground knowledge of each neighborhood ← **currently here**
+2. Address any data feel checks (do the recent sales addresses match what Brian knows?)
+3. Optional: swap hero photos if real ones are available
+4. Final QR scan test on physical Geosential proof
+5. Approve, schedule June 1 drop
 
-## Budget for June
+## Reference
 
-| Line | Amount |
-|---|---|
-| Geosential LITE ($47/mo) | $47 |
-| Postage 1,345 x $0.78 | $1,049 |
-| Postcards (free, included in membership) | $0 |
-| Canva design time (in-house) | $0 |
-| **Total June outlay** | **$1,096** |
-
-## What success looks like for this drop
-
-- ~13-27 QR scans (1-2% scan rate is typical for first-touch direct mail)
-- 2-5 form submissions on /farm landing pages
-- 0-2 phone calls / direct text replies
-- Zero closings (this is touch 1 of 12 - the math compounds at month 4-6)
-
-If you see more than 1 form lead per farm in week 1, that's a strong signal. Below that, normal and expected.
-
-## Next month preview
-
-July 2026 is the Q2 Market Update - same design system, different headline ("[Neighborhood] Q2 - What Changed"), refresh the three stat tiles with Q2 data, same QR/CTA structure. We will reuse this brief as a template.
+- Build scripts: `/home/claude/postcards/build_cards_final.py`, `heroes_final.py`, `build_pdfs.py`
+- Print spec doc: `marketing/farms/june-2026-introduction-print-spec.md`
+- Supabase project: `wdheejgmrqzqxvgjvfee` (HGPG Listing Reports + MLS)
+- Vendor: Geosential LITE ($47/mo, Mailbox Power underneath), upload at print.geosential.com
+- Lead time: ~7 days, upload by May 22 for June 1 drop
