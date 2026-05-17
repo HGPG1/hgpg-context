@@ -194,3 +194,4 @@ Janine Sasso runs The Hyper Local Agent training brand and built Geosential as a
 - [ ] Build FUB integration in `/api/farm/lead/route.ts` - currently writes to Supabase only
 - [ ] Decide on agent assignment per farm (currently HQ-led) - if assigning to Ashley, Brenda, or Taylor, update `farm_neighborhoods.assigned_agent_id`
 - [ ] Order June 2026 mailers and log to `farm_campaigns` once they drop
+- [ ] **July or later: set up USPS Informed Delivery color ride-along** via https://www.usps.com/business/informed-delivery.htm (Mailer Campaign Portal). Free direct from USPS, gives recipients a branded color preview image + clickable URL in their daily Informed Delivery email instead of the default fuzzy grayscale scan. Effectively a free second digital touch per drop. Not for June launch (too much new at once), defer until design system is locked and we have rhythm.
