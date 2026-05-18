@@ -1,4 +1,4 @@
-<!-- Last Updated: 2026-05-18 (pixel leak fixed) -->
+<!-- Last Updated: 2026-05-18 (Meta MCP probe) -->
 
 # Session Handoff
 
@@ -121,6 +121,21 @@ Variant E as launched used Variant 1 Direct primary text, "$10K+ in builder cred
 - `public/public/public/compare/index.html`
 - `public/public/public/market-heatmap/index.html`
 - `public/public/public/home-selling-score/index.html`
+
+### Meta Ads MCP probe (2026-05-18, +1 day after first check)
+
+Confirmed via `ads_get_ad_accounts`: all three accounts still gated.
+- `31445287` (HGPG): `is_ads_mcp_enabled: false`
+- `10154111218372653` (Brian McCarron): `is_ads_mcp_enabled: false`
+- `460763002278486` (unnamed): `is_ads_mcp_enabled: false`
+
+Reason on all three: "Ads MCP is gradually being rolled out. Please check back at a later date to use Ads MCP with this Ad Account."
+
+`is_queryable: true` is misleading - actual reads fail with the same gradual-rollout error. Don't trust the queryable flag alone.
+
+No opt-in path exists. Re-check at session start; flag flips when Meta decides.
+
+First probe: 2026-05-17. Second probe: 2026-05-18. ~24 hours, no change.
 
 ## Previous session: 2026-05-18 (late) — Brain hygiene + full status sweep 🟢
 
