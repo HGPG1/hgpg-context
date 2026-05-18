@@ -49,7 +49,7 @@ Variant E as launched used Variant 1 Direct primary text, "$10K+ in builder cred
 
 **Viktor noted IncentiveDetailsRequest as a useful custom intermediate event** — fires when someone requests deeper detail on a specific builder credit. Worth tracking as a mid-funnel signal in the day 5-7 read (it's something the Sellers Guide pixel doesn't have an equivalent for).
 
-**Variant C reactivation history:** no record in brain of when C was switched back on. Most likely it's been the workhorse variant since campaign launch (D and others were the cycling test slots). Ads Manager → History tab has the authoritative timestamp if needed.
+**Variant C history (confirmed by Brian 2026-05-18 evening):** C has been continuously running since campaign launch — never paused, never reactivated. D was the only variant that cycled pause/active. Use C as the steady-state baseline in the day 5-7 read; treat D and E as the test cohort.
 
 ### Open / parked
 
