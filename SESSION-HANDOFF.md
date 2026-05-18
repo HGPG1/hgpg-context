@@ -1,8 +1,8 @@
-<!-- Last Updated: 2026-05-18 (paid social, evening launch) -->
+<!-- Last Updated: 2026-05-18 (pixel leak fixed) -->
 
 # Session Handoff
 
-## Last session: 2026-05-18 (paid social) — Variant E shipped + Sellers Guide CONV mystery solved 🟢
+## Last session: 2026-05-18 (paid social) — Variant E shipped + Sellers Guide CONV mystery solved + pixel leak fixed 🟢
 
 ### What got done
 
@@ -54,7 +54,7 @@ Variant E as launched used Variant 1 Direct primary text, "$10K+ in builder cred
 ### Open / parked
 
 - [x] **Brian: add `charlotte-sellers-guide-vercel.vercel.app` to pixel block list** — ✓ DONE. Domain + all subdomains blocked. Note: Vercel preview had "no activity for 11 days" at time of block, so historical pollution only, not active.
-- [ ] **Tech & Builds: env-gate pixel injection** in `charlotte-sellers-guide` Vercel project so pixel only fires on production. Pattern in `META-PIXEL-CAPI-PLAYBOOK.md`.
+- [x] **Tech & Builds: env-gate pixel injection** — ✓ DONE 2026-05-18 evening. CAPI handler gates on `process.env.VERCEL_ENV === 'production'` (returns `{skipped:true}` early on previews). All 7 HTML pixel blocks gate on `location.hostname === 'sellersguide.homegrownpropertygroup.com'` — non-prod gets a no-op `hgpgTrack` shim so callers don't break. Noscript fallback only emitted on prod via `document.write`. 8 commits: `4390fa7` (CAPI) + 7 HTML pages.
 - [x] **Brian: cross-check $10K+ Variant E figure** — ✓ Variant E launched with $10K as written.
 - [x] **Viktor: build Variant E in same ad set as C and D**, reactivate D, keep C. ✓ DONE — launched 2026-05-18 evening, Ad ID `52509166115763`. Pixel firing confirmed.
 - [ ] **Viktor follow-up:** add portrait + vertical creatives (already uploaded as `cdfd48cd...` and `cb257b3d...`) as separate ads under Variant E so it runs same placement mix as C/D. Confirm C/D placement parity.
@@ -83,6 +83,34 @@ Variant E as launched used Variant 1 Direct primary text, "$10K+ in builder cred
 - Lead: 14 historical (mostly TRAF + organic), 0 from CONV in 3 days
 - Diagnosis: Vercel preview leak pollution + cold-traffic-on-deep-funnel intent mismatch
 
+
+### Tech & Builds follow-up — Vercel preview pixel leak fixed (2026-05-18 evening)
+
+**The fix.** Two surfaces gated:
+
+1. **Server CAPI** (`api/meta/capi.js`) — early return `200 {skipped:true, reason:'non-production', env:VERCEL_ENV}` when `process.env.VERCEL_ENV !== 'production'`. Returns 200 (not 4xx) so browser `fetch()` doesn't error in DevTools on previews. Commit `4390fa7`.
+
+2. **Browser pixel block** (×7 HTML pages: `index`, `thank-you`, `neighborhoods`, `quiz`, `compare`, `market-heatmap`, `home-selling-score`) — gate on `location.hostname === 'sellersguide.homegrownpropertygroup.com'`. Non-prod gets a no-op `hgpgTrack(name)` shim that returns a synthetic event_id so caller code (quiz `QuizStarted`/`QuizCompleted`, home-selling-score's `fireFbqEvent` delegation at line 1421) doesn't break. Noscript `<img>` fallback now emitted via `document.write` only on prod, so it's absent from preview HTML. UTM capture stays unconditional. Commits `1bd294c8`, `a633f622`, `f28f8f52`, `eaecd3df`, `e074480b`, `5b17afe2`, `223ff1b4`.
+
+**Why hostname instead of `VERCEL_ENV` for the browser.** `VERCEL_ENV` doesn't exist client-side in static HTML. Hostname check is the standard pattern, one line, zero build complexity. The 4 aliased Vercel domains on this project — only the canonical `sellersguide.homegrownpropertygroup.com` fires the pixel. Other aliases (if any) skip. Brian confirmed this is fine.
+
+**Verification (post-deploy).**
+
+- Preview URL with Meta Pixel Helper: should show NO pixel detected
+- `curl https://charlotte-sellers-guide-vercel.vercel.app/api/meta/capi -X POST -H 'Content-Type: application/json' -d '{}'` → `{"skipped":true,"reason":"non-production","env":"preview"}`
+- Production URL: pixel fires normally, `Lead` events still land in Meta Test Events with shared `event_id` dedup working
+
+**Brain repo gotcha worth noting.** `META-PIXEL-CAPI-PLAYBOOK.md` referenced in the original Open/parked item doesn't actually exist in the repo (I went looking) — the pattern was just the env-gate concept. Not a problem; the implementation is documented inline in `api/meta/capi.js` header comment and the new pixel block's helper comment.
+
+**Files changed.**
+- `api/meta/capi.js` (full file)
+- `public/public/public/index.html`
+- `public/public/public/thank-you/index.html`
+- `public/public/public/neighborhoods/index.html`
+- `public/public/public/quiz/index.html`
+- `public/public/public/compare/index.html`
+- `public/public/public/market-heatmap/index.html`
+- `public/public/public/home-selling-score/index.html`
 
 ## Previous session: 2026-05-18 (late) — Brain hygiene + full status sweep 🟢
 
@@ -256,4 +284,5 @@ Once tomorrow's verification confirms KTS pause completed:
 ### Pickup notes
 - Brain-app is live and working — use it for any future updates to `hgpg-context`
 - Resend API key is in 1Password ("Supabase HGPG Core SMTP")
+
 
