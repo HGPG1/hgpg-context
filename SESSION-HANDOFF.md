@@ -1,4 +1,4 @@
-<!-- Last Updated: 2026-05-18 (later) -->
+<!-- Last Updated: 2026-05-18 (paid social, evening launch) -->
 
 # Session Handoff
 
@@ -33,12 +33,31 @@ Meta has been optimizing CONV against polluted signal for the entire campaign wi
 - New Construction: audience saturation, fresh angle needed → Variant E addresses this
 - Sellers Guide CONV: Vercel preview leak corrupting optimization signal → block list + Tech & Builds env-gating
 
+### Launch confirmation (2026-05-18 evening, Viktor)
+
+**Variant E went live.** Ad ID `52509166115763`, Creative ID `860309223789039`. Status IN_PROCESS (Meta review queue) at confirmation time.
+
+- Ad set: `HGPG_New_Con_ChMetro_Leads_A-Broad_v1` (`6993500279359`)
+- Campaign: `HGPG_New_Con_ChMetro_Leads_2026-04_v1` — ACTIVE
+- Variant C: ACTIVE (untouched — was already running before E launched)
+- Variant D `HGPG_New_Con_VariantD_LocalPride_2026-05-11`: ACTIVE (reactivated)
+- Variant E `HGPG_New_Con_VariantE_10K_2026-05-18`: launching
+
+Variant E as launched used Variant 1 Direct primary text, "$10K+ in builder credits" headline, "New construction, Charlotte metro" description, "Learn More" CTA. Destination `newconstruction.homegrownpropertygroup.com/incentives` with full UTMs per spec. Advantage+ creative enhancements: OPT_OUT (as specified). Pixel `1880396459290092` firing PageView, ViewContent, IncentiveDetailsRequest, Lead.
+
+**One open issue at launch:** Viktor uploaded portrait + vertical image hashes (`cdfd48cd...` and `cb257b3d...`) to the ad account but did NOT add them as separate ads under Variant E. E is currently 1:1 square only. If C and D are multi-placement, this creates an apples-to-oranges confound for the day 5-7 read. Sent Viktor a follow-up asking him to (a) confirm whether C/D are multi-placement and (b) add portrait + vertical to E now if so.
+
+**Viktor noted IncentiveDetailsRequest as a useful custom intermediate event** — fires when someone requests deeper detail on a specific builder credit. Worth tracking as a mid-funnel signal in the day 5-7 read (it's something the Sellers Guide pixel doesn't have an equivalent for).
+
+**Variant C reactivation history:** no record in brain of when C was switched back on. Most likely it's been the workhorse variant since campaign launch (D and others were the cycling test slots). Ads Manager → History tab has the authoritative timestamp if needed.
+
 ### Open / parked
 
-- [ ] **Brian: add `charlotte-sellers-guide-vercel.vercel.app` to pixel block list** (pixel `861295553661596`). Step-by-step provided in session.
+- [x] **Brian: add `charlotte-sellers-guide-vercel.vercel.app` to pixel block list** — ✓ DONE. Domain + all subdomains blocked. Note: Vercel preview had "no activity for 11 days" at time of block, so historical pollution only, not active.
 - [ ] **Tech & Builds: env-gate pixel injection** in `charlotte-sellers-guide` Vercel project so pixel only fires on production. Pattern in `META-PIXEL-CAPI-PLAYBOOK.md`.
-- [ ] **Brian: cross-check $10K+ Variant E figure** against one current builder MLS listing before Viktor pushes live. If $15K consistent, ping for regenerate.
-- [ ] **Viktor: build Variant E in same ad set as C and D**, reactivate D, keep C. Spec sent. Confirm pixel firing + UTMs in FUB lead source data after launch.
+- [x] **Brian: cross-check $10K+ Variant E figure** — ✓ Variant E launched with $10K as written.
+- [x] **Viktor: build Variant E in same ad set as C and D**, reactivate D, keep C. ✓ DONE — launched 2026-05-18 evening, Ad ID `52509166115763`. Pixel firing confirmed.
+- [ ] **Viktor follow-up:** add portrait + vertical creatives (already uploaded as `cdfd48cd...` and `cb257b3d...`) as separate ads under Variant E so it runs same placement mix as C/D. Confirm C/D placement parity.
 - [ ] **Day 1-2 post-fixes:** watch Lead event in Sellers Guide pixel. Expect 24-48hr Meta optimization recovery.
 - [ ] **Day 3+ post-fixes:** if CONV still flat after clean signal, THEN do the destination switch (`/home-selling-score/` → `/`). Holding this decision until preview leak is resolved — there's a real chance switch isn't needed.
 - [ ] **Day 5-7 (May 23-25):** C/D/E performance read. Pause worst performer, scale winner.
