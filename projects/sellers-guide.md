@@ -63,13 +63,21 @@ Tables:
 
 ### Production-only gate (added 2026-05-18)
 
-Pixel + CAPI fire **only** on the canonical production hostname. Preview deployments (`charlotte-sellers-guide-vercel.vercel.app`, branch previews, localhost) get no-op shims.
+Pixel + CAPI fire **only** on the canonical production hostname `sellersguide.homegrownpropertygroup.com`. Every other hostname (the Vercel auto-aliased `charlotte-sellers-guide-vercel.vercel.app`, branch previews, localhost) gets a no-op.
+
+**Both sides gate on hostname, not `VERCEL_ENV`.** Vercel auto-aliases every push to `main` onto both the custom domain AND the generic `*.vercel.app` URL. Both report `VERCEL_ENV=production`. So a `VERCEL_ENV` gate would still leak through the auto-aliased URL, which Meta treats as a separate domain (corrupts EMQ + optimization signal). Hostname is the right discriminator.
 
 - **Browser gate:** `window.HGPG_PIXEL_ENABLED = (location.hostname === 'sellersguide.homegrownpropertygroup.com')`. When false, `hgpgTrack` returns a synthetic event_id without firing `fbq` or POSTing to `/api/meta/capi`. The `<noscript>` `<img>` fallback is emitted via `document.write` only on prod, so it's absent from non-prod HTML entirely.
-- **Server gate:** `api/meta/capi.js` returns `200 {skipped:true, reason:'non-production', env:VERCEL_ENV}` when `process.env.VERCEL_ENV !== 'production'`. Returns 200 (not 4xx) so browser `fetch()` calls don't show errors in DevTools on previews.
+- **Server gate:** `api/meta/capi.js` reads `req.headers['x-forwarded-host']` (fall back to `host`), returns `200 {skipped:true, reason:'non-production-host', host:X, env:VERCEL_ENV}` when it's not the canonical hostname. Returns 200 (not 4xx) so browser `fetch()` calls don't show errors in DevTools on previews.
 - **UTM capture stays unconditional** so cross-env nav preserves attribution.
 
-Why hostname (not `VERCEL_ENV`) on the browser: `VERCEL_ENV` doesn't exist client-side in static HTML. Hostname check is one line, zero build complexity. Of the 4 aliased Vercel domains, only `sellersguide.homegrownpropertygroup.com` is canonical and fires the pixel.
+Verification (run on any deploy):
+
+    curl -s -X POST https://charlotte-sellers-guide-vercel.vercel.app/api/meta/capi -H 'Content-Type: application/json' -d '{"event_name":"Test","event_id":"x"}'
+    # -> {"skipped":true,"reason":"non-production-host","host":"charlotte-sellers-guide-vercel.vercel.app","env":"production"}
+
+    curl -s -X POST https://sellersguide.homegrownpropertygroup.com/api/meta/capi -H 'Content-Type: application/json' -d '{}'
+    # -> {"error":"event_name and event_id are required"}
 
 ## Paid traffic configuration
 
@@ -93,8 +101,9 @@ Why hostname (not `VERCEL_ENV`) on the browser: `VERCEL_ENV` doesn't exist clien
 
 ## Recent build history (most recent first)
 
+- 2026-05-18 — `fix(capi)`: replace `VERCEL_ENV` gate with `req.headers.host` gate (`x-forwarded-host`-aware); Vercel auto-aliases prod deploys to `*.vercel.app` so `VERCEL_ENV` alone wasn't enough
 - 2026-05-18 — `fix(pixel)`: gate Meta Pixel to production hostname only across 7 HTML pages (`location.hostname === 'sellersguide.homegrownpropertygroup.com'`); non-prod gets no-op `hgpgTrack` shim
-- 2026-05-18 — `fix(capi)`: gate Meta CAPI to production deployments only (`VERCEL_ENV === 'production'`); returns `{skipped:true}` on previews
+- 2026-05-18 — `fix(capi)`: gate Meta CAPI to production deployments only (`VERCEL_ENV === 'production'`); returns `{skipped:true}` on previews — superseded same day by hostname gate
 - 2026-05-11 — `fix(seo)`: replace stale sellers.* domain with canonical sellersguide.* across sitemap, robots, OG tags, and JSON-LD schemas (8 files)
 - 2026-05-11 — `feat(fub-lead)`: return FUB person object; submit.js persists `fub_person_id`
 - 2026-05-11 — `fix(assessment/submit)`: await FUB forward + writeback fub_event_id (was fire-and-forget killed by lambda teardown)
@@ -143,4 +152,5 @@ End-to-end test from `?utm_source=meta&utm_campaign=preflight-final-20260511`:
 - `fub_event_id` column name is legacy; value is the FUB person ID (FUB Events API returns the person, not a separate event entity, because FUB dedups on email)
 - 4 domains aliased on Vercel: `sellersguide.homegrownpropertygroup.com` is canonical
 - Test data from 2026-05-11 QA cleaned out of `seller_assessments`; FUB persons 31927 and 31928 deleted manually
+
 
