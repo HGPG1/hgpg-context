@@ -1,8 +1,26 @@
-<!-- Last Updated: 2026-05-18 (evening) -->
+<!-- Last Updated: 2026-05-18 (late) -->
 
 # Session Handoff
 
-## Last session: 2026-05-18 — KTS contamination shut down, B2 templates shipped, Viktor handoff 🟢
+## Last session: 2026-05-18 (late) — Brain hygiene + status reconciliation 🟢
+
+### What got done
+- Audited brain staleness: raw.githubusercontent.com was caching 5/04 CONTEXT and 5/06 SESSION-HANDOFF, but `/api/files` showed CONTEXT was actually 5/17 and SESSION-HANDOFF had the 5/18 evening entry. Brain itself fresher than CDN view suggested.
+- Reconciled CONTEXT.md with current state across all active projects:
+  - Sellers Guide Meta ads moved to Recently completed (shipped 2026-05-15)
+  - MLS Grid token resolved as blocker - CMA Engine auto-pull comps live in production
+  - B2 IDXRE marked as active (Viktor building automations)
+  - Brain App `/api/external/commit` (2026-05-14), `/api/files` bearer auth (2026-05-15), and Listing Reports + MLS Resend SMTP (2026-05-15) added to Recently completed
+  - KTS contamination shutdown + B2 templates 1166/1167 captured
+  - Stack consolidation parked item carried forward
+  - TM remaining work (addendum injection, per-party messaging, calendar gate backfill, agent onboarding gated on first deal) captured
+- Posted updated CONTEXT.md via `/api/external/write`
+
+### Pickup notes for next session
+- Brain is now in sync. Trust `/api/files` over `raw.githubusercontent.com` for fresh reads (CDN caches minutes after writes).
+- B2 launch sequence still queued behind Viktor's automation build (see 5/18 evening entry below for full checklist)
+
+## Previous session: 2026-05-18 — KTS contamination shut down, B2 templates shipped, Viktor handoff 🟢
 
 ### What shipped today
 
@@ -80,7 +98,7 @@ Once tomorrow's verification confirms KTS pause completed:
 5. If launching: activate both automations, bulk-apply, monitor for issues
 6. Optional: build 5 smart lists in FUB UI (Hot/Warm/Cool/Cold/Triage pond)
 
-## Previous session: 2026-05-17 — IDXRE-2026-04 scored, tier+segment tagged, Dead triaged
+## Earlier session: 2026-05-17 — IDXRE-2026-04 scored, tier+segment tagged, Dead triaged
 
 ### What got done
 - Ran fub_idxre_engagement.py: 1,289 scored leads from pond 16 (1,460 active)
@@ -108,7 +126,7 @@ Once tomorrow's verification confirms KTS pause completed:
 - IDXRE pool is 70% sellers / 27% buyers - campaign messaging was mismatched
 - Top 27 Hot tier leads are 85% sellers (Expired/Withdrawn from MyPlusLeads)
 
-## Previous session: 2026-05-06 — Brain App MVP shipped 🟢
+## Earlier session: 2026-05-06 — Brain App MVP shipped 🟢
 
 ### What got built
 - New Vercel project: `brain-app` on team `team_FietQPKCmnyioG2n0FdteQCV`
