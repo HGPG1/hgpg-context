@@ -18,10 +18,12 @@ See `team.md` for full roster.
 
 - **CMA Engine** (cma.homegrownpropertygroup.com) - MLS Grid auto-pull comps live in production. See `projects/cma-engine.md`
 - **Transaction Manager** (closings.homegrownpropertygroup.com) - lifecycle tool, see `projects/transaction-manager.md`. Remaining: addendum block injection, per-party messaging capability tracking, calendar gate backfill. Agent onboarding (Ashley/Taylor/Brenda) gated on first full deal through system.
-- **TC Concierge** - embedded at `/intake` in TM, live with Don running real deals. Standalone `concierge.homegrownpropertygroup.com` (503) is legacy and slated for decommission.
-- **Sellers Guide Meta ads** (sellersguide.homegrownpropertygroup.com) - campaign shipped 2026-05-15 (Friday). See `projects/sellers-guide.md`
+- **TC Concierge** - embedded at `/intake` in TM, live with Don running real deals. Real-life classifications/extractions worth reviewing in next session. Standalone `concierge.homegrownpropertygroup.com` (503) is legacy and slated for decommission.
+- **Sellers Guide Meta ads** (sellersguide.homegrownpropertygroup.com) - campaign shipped 2026-05-15 (Friday). FUB Automation 2.0 build likely ready, validation gates on first real ad lead. See `projects/sellers-guide.md`
+- **Charlotte New Construction** (newconstruction.homegrownpropertygroup.com) - Variant D running, Variant E under consideration. See `projects/charlotte-new-construction.md`
 - **IDXRE-2026-04 B2** - Viktor building Automations 2.0 (Sellers + Buyers) right now. KTS contamination shut down 2026-05-18. Templates 1166 + 1167 created. See `projects/idxre-2026-04.md`
-- **Listing Report Portal** (reports.homegrownpropertygroup.com) - blocked on GitHub auth, see `projects/listing-report-portal.md`
+- **FUB AI Agent** - operational + monitored. Week 1 ramp at daily_send_cap=10 with manual approve. Humming. See `projects/fub-ai-agent.md`
+- **Listing Report Portal** (reports.homegrownpropertygroup.com) - GitHub auth resolved on Mac mini; ready to unblock. See `projects/listing-report-portal.md`
 - **Claude skills** - five new skills shipped May 1 (objection-handler, referral-request-writer, showing-feedback-summarizer, offer-comparison-analyzer, market-update-writer)
 
 ## Recently completed
@@ -35,10 +37,32 @@ See `team.md` for full roster.
 - Brain App `/api/files` reads now require bearer auth (2026-05-15)
 - HGPG Listing Reports + MLS Resend SMTP wired (2026-05-15)
 - IDXRE-2026-04 B1 campaign scored: 1,289 leads tiered Hot/Warm/Cool/Cold/Dead; 1,284 segment-tagged Seller/Buyer/Unknown; 135 Dead moved to pond 17 IDXRE-Triage (2026-05-17)
+- Sherlock 403 on TM resolved
+- GitHub auth resolved on Mac mini
 - IDX Broker migration (Ylopo cancelled, Showcase IDX cancelled, FUB lead routing done)
 - Main site SEO push (mobile PageSpeed 96/100)
-- Buyers guide migration from Manus to React + Vite
+- Buyers guide migration from Manus to React + Vite (Sessions 1+2 live; Sessions 3+4 queued)
 - Sellers guide rebrand to brand colors
+
+## Parked (not active, do not pick up without explicit trigger)
+
+- **Buyer Alerts** (Team Dashboard `/buyers`) — LoopMessage patch DRAFTED, not committed. Wait for clean session to pair items 1+2+3
+- **TM $395 fee toggle** — build spec parked, awaiting greenlight
+- **DocuSign migration off zipForms** — workflow scoped, target 2026-06-13; re-evaluate zipForms pain before starting
+- **NC "For Builders" footer link** — low priority, do next time touching the NC site
+- **Buyers Guide Sessions 3+4** — Agent surfaces + Advisor Mode (S3) and Interactive Map + Market Pulse + bonus PDFs (S4) not built yet
+
+## On the docket for next session
+
+- **Phone Capture Rate Review** — run window opened 2026-05-19, query plan in `projects/new-construction-phone-capture-rate-review.md`
+- **Incentives Funnel Phase 1 → Phase 2 calendar checkpoint** — ~2026-06-02, review whether Variant A/B/C data is mature enough to design Phase 2
+- **TC Concierge real-life extraction review** — Brian to share live deals for classification/extraction quality check
+
+## On the recheck list (lower urgency)
+
+- **Incentives Funnel Phase 2 design** (separate from the calendar checkpoint above) — possible directions logged but not committed
+- **NC Quiz Scoring calibration** — two of five quiz inputs (commute, firstTimeBuyer) are dead weight for scoring; either wire in or strip to reduce friction. Deferred until first 50 qualified leads
+- **CRM brain stub buildout** — `projects/crm.md` was created 2026-05-17 as a 🟡 stub; needs active campaign state and Recent FUB Work entries appended as sessions ship
 
 ## Known blockers / pending
 
@@ -47,8 +71,6 @@ See `SESSION-HANDOFF.md` for current scratchpad.
 - B2 IDXRE launch pending Viktor's automation builds + verification of KTS pause completion (target activation post-verification)
 - IDXRE Hot tier outreach PARKED until contamination-aware re-scoring possible
 - Stack consolidation parked ~2-3 weeks: kill dead concierge repo, migrate `deals` → `transactions`, fix Title Case vs snake_case status mismatch
-- GitHub auth not configured on Mac Mini (blocks Listing Report Portal pushes)
-- Sherlock 403 on Transaction Manager (likely API key scope)
 - .net Google Workspace migration to .com (do not proactively remind)
 - GitHub PAT exposed in chat history needs rotation
 
