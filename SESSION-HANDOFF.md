@@ -1,45 +1,6 @@
-<!-- Last Updated: 2026-05-17 -->
+<!-- Last Updated: 2026-05-18 (pixel leak fixed) -->
 
 # Session Handoff
-
-## Latest session: 2026-05-17 - Geo-farming vendor lock + handoff briefs 🎯
-
-**Status: Ready to execute.** Vendor confirmed (Geosential LITE), all infrastructure deployed and verified, design + tech work scoped and handed off to sister projects.
-
-### Vendor: LOCKED Geosential LITE ($47/mo)
-
-Janine Sasso confirmed all five pre-signup questions directly. Key answers:
-- Street View merge on LITE: YES
-- Custom design upload on LITE: YES
-- List builder: $0.10/contact
-- USPS Informed Delivery on LITE: grayscale only (no color ride-along)
-- Scan data export: PRO only (we do not need it - our /farm landing pages already track scans into Supabase `farm_leads`)
-
-Janine's framing - *"LITE is a tool, PRO is a system"* - is exactly right and exactly why LITE works for HGPG. We already have the system (FUB + /farm pages + Supabase + brain repo). We need the tool.
-
-### Brain docs added this session
-
-- `marketing/farms/june-2026-introduction.md` - postcard brief template (reuse for July-May 2027 with theme refresh)
-- `marketing/farms/june-2026-handoff-ads.md` - design spec for HGPG - Ads project (postcard production)
-- `marketing/farms/june-2026-handoff-tech.md` - remaining tech work for HGPG - Tech & Builds project (FUB push, etc)
-- `marketing/geo-farming.md` - updated with vendor lock + "Scan tracking architecture" section explaining why LITE is sufficient
-- Deferred: USPS Informed Delivery color ride-along via Mailer Campaign Portal (free DIY, defer to July+)
-
-### Brian's open items
-
-1. Sign up Geosential LITE at https://geosential.com/lite-payment
-2. Open HGPG - Ads project, paste `marketing/farms/june-2026-handoff-ads.md` as opening prompt → get three postcard PDFs
-3. Open HGPG - Tech & Builds, paste `marketing/farms/june-2026-handoff-tech.md` → FUB push into lead API
-4. Take real photos (Bent Creek gate, Bridgemill clubhouse, Queensbridge home) for v2 swap-in
-5. Run the Supabase INSERT for the three June campaigns (SQL in june-2026-introduction.md)
-
-### What to ask Brian in the next Home Base session
-
-> "Have you started the design work in HGPG - Ads and the FUB integration in HGPG - Tech & Builds?"
-
-This project (Home Base) is now meta-layer only - vendor decisions, program strategy, brain curation. Execution lives in the sister projects. Refer Brian back here only if scope changes (different vendor, different farm, different format) or for monthly brief drafting (July, August, etc).
-
----
 
 ## Last session: 2026-05-18 (paid social) — Variant E shipped + Sellers Guide CONV mystery solved + pixel leak fixed 🟢
 
@@ -93,7 +54,7 @@ Variant E as launched used Variant 1 Direct primary text, "$10K+ in builder cred
 ### Open / parked
 
 - [x] **Brian: add `charlotte-sellers-guide-vercel.vercel.app` to pixel block list** — ✓ DONE. Domain + all subdomains blocked. Note: Vercel preview had "no activity for 11 days" at time of block, so historical pollution only, not active.
-- [x] **Tech & Builds: env-gate pixel injection** — ✓ DONE 2026-05-18 evening. CAPI handler gates on `process.env.VERCEL_ENV === 'production'` (returns `{skipped:true}` early on previews). All 7 HTML pixel blocks gate on `location.hostname === 'sellersguide.homegrownpropertygroup.com'` — non-prod gets a no-op `hgpgTrack` shim so callers don't break. Noscript fallback only emitted on prod via `document.write`. 8 commits: `4390fa7` (CAPI) + 7 HTML pages.
+- [x] **Tech & Builds: env-gate pixel injection** — ✓ DONE 2026-05-18 evening. Both browser pixel + server CAPI gate on canonical hostname `sellersguide.homegrownpropertygroup.com` (NOT `VERCEL_ENV` — Vercel auto-aliases prod builds to `*.vercel.app` which also reports `VERCEL_ENV=production`). Browser: `location.hostname` check, non-prod gets a no-op `hgpgTrack` shim, `<noscript>` emitted via `document.write` on prod only. Server: `req.headers.host` (with `x-forwarded-host` preferred), returns `200 {skipped:true,reason:'non-production-host'}`. 9 commits total: `4390fa7` (initial CAPI env gate), `1bd294c8`+`a633f622`+`f28f8f52`+`eaecd3df`+`e074480b`+`5b17afe2`+`223ff1b4` (7 HTML pages), `f3a0f756` (CAPI hostname-gate revision). Verified end-to-end via curl.
 - [x] **Brian: cross-check $10K+ Variant E figure** — ✓ Variant E launched with $10K as written.
 - [x] **Viktor: build Variant E in same ad set as C and D**, reactivate D, keep C. ✓ DONE — launched 2026-05-18 evening, Ad ID `52509166115763`. Pixel firing confirmed.
 - [ ] **Viktor follow-up:** add portrait + vertical creatives (already uploaded as `cdfd48cd...` and `cb257b3d...`) as separate ads under Variant E so it runs same placement mix as C/D. Confirm C/D placement parity.
@@ -125,24 +86,34 @@ Variant E as launched used Variant 1 Direct primary text, "$10K+ in builder cred
 
 ### Tech & Builds follow-up — Vercel preview pixel leak fixed (2026-05-18 evening)
 
-**The fix.** Two surfaces gated:
+**The fix.** Both surfaces gate on canonical hostname `sellersguide.homegrownpropertygroup.com`:
 
-1. **Server CAPI** (`api/meta/capi.js`) — early return `200 {skipped:true, reason:'non-production', env:VERCEL_ENV}` when `process.env.VERCEL_ENV !== 'production'`. Returns 200 (not 4xx) so browser `fetch()` doesn't error in DevTools on previews. Commit `4390fa7`.
+1. **Server CAPI** (`api/meta/capi.js`) — reads `req.headers['x-forwarded-host']` (fall back to `host`), returns `200 {skipped:true, reason:'non-production-host', host, env}` when not on the canonical hostname. Commits `4390fa7` (initial `VERCEL_ENV` gate) → superseded same evening by `f3a0f756` (hostname gate, see "What I missed" below).
 
-2. **Browser pixel block** (×7 HTML pages: `index`, `thank-you`, `neighborhoods`, `quiz`, `compare`, `market-heatmap`, `home-selling-score`) — gate on `location.hostname === 'sellersguide.homegrownpropertygroup.com'`. Non-prod gets a no-op `hgpgTrack(name)` shim that returns a synthetic event_id so caller code (quiz `QuizStarted`/`QuizCompleted`, home-selling-score's `fireFbqEvent` delegation at line 1421) doesn't break. Noscript `<img>` fallback now emitted via `document.write` only on prod, so it's absent from preview HTML. UTM capture stays unconditional. Commits `1bd294c8`, `a633f622`, `f28f8f52`, `eaecd3df`, `e074480b`, `5b17afe2`, `223ff1b4`.
+2. **Browser pixel block** (×7 HTML pages: `index`, `thank-you`, `neighborhoods`, `quiz`, `compare`, `market-heatmap`, `home-selling-score`) — gate on `location.hostname === 'sellersguide.homegrownpropertygroup.com'`. Non-prod gets a no-op `hgpgTrack(name)` shim that returns a synthetic event_id so caller code (quiz `QuizStarted`/`QuizCompleted`, home-selling-score's `fireFbqEvent` delegation at line 1421) doesn't break. `<noscript>` `<img>` fallback now emitted via `document.write` only on prod, so it's absent from non-prod HTML entirely. UTM capture stays unconditional. Commits `1bd294c8`, `a633f622`, `f28f8f52`, `eaecd3df`, `e074480b`, `5b17afe2`, `223ff1b4`.
 
-**Why hostname instead of `VERCEL_ENV` for the browser.** `VERCEL_ENV` doesn't exist client-side in static HTML. Hostname check is the standard pattern, one line, zero build complexity. The 4 aliased Vercel domains on this project — only the canonical `sellersguide.homegrownpropertygroup.com` fires the pixel. Other aliases (if any) skip. Brian confirmed this is fine.
+**Verification (passed 2026-05-18):**
 
-**Verification (post-deploy).**
+    curl -s -X POST https://charlotte-sellers-guide-vercel.vercel.app/api/meta/capi -H 'Content-Type: application/json' -d '{"event_name":"Test","event_id":"x"}'
+    # -> {"skipped":true,"reason":"non-production-host","host":"charlotte-sellers-guide-vercel.vercel.app","env":"production"}
 
-- Preview URL with Meta Pixel Helper: should show NO pixel detected
-- `curl https://charlotte-sellers-guide-vercel.vercel.app/api/meta/capi -X POST -H 'Content-Type: application/json' -d '{}'` → `{"skipped":true,"reason":"non-production","env":"preview"}`
-- Production URL: pixel fires normally, `Lead` events still land in Meta Test Events with shared `event_id` dedup working
+    curl -s -X POST https://sellersguide.homegrownpropertygroup.com/api/meta/capi -H 'Content-Type: application/json' -d '{}'
+    # -> {"error":"event_name and event_id are required"}
 
-**Brain repo gotcha worth noting.** `META-PIXEL-CAPI-PLAYBOOK.md` referenced in the original Open/parked item doesn't actually exist in the repo (I went looking) — the pattern was just the env-gate concept. Not a problem; the implementation is documented inline in `api/meta/capi.js` header comment and the new pixel block's helper comment.
+### What I missed (learning, 2026-05-18)
+
+**Vercel treats every `main` push as a production deploy AND auto-aliases the generic `*.vercel.app` URL to that production build.** Both hostnames report `VERCEL_ENV=production`. I initially gated CAPI on `process.env.VERCEL_ENV !== 'production'`, which let `charlotte-sellers-guide-vercel.vercel.app` through — confirmed via `curl` returning `{"ok":true,"events_received":1}`. Fired one stray Test event into the production pixel before catching it (low impact, single noise event in the stream).
+
+**Root cause:** the leak was never about Vercel's preview/PR system in the traditional sense. It was about Vercel aliasing prod builds onto two hostnames simultaneously, and Meta counting those as separate domains. Different problem than the original report assumed.
+
+**Right discriminator:** `req.headers.host` (with `x-forwarded-host` preferred on Vercel). Hostname is the canonical identity Meta cares about — match the discriminator to what the downstream system sees, not to what your deploy platform calls "environment."
+
+**Browser side was correct from the start** because the browser gate already used `location.hostname` — `VERCEL_ENV` isn't available client-side in static HTML so it was forced into the right pattern. The server side should have matched it from the start.
+
+**`META-PIXEL-CAPI-PLAYBOOK.md` referenced in the original Open/parked item doesn't actually exist in the repo** (I went looking). The pattern was just the env-gate concept. The implementation is now documented inline in `api/meta/capi.js` header comment and in `projects/sellers-guide.md`.
 
 **Files changed.**
-- `api/meta/capi.js` (full file)
+- `api/meta/capi.js` (full file, two commits: initial then hostname-gate revision)
 - `public/public/public/index.html`
 - `public/public/public/thank-you/index.html`
 - `public/public/public/neighborhoods/index.html`
@@ -323,5 +294,6 @@ Once tomorrow's verification confirms KTS pause completed:
 ### Pickup notes
 - Brain-app is live and working — use it for any future updates to `hgpg-context`
 - Resend API key is in 1Password ("Supabase HGPG Core SMTP")
+
 
 
