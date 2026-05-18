@@ -1,4 +1,4 @@
-<!-- Last Updated: 2026-05-14 -->
+<!-- Last Updated: 2026-05-18 -->
 
 # Sellers Guide
 
@@ -61,6 +61,16 @@ Tables:
 - Standard `Lead` event uses Meta standard naming so it counts as a Lead in Ads Manager; others are `trackCustom`
 - All event firing on `/home-selling-score/` delegates through `window.hgpgTrack(name, params)` which handles browser fbq + CAPI POST with shared `event_id`
 
+### Production-only gate (added 2026-05-18)
+
+Pixel + CAPI fire **only** on the canonical production hostname. Preview deployments (`charlotte-sellers-guide-vercel.vercel.app`, branch previews, localhost) get no-op shims.
+
+- **Browser gate:** `window.HGPG_PIXEL_ENABLED = (location.hostname === 'sellersguide.homegrownpropertygroup.com')`. When false, `hgpgTrack` returns a synthetic event_id without firing `fbq` or POSTing to `/api/meta/capi`. The `<noscript>` `<img>` fallback is emitted via `document.write` only on prod, so it's absent from non-prod HTML entirely.
+- **Server gate:** `api/meta/capi.js` returns `200 {skipped:true, reason:'non-production', env:VERCEL_ENV}` when `process.env.VERCEL_ENV !== 'production'`. Returns 200 (not 4xx) so browser `fetch()` calls don't show errors in DevTools on previews.
+- **UTM capture stays unconditional** so cross-env nav preserves attribution.
+
+Why hostname (not `VERCEL_ENV`) on the browser: `VERCEL_ENV` doesn't exist client-side in static HTML. Hostname check is one line, zero build complexity. Of the 4 aliased Vercel domains, only `sellersguide.homegrownpropertygroup.com` is canonical and fires the pixel.
+
 ## Paid traffic configuration
 
 - `utm_source=meta` bypasses 6-digit email verify gate
@@ -83,6 +93,8 @@ Tables:
 
 ## Recent build history (most recent first)
 
+- 2026-05-18 — `fix(pixel)`: gate Meta Pixel to production hostname only across 7 HTML pages (`location.hostname === 'sellersguide.homegrownpropertygroup.com'`); non-prod gets no-op `hgpgTrack` shim
+- 2026-05-18 — `fix(capi)`: gate Meta CAPI to production deployments only (`VERCEL_ENV === 'production'`); returns `{skipped:true}` on previews
 - 2026-05-11 — `fix(seo)`: replace stale sellers.* domain with canonical sellersguide.* across sitemap, robots, OG tags, and JSON-LD schemas (8 files)
 - 2026-05-11 — `feat(fub-lead)`: return FUB person object; submit.js persists `fub_person_id`
 - 2026-05-11 — `fix(assessment/submit)`: await FUB forward + writeback fub_event_id (was fire-and-forget killed by lambda teardown)
@@ -131,3 +143,4 @@ End-to-end test from `?utm_source=meta&utm_campaign=preflight-final-20260511`:
 - `fub_event_id` column name is legacy; value is the FUB person ID (FUB Events API returns the person, not a separate event entity, because FUB dedups on email)
 - 4 domains aliased on Vercel: `sellersguide.homegrownpropertygroup.com` is canonical
 - Test data from 2026-05-11 QA cleaned out of `seller_assessments`; FUB persons 31927 and 31928 deleted manually
+
