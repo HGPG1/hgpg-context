@@ -1,8 +1,71 @@
-<!-- Last Updated: 2026-05-18 (late) -->
+<!-- Last Updated: 2026-05-18 (later) -->
 
 # Session Handoff
 
-## Last session: 2026-05-18 (late) — Brain hygiene + full status sweep 🟢
+## Last session: 2026-05-18 (paid social) — Variant E shipped + Sellers Guide CONV mystery solved 🟢
+
+### What got done
+
+**Weekly performance read on New Construction campaign.** Viktor's analysis was numerically correct but framing was off. Real story: CPM only +5% w/w, so the CPL spike ($14.68 → $27.37) is a CTR/CVR saturation problem (single creative against doubled reach), not an auction failure. CTR drop (4.51% → 3.37%) is the leading indicator; CPL is downstream. Zero-lead Mon/Thu is Poisson noise at this volume.
+
+**Variant E shipped.** Dollar-anchor typography concept, no portrait. Hook: "$10,000+ in closing costs, paid by the builder." All 3 sizes built (1080x1080, 1080x1350, 1080x1920; PNG+JPG). 5 copy variants written. Brand-styled brief PDF (5 pages) delivered. Decided no-portrait because all 3 uploaded photos were Work Hard Be Kind shirt = competing personal branding, and IMG_5675 from Drive wasn't accessible in this session. Brian sent spec to Viktor for build. To launch alongside reactivated Variant D in same ad set as C.
+
+**Sellers Guide CONV mystery solved.** Pulled the Events Manager funnel:
+- PageView 192 → AssessmentStarted 28 (14.6%) → ScoreCompleted 20 (71% of starters) → Lead 14 (70% of completers)
+- Last Lead: 3 days ago (May 15) with red triangle warning
+- The lander funnel is actually HEALTHY below the click. 70% form completion of starters is strong. Form friction was NOT the bottleneck — my earlier diagnosis was wrong.
+- Top-of-funnel is the issue: only 14.6% of page visitors tap "Start the Score."
+
+**Real cause discovered: Vercel preview domain leaking pixel events.** Viktor's AEM audit confirmed pixel `861295553661596` is healthy and AEM-enabled, BUT it's also receiving events from `charlotte-sellers-guide-vercel.vercel.app` (Vercel preview deployments running with production env vars). Every branch push fires the pixel. This pollutes:
+- Event Match Quality (preview traffic = no real users/cookies)
+- Lead optimization signal (Meta can't separate real Leads from preview Leads)
+- iOS attribution (preview domain not in AEM)
+
+Meta has been optimizing CONV against polluted signal for the entire campaign window. The "Confirm domains that belong to you" warning in Diagnostics (auto-resolved, "no longer detected") was the symptom we missed.
+
+### Deliverables (in /mnt/user-data/outputs/)
+- variant-e_1x1_square.png/.jpg
+- variant-e_4x5_portrait.png/.jpg
+- variant-e_9x16_vertical.png/.jpg
+- variant-e_brief.pdf (5 pages)
+
+### Key diagnoses
+- New Construction: audience saturation, fresh angle needed → Variant E addresses this
+- Sellers Guide CONV: Vercel preview leak corrupting optimization signal → block list + Tech & Builds env-gating
+
+### Open / parked
+
+- [ ] **Brian: add `charlotte-sellers-guide-vercel.vercel.app` to pixel block list** (pixel `861295553661596`). Step-by-step provided in session.
+- [ ] **Tech & Builds: env-gate pixel injection** in `charlotte-sellers-guide` Vercel project so pixel only fires on production. Pattern in `META-PIXEL-CAPI-PLAYBOOK.md`.
+- [ ] **Brian: cross-check $10K+ Variant E figure** against one current builder MLS listing before Viktor pushes live. If $15K consistent, ping for regenerate.
+- [ ] **Viktor: build Variant E in same ad set as C and D**, reactivate D, keep C. Spec sent. Confirm pixel firing + UTMs in FUB lead source data after launch.
+- [ ] **Day 1-2 post-fixes:** watch Lead event in Sellers Guide pixel. Expect 24-48hr Meta optimization recovery.
+- [ ] **Day 3+ post-fixes:** if CONV still flat after clean signal, THEN do the destination switch (`/home-selling-score/` → `/`). Holding this decision until preview leak is resolved — there's a real chance switch isn't needed.
+- [ ] **Day 5-7 (May 23-25):** C/D/E performance read. Pause worst performer, scale winner.
+- [ ] **Day 30:** Sellers Guide CONV ad set rebuild with custom conversion baked in (known soft-fail).
+- [ ] **Variant F queued** if E underperforms (urgency, comparison, or objection-handled angles).
+- [ ] **Decide automation owner for Variant D leads** (Viktor vs Claude CRM project) — still parked.
+- [ ] **Brian: form friction fix on /home-selling-score/ is DEPRIORITIZED** — funnel proves it works at 70% completion. Don't change form until preview leak resolved.
+
+### Performance snapshot (week of 2026-05-12 to 2026-05-18) — New Construction
+- Spend: $410.52 (+115% w/w)
+- Leads: 15 (+15% w/w)
+- CPL: $27.37 (+86% w/w; still under $50 target)
+- CTR: 3.37% (-25%)
+- CPM: $32.81 (+5%) ← key tell: not an auction problem
+- Frequency: 2.32 (+12%)
+
+### Sellers Guide CONV snapshot (3 days live, May 15-17)
+- Spend: $47.05
+- Clicks: 17
+- LPVs: 9 (53% LPV rate vs TRAF's 99% — cold traffic on deep-funnel page)
+- AssessmentStarted: 28 (across whole 28-day pixel window)
+- ScoreCompleted: 20 (71% of starters)
+- Lead: 14 historical (mostly TRAF + organic), 0 from CONV in 3 days
+- Diagnosis: Vercel preview leak pollution + cold-traffic-on-deep-funnel intent mismatch
+
+
+## Previous session: 2026-05-18 (late) — Brain hygiene + full status sweep 🟢
 
 ### What got done
 
@@ -54,7 +117,7 @@ Brian thought Sessions 3+4 might be done. Three checks confirmed they aren't:
 - Phone Capture Rate Review window now open (2026-05-19 to 2026-05-26).
 - Brian to share live TC Concierge classifications for extraction-quality review.
 
-## Previous session: 2026-05-18 — KTS contamination shut down, B2 templates shipped, Viktor handoff 🟢
+## Earlier session: 2026-05-18 — KTS contamination shut down, B2 templates shipped, Viktor handoff 🟢
 
 ### What shipped today
 
