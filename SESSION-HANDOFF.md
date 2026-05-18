@@ -2,23 +2,57 @@
 
 # Session Handoff
 
-## Last session: 2026-05-18 (late) — Brain hygiene + status reconciliation 🟢
+## Last session: 2026-05-18 (late) — Brain hygiene + full status sweep 🟢
 
 ### What got done
-- Audited brain staleness: raw.githubusercontent.com was caching 5/04 CONTEXT and 5/06 SESSION-HANDOFF, but `/api/files` showed CONTEXT was actually 5/17 and SESSION-HANDOFF had the 5/18 evening entry. Brain itself fresher than CDN view suggested.
-- Reconciled CONTEXT.md with current state across all active projects:
-  - Sellers Guide Meta ads moved to Recently completed (shipped 2026-05-15)
-  - MLS Grid token resolved as blocker - CMA Engine auto-pull comps live in production
-  - B2 IDXRE marked as active (Viktor building automations)
-  - Brain App `/api/external/commit` (2026-05-14), `/api/files` bearer auth (2026-05-15), and Listing Reports + MLS Resend SMTP (2026-05-15) added to Recently completed
-  - KTS contamination shutdown + B2 templates 1166/1167 captured
-  - Stack consolidation parked item carried forward
-  - TM remaining work (addendum injection, per-party messaging, calendar gate backfill, agent onboarding gated on first deal) captured
-- Posted updated CONTEXT.md via `/api/external/write`
+
+**CDN staleness audit.** `raw.githubusercontent.com` was caching 5/04 CONTEXT and 5/06 SESSION-HANDOFF. `/api/files` (bearer-authed) showed both were actually fresher (CONTEXT 5/17, handoff had the 5/18 evening entry). Lesson: trust `/api/files` over `raw.githubusercontent.com` for fresh reads; CDN caches for minutes after writes.
+
+**Status sweep across every active project file.** Walked all 25 project files in the brain, surfaced everything mid-flight that CONTEXT.md wasn't showing. Resolved each item with Brian:
+
+| Item | Outcome |
+|---|---|
+| Buyer Alerts (LoopMessage patch DRAFTED) | Keep parked, wait for clean Items 1+2+3 session |
+| Charlotte New Construction (Variant D running) | Variant E under consideration |
+| Buyers Guide migration (S1+S2 done, S3+S4 queued) | Brian thought further along; live-site probe + Mac mini `git status` confirmed S3+S4 NOT built. Stays parked. |
+| FUB AI Agent week 1 ramp | Humming, daily_send_cap=10 manual approve |
+| TM $395 fee toggle | Keep parked |
+| DocuSign migration off zipForms | Keep parked, re-evaluate pain before 2026-06-13 |
+| Sellers Guide FUB Automation 2.0 | Likely ready, validation gates on first real ad lead from Friday campaign |
+| NC Quiz Scoring calibration | Added to recheck list (two dead inputs: commute, firstTimeBuyer) |
+| Phone Capture Rate Review | Tomorrow's docket (window opens 2026-05-19) |
+| NC "For Builders" footer link | Keep parked |
+| Incentives Funnel Phase 2 (general) | Keep on recheck list |
+| Incentives Funnel Phase 2 calendar checkpoint | Tomorrow check (calendar target ~2026-06-02) |
+| TC Concierge real-life classifications | Brian to share live deals next session for extraction quality review |
+| Sherlock 403 on TM | RESOLVED, removed from blockers |
+| GitHub auth on Mac mini | RESOLVED, removed from blockers |
+| CRM brain stub (`projects/crm.md`) | Recheck list — needs Active campaigns + Recent FUB Work entries backfilled |
+
+### CONTEXT.md rewrite
+
+Reorganized into four explicit buckets so the index is scannable at a glance:
+- **What's active right now** — projects actively iterating, with one-line state per project
+- **Recently completed** — chronological, last ~2 weeks
+- **Parked** — explicit list of things NOT to pick up without a trigger
+- **On the docket for next session** — Phone Capture Rate Review, Incentives Funnel calendar checkpoint, TC Concierge real-life review
+- **On the recheck list** — lower-urgency items to keep on radar (Incentives Phase 2 design, NC Quiz calibration, CRM brain stub buildout)
+
+Posted via `/api/external/write` (commit `357c723`).
+
+### Buyers Guide forensics
+
+Brian thought Sessions 3+4 might be done. Three checks confirmed they aren't:
+1. Live-site probe of `/brian`, `/ashley`, `/map`, `/market-pulse`, `/advisor`, `/admin` — all returned 200 but with identical 12,739-byte SPA-fallback HTML (`lesson #12 — Vercel + Vite SPA fallback caches index.html per URL`)
+2. Bundle inspection — page chunks shipped are Home/Calculator/Quiz/Bonuses/Neighborhoods/Checklist/ThankYou/NotFound. No AgentProfile, Advisor, Admin, Map, or MarketPulse chunks.
+3. Mac mini `git status` — clean, on `main`, matches `origin/main`. Last commit `16d1e79` is Session 2 quiz fix. No unpushed work, no S3/S4 branches anywhere.
 
 ### Pickup notes for next session
-- Brain is now in sync. Trust `/api/files` over `raw.githubusercontent.com` for fresh reads (CDN caches minutes after writes).
-- B2 launch sequence still queued behind Viktor's automation build (see 5/18 evening entry below for full checklist)
+
+- Brain is in sync. Trust `/api/files` over `raw.githubusercontent.com` for fresh reads.
+- Tomorrow morning: KTS pause verification → toggle templates 1166/1167 to Shared → review Viktor's automation builds → decide on B2 activation (see 5/18 evening entry below).
+- Phone Capture Rate Review window now open (2026-05-19 to 2026-05-26).
+- Brian to share live TC Concierge classifications for extraction-quality review.
 
 ## Previous session: 2026-05-18 — KTS contamination shut down, B2 templates shipped, Viktor handoff 🟢
 
@@ -140,3 +174,4 @@ Once tomorrow's verification confirms KTS pause completed:
 ### Pickup notes
 - Brain-app is live and working — use it for any future updates to `hgpg-context`
 - Resend API key is in 1Password ("Supabase HGPG Core SMTP")
+
