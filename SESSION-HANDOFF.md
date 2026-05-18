@@ -1,81 +1,112 @@
-<!-- Last Updated: 2026-05-18 -->
+<!-- Last Updated: 2026-05-18 (evening) -->
 
 # Session Handoff
 
-## Last session: 2026-05-18 — KTS contamination shut down, B2 unblocked 🟢
+## Last session: 2026-05-18 — KTS contamination shut down, B2 templates shipped, Viktor handoff 🟢
 
 ### What shipped today
-- **Built and bulk-applied `bulk` Automation 2.0** that pauses Action Plans + 2 target Automations 2.0 (`*KTS Nurture Expired`, `*KTS Expired - SMS`) for any enrolled person
-- **Tested on Jenny Austin (personId 30569)** - confirmed Nurture Expired flipped Running → Paused
-- **Bulk-applied to 6,625 leads** (FUB filter: Stage = Expired/Withdrawn). Processing in background, expected complete by 2026-05-19 morning
-- **Built `fub_expired_send_audit.py`** - per-lead audit script that joins FUB CSV export to last N days of emEvents (in `~/Documents/hgpg-transaction-manager/fub_cleanup/`)
 
-### Critical discovery: template IDs vs automation IDs
-The IDs 583, 584, 585, etc. that appeared in our 2026-05-17 contamination audit as `*KTS Expired #7, #8, #9` are **email template IDs, NOT automation IDs**.
+**Cleanup ops**
+- Built `bulk` Automation 2.0 in FUB - manual trigger, pauses Action Plans + 4 target Automations 2.0
+- Bulk-applied to 6,625 expired leads (Stage = Expired/Withdrawn). Completed: 6,603/6,625
+- Surgically paused 3 lingering KTS automations at the automation level:
+  - `*KTS Back to Website` (45 enrolled, the only ACTIVE one)
+  - `*KTS Nurture FSBO` (70)
+  - `*KTS FSBO - SMS` (52)
+- Hit 9 stragglers manually in `*KTS Nurture Buyer`
 
-Verified via `getTemplate`:
-- Template 583 `*KTS Expired #14` → parent: `*KTS Nurture Expired` (automation ID 72)
-- Template 531 `*KTS Automated Valuation Engagement 5` → parent: `*KTS Automated Valuation Engagement - Ylopo` (automation ID 47)
+**B2 templates created via FUB API (Owner Account / userId 12)**
+- Template ID 1166: "IDXRE-B2-Seller — Just Checking In"
+  Subject: "Just checking in, %contact_first_name%"
+  Audience: ~693 leads (IDXRE-Cool|Cold + IDXRE-Seller)
+  Tone: Personal, short, no agenda. 4 sentences. Reply-driven CTA.
+- Template ID 1167: "IDXRE-B2-Buyer — Market Shifted"
+  Subject: "%contact_first_name%, the Charlotte market shifted a bit"
+  Audience: ~304 leads (IDXRE-Cool|Cold + IDXRE-Buyer)
+  Tone: Market data lead + soft listing offer. Reply-driven CTA.
 
-So the actual list of contaminating Automations 2.0 is ~3, not 6+. All emails like KTS Expired #6/#7/#8/#9 etc. come from the single `*KTS Nurture Expired` automation.
+**Handed off to Viktor**
+- Brief to build 2 Automation 2.0s (IDXRE-B2-Sellers, IDXRE-B2-Buyers)
+- Both end INACTIVE for Brian review before activation
+- Includes audience filters, 3-step structure (send email + 2 tag steps)
+- Bonus verification step optional (audience size validation)
+
+### Critical discoveries
+1. **Template IDs vs Automation IDs are confusable in emEvents data.** Audit showed "KTS Expired #7/#8/#9" with IDs 583/584/585 - those are TEMPLATE IDs. The real automation is one: `*KTS Nurture Expired` (ID 72). Verified via `getTemplate`.
+2. **`getTemplate` API can return empty actionPlans/automations arrays even when relationship exists in UI** (saw this with template 362 → KTS Nurture Buyer). Don't fully trust the API for this lookup.
+3. **"Inactive" automations keep processing in-flight enrollments** until paused at automation level OR people removed individually. Critical nuance.
 
 ### Pre-bulk baselines (for tomorrow's verification)
-- `*KTS Nurture Expired`: 1,756 enrolled
-- `*KTS Expired - SMS`: 820 enrolled
-- Target tomorrow: both under 200/100 respectively. Anything above ~300/200 = bulk didn't process fully.
+- *KTS Nurture Expired: 1,756 enrolled → target tomorrow under 200
+- *KTS Expired - SMS: 820 enrolled → target tomorrow under 100
+- *KTS Back to Website: 45 enrolled → should be 0 (paused entirely)
+- *KTS Nurture FSBO: 70 enrolled → should be 0 (paused entirely)
+- *KTS FSBO - SMS: 52 enrolled → should be 0 (paused entirely)
 
-### Open question worth investigating
-- Template 362 `*KTS Nurture Buyer #13 - blog` sent 78 emails to 42 leads in our expired pool but has no parent Action Plan or Automation 2.0 listed in `getTemplate`. Orphaned? Sent manually as mass action? Worth checking before B2 launches.
+### B2 status: READY TO LAUNCH (post-verification)
 
-### B2 status: UNBLOCKED (once bulk completes)
-With KTS contamination paused, B2 send is no longer at risk of contamination compounding. Open decisions:
-- Seller-angle for 693 Cool+Cold IDXRE-Seller leads (listing recovery messaging)
-- Buyer-angle for 304 Cool+Cold IDXRE-Buyer leads (refined search/market refresh)
-- 20 IDXRE-Unknown parked for manual review
+Once tomorrow's verification confirms KTS pause completed:
+1. Toggle both new templates to Shared (currently isShared: false - API default)
+2. Review Viktor's automation builds (screenshots in his report)
+3. Verify audience filter is correct or applied at bulk-apply step
+4. Activate both automations
+5. Bulk-apply audience filter:
+   - B2-Sellers: IDXRE-Cool|Cold + IDXRE-Seller, NOT (Y_BAD_EMAIL|Y_IDXRE_UNSUBSCRIBED|Y_SOFT_BOUNCE|IDXRE-Hot|IDXRE-Warm)
+   - B2-Buyers: same logic with IDXRE-Buyer
+6. Date-stamp tag both automations apply: `IDXRE-2026-05-19-B2` (update if launch date slips)
 
-### Tomorrow checks (before launching B2)
-1. Verify `*KTS Nurture Expired` count is near zero (under 200)
-2. Verify `*KTS Expired - SMS` count is near zero (under 100)
-3. Spot-check 5-10 leads across the bulk audience - automations widget should show Paused
-4. Investigate orphaned template 362 if not already explained
-5. Confirm `*KTS Automated Valuation Engagement - Ylopo` was added to bulk step (action item from this session)
+### Decisions made today
+- Pond 9 stays family/personal only - NOT campaign suppression
+- Y_UNSUBSCRIBED is Ylopo-era - use Y_IDXRE_UNSUBSCRIBED for current opt-outs
+- userId 12 = "Owner Account" - generic placeholder (now in protected list with 6 & 15)
+- IDXRE Hot tier outreach PARKED until contamination-aware re-scoring possible
+- Hot tier dossier finding generalizes: pool is 70% sellers, NOT primarily buyer-search audience
+- B2 angle: personal note for sellers, market-data lead for buyers, short for both
+- Both B2 automations end INACTIVE; Brian activates manually after verification
 
-### Updated brain memory entries
-- userId 12 = "Owner Account" (generic placeholder, owns ponds 14-17)
-- Pond 17 = "IDXRE - Triage" (owned by userId 12)
-- FUB REST API has NO /people/bulkUpdate - use per-person PUT
-- listAutomations + listAutomationsPeople are gated (403)
-- IDXRE Hot tier is 85% sellers, contradicting initial buyer-search framing
-- 92% of IDXRE pool (1,184 leads) was contaminated by non-IDXRE sends during B1
+### Open questions
+- Did Viktor's audience filtering work in Automation 2.0's UI, or did he build with bulk-apply filtering? (His report will say)
+- KTS Automated Valuation Engagement - Ylopo: was it added to bulk step? Worth confirming.
+- Template 362 (KTS Nurture Buyer parent) had only 9 enrolled - all hit manually. Worth a future deep dive on what triggered it to enroll expireds.
 
-## Previous session: 2026-05-17 — IDXRE-2026-04 scored, tier+segment tagged, Dead triaged 🟡
+### Scripts shipped today
+- `fub_expired_send_audit.py` - new, per-lead audit from FUB CSV export joined to last N days of emEvents
+
+### Tomorrow's checklist
+1. AM: Check KTS automation counts in FUB Admin > Automations
+2. AM: Toggle templates 1166 + 1167 to Shared
+3. AM: Review Viktor's build screenshots
+4. Decide: launch B2 immediately or wait additional day
+5. If launching: activate both automations, bulk-apply, monitor for issues
+6. Optional: build 5 smart lists in FUB UI (Hot/Warm/Cool/Cold/Triage pond)
+
+## Previous session: 2026-05-17 — IDXRE-2026-04 scored, tier+segment tagged, Dead triaged
 
 ### What got done
 - Ran fub_idxre_engagement.py: 1,289 scored leads from pond 16 (1,460 active)
   - Hot 27 / Warm 105 / Cool 239 / Cold 778 / Dead 135
 - Built and ran fub_idxre_tier_tag.py: 1,149 leads tagged IDXRE-Hot/Warm/Cool/Cold
 - Built and ran fub_idxre_source_segment.py: 1,284 leads tagged IDXRE-Seller (902, 70%) / IDXRE-Buyer (352, 27%) / IDXRE-Unknown (30, 2%)
-- Built and ran fub_idxre_dead_cleanup.py: 135 Dead leads moved to new pond 17 "IDXRE - Triage" with bounce-type tags (19 Y_BAD_EMAIL, 114 Y_SOFT_BOUNCE, 2 Y_IDXRE_UNSUBSCRIBED)
+- Built and ran fub_idxre_dead_cleanup.py: 135 Dead leads moved to new pond 17 "IDXRE - Triage" with bounce-type tags
 - Ran rescue scoring: 134 of 135 Dead have phone, 113 marked "RE-INCLUDE B2 + call as backup"
-- Ran contamination audit: 92% of pond 16 (1,184 leads) received non-IDXRE emails during the campaign window. 3,491 contamination events.
+- Ran contamination audit: 92% of pond 16 received non-IDXRE emails during campaign window
 - Created pond 17 "IDXRE - Triage" (owner userId 12 Owner Account)
 
 ### Scripts shipped (in ~/Documents/hgpg-transaction-manager/fub_cleanup/)
-- fub_idxre_engagement.py - pulls emEvents, joins pond, scores tiers
-- fub_idxre_tier_tag.py - per-person PUT with mergeTags
-- fub_idxre_source_segment.py - source-based Seller/Buyer/Unknown tagging
-- fub_idxre_dead_cleanup.py - tag and move Dead leads to triage pond
-- fub_idxre_dead_rescue_score.py - local CSV analysis, recovery prioritization
-- fub_idxre_contamination_audit.py - finds non-IDXRE sends to pond 16 members
-- contamination_summary_from_csv.py - read existing audit CSV, no API calls
+- fub_idxre_engagement.py
+- fub_idxre_tier_tag.py
+- fub_idxre_source_segment.py
+- fub_idxre_dead_cleanup.py
+- fub_idxre_dead_rescue_score.py
+- fub_idxre_contamination_audit.py
+- contamination_summary_from_csv.py
 
 ### Major discoveries
-- FUB REST API has NO /people/bulkUpdate endpoint - sequential per-person PUT required (0.05s sleep, 250 req/10s with X-System-Key)
-- listAutomations endpoint gated (HTTP 403) - all Automation 2.0 audit must be manual UI
-- KTS legacy Action Plans got auto-converted by FUB to Automations 2.0 and are STILL ACTIVELY SENDING to pond 16 members
-- IDXRE pool composition is 70% sellers / 27% buyers / 3% unknown - campaign messaging mismatched
+- FUB REST API has NO /people/bulkUpdate endpoint - sequential per-person PUT required (0.05s sleep)
+- listAutomations + listAutomationsPeople endpoints gated (HTTP 403)
+- KTS legacy Action Plans got auto-converted by FUB to Automations 2.0
+- IDXRE pool is 70% sellers / 27% buyers - campaign messaging was mismatched
 - Top 27 Hot tier leads are 85% sellers (Expired/Withdrawn from MyPlusLeads)
-- Top contaminating campaigns: 1613/1612/1602 are historical FUB/Beacon mass sends (already over), KTS Expired #7/#8/#9 are active Automation 2.0 (must pause)
 
 ## Previous session: 2026-05-06 — Brain App MVP shipped 🟢
 
@@ -85,20 +116,8 @@ With KTS contamination paused, B2 send is no longer at risk of contamination com
 - Live at: `https://brain.homegrownpropertygroup.com`
 - Stack: Next.js 16.2.4, Tailwind v4, CodeMirror 6, Supabase Auth (magic link)
 - Single-user lock: `BRIAN_EMAIL=brian@homegrownpropertygroup.com` allow-list
-- GitHub auth: fine-grained PAT scoped to `HGPG1/hgpg-context`, contents:write only
-- Round-trip verified: edit file in browser → commit lands on `main` with author `brian@homegrownpropertygroup.com`
-
-### Infra changes that affect other apps
-- Resend custom SMTP wired into `HGPG Core` Supabase (project `ioypqogunwsoucgsnmla`)
-  - Sender: `noreply@homegrownpropertygroup.com`, name: HGPG
-  - API key stored under "Supabase HGPG Core" in Resend
-  - Rate limit went from 2/hr (Supabase default) to 30/hr (Resend default), can be raised
-  - This affects ALL apps using this Supabase: TM, CMA, TC Concierge, brain-app
-- Supabase project renames for hygiene:
-  - `ioypqogunwsoucgsnmla` → "HGPG Core"
-  - `ngdrliyjtqcwhhfrbxao` → "HGPG FUB Integration" (verify)
-  - `wdheejgmrqzqxvgjvfee` → "HGPG Listing Reports + MLS" (verify)
-  - `fkxgdqfnowskflgbuxhm` → "HGPG Signature + Relocation" (verify)
+- GitHub auth: fine-grained PAT scoped to `HGPG1/hgpg-context`
+- Round-trip verified: edit file in browser → commit lands on `main`
 
 ### Pickup notes
 - Brain-app is live and working — use it for any future updates to `hgpg-context`
