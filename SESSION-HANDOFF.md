@@ -1,6 +1,45 @@
-<!-- Last Updated: 2026-05-18 (pixel leak fixed) -->
+<!-- Last Updated: 2026-05-17 -->
 
 # Session Handoff
+
+## Latest session: 2026-05-17 - Geo-farming vendor lock + handoff briefs 🎯
+
+**Status: Ready to execute.** Vendor confirmed (Geosential LITE), all infrastructure deployed and verified, design + tech work scoped and handed off to sister projects.
+
+### Vendor: LOCKED Geosential LITE ($47/mo)
+
+Janine Sasso confirmed all five pre-signup questions directly. Key answers:
+- Street View merge on LITE: YES
+- Custom design upload on LITE: YES
+- List builder: $0.10/contact
+- USPS Informed Delivery on LITE: grayscale only (no color ride-along)
+- Scan data export: PRO only (we do not need it - our /farm landing pages already track scans into Supabase `farm_leads`)
+
+Janine's framing - *"LITE is a tool, PRO is a system"* - is exactly right and exactly why LITE works for HGPG. We already have the system (FUB + /farm pages + Supabase + brain repo). We need the tool.
+
+### Brain docs added this session
+
+- `marketing/farms/june-2026-introduction.md` - postcard brief template (reuse for July-May 2027 with theme refresh)
+- `marketing/farms/june-2026-handoff-ads.md` - design spec for HGPG - Ads project (postcard production)
+- `marketing/farms/june-2026-handoff-tech.md` - remaining tech work for HGPG - Tech & Builds project (FUB push, etc)
+- `marketing/geo-farming.md` - updated with vendor lock + "Scan tracking architecture" section explaining why LITE is sufficient
+- Deferred: USPS Informed Delivery color ride-along via Mailer Campaign Portal (free DIY, defer to July+)
+
+### Brian's open items
+
+1. Sign up Geosential LITE at https://geosential.com/lite-payment
+2. Open HGPG - Ads project, paste `marketing/farms/june-2026-handoff-ads.md` as opening prompt → get three postcard PDFs
+3. Open HGPG - Tech & Builds, paste `marketing/farms/june-2026-handoff-tech.md` → FUB push into lead API
+4. Take real photos (Bent Creek gate, Bridgemill clubhouse, Queensbridge home) for v2 swap-in
+5. Run the Supabase INSERT for the three June campaigns (SQL in june-2026-introduction.md)
+
+### What to ask Brian in the next Home Base session
+
+> "Have you started the design work in HGPG - Ads and the FUB integration in HGPG - Tech & Builds?"
+
+This project (Home Base) is now meta-layer only - vendor decisions, program strategy, brain curation. Execution lives in the sister projects. Refer Brian back here only if scope changes (different vendor, different farm, different format) or for monthly brief drafting (July, August, etc).
+
+---
 
 ## Last session: 2026-05-18 (paid social) — Variant E shipped + Sellers Guide CONV mystery solved + pixel leak fixed 🟢
 
