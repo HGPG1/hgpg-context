@@ -94,7 +94,11 @@
 
 ## Review status
 
-- Initial inventory: 2026-05-19 (this file). No content has been reviewed for accuracy yet — flag any line above that needs rework with a `🔴 REVIEW:` prefix.
+- **Started:** 2026-05-19
+- **Status:** ⏸️ Paused after block 1 of 12.
+- **Approved:** Setting up the strategy conversation (1 block)
+- **Pending review:** the other 11 blocks. Pick up at "Seller's market notes" next.
+- Use `🔴 REVIEW:` prefix to flag a line for rework. Use `✅ APPROVED YYYY-MM-DD` next to a block heading once it's signed off.
 
 ## How to add or edit notes
 
