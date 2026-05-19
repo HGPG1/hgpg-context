@@ -1,6 +1,6 @@
 # HGPG Context (Brain)
 
-Last updated: 2026-05-18
+Last updated: 2026-05-19
 
 ## Who
 
@@ -41,7 +41,8 @@ See `team.md` for full roster.
 - GitHub auth resolved on Mac mini
 - IDX Broker migration (Ylopo cancelled, Showcase IDX cancelled, FUB lead routing done)
 - Main site SEO push (mobile PageSpeed 96/100)
-- Buyers guide migration from Manus to React + Vite (Sessions 1+2 live; Sessions 3+4 queued)
+- Buyers Guide Session 3 shipped (agent slug routes /brian /brenda /ashley /taylor + AdvisorMode + assignedAgentSlug plumbed end-to-end) — production 2026-05-19, real-traffic leads with named agents captured same day. See `projects/buyers-guide.md`
+- Buyers guide migration from Manus to React + Vite (Sessions 1+2 live 2026-05-12; Session 3 live 2026-05-19; Session 4 optional, queued)
 - Sellers guide rebrand to brand colors
 
 ## Parked (not active, do not pick up without explicit trigger)
@@ -50,7 +51,7 @@ See `team.md` for full roster.
 - **TM $395 fee toggle** — build spec parked, awaiting greenlight
 - **DocuSign migration off zipForms** — workflow scoped, target 2026-06-13; re-evaluate zipForms pain before starting
 - **NC "For Builders" footer link** — low priority, do next time touching the NC site
-- **Buyers Guide Sessions 3+4** — Agent surfaces + Advisor Mode (S3) and Interactive Map + Market Pulse + bonus PDFs (S4) not built yet
+- **Buyers Guide Session 4** — Interactive Map + Market Pulse + bonus PDFs (~1.5 hrs, optional, not yet built). Manus app takedown follows S4.
 
 ## On the docket for next session
 
