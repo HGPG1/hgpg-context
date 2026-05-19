@@ -2,7 +2,36 @@
 
 # Session Handoff
 
-## Last session: 2026-05-19 — Variant E scoping confirmed, creative render deferred 🟡
+## Last session: 2026-05-19 — Meta Ads dashboard added to TM 🟢
+
+### What shipped
+- New TM route `/meta-ads` — internal Meta Ads performance dashboard, replacing manual CSV exports from Ads Manager (Pipeboard token now lives server-side, never in browser)
+- New TM API route `/api/meta-insights` — server-side Pipeboard JSON-RPC proxy. Reads `PIPEBOARD_API_TOKEN` from env, resolves Pipeboard tool names once per process lifetime (1hr TTL), fail-soft on the campaigns call (status pills fall back to "unknown" if Pipeboard rejects that tool but insights still renders)
+- Brian-gated end-to-end: server component redirects non-Brian sessions, API route returns 403 to non-Brian. Defense in depth so the token never gets exercised by anyone else
+- Sidebar nav links added (`app/layout.tsx` desktop, `components/MobileNav.tsx` mobile), gated on `user.email === brian@...` matching the `/agent` pattern
+- All 5 files committed via brain commit API. Final deploy `dpl_4LxM3f61sWuhUS9pZ1F7jXy7Ui1T` READY at production
+
+### Files
+- `app/api/meta-insights/route.ts` (new)
+- `app/meta-ads/page.tsx` (new, server component)
+- `app/meta-ads/MetaAdsDashboard.tsx` (new, client component, Tailwind matching TM conventions)
+- `app/layout.tsx` (edit: nav link)
+- `components/MobileNav.tsx` (edit: nav link)
+
+### Architecture notes
+- The UI is a 1:1 port of the Ads-project prototype (`meta_ads_dashboard.html`) with the token panel stripped. CTR normalization, lead extraction from `actions[]`, status pill colors, sort logic, CSV export logic all lifted verbatim
+- Pipeboard endpoint: `https://meta-ads.mcp.pipeboard.co/` (JSON-RPC 2.0, Bearer auth, 200/hour rate limit). Account `act_31445287`
+- 4 date ranges: 7 / 14 / 30 / 90 days (mapped to `last_7d`/`last_14d`/`last_30d`/`last_90d` Pipeboard presets)
+- 5s refresh throttle on the Refresh button. Tab switches always force-fetch (no throttle)
+- Page renders nothing useful until `PIPEBOARD_API_TOKEN` env var is set on Vercel — error box will display `PIPEBOARD_API_TOKEN not configured on server`
+
+### Pickup notes for next session
+- **Blocking: `PIPEBOARD_API_TOKEN` not yet set on Vercel TM project.** Brian to add via Vercel dashboard (Production scope minimum; Preview if testing on branch deploys). Token format starts with `pk_`. Get from pipeboard.co/api-tokens. Once set, the page works immediately on next request (tool name cache is per-process, so cold-start picks it up).
+- One intermediate deploy errored (`dpl_8trNCqM7m2Yc4mHYLJPqgayeqCtz`) because `page.tsx` committed before `MetaAdsDashboard.tsx`. The 5 commits were sequential single-file calls so intermediate states existed briefly. Subsequent deploy fixed it. Not a problem in practice but a reason to bundle related files into a single push when possible (or commit them in dependency order).
+- Future enhancements parked: ad set / ad creative drilldown, custom date range picker, scheduled performance digests (e.g. weekly email to Brian), multi-account support if Brian ever runs ads from a second account.
+- Token rotation procedure if Pipeboard token expires: refresh at pipeboard.co/api-tokens, replace `PIPEBOARD_API_TOKEN` in Vercel, trigger a redeploy (or wait for the next push; tool-name cache invalidates per cold start).
+
+## Previous session: 2026-05-19 — Variant E scoping confirmed, creative render deferred 🟡
 
 ### What happened
 - Brian asked whether Variant E (New Construction Incentives campaign) had been scoped here. It had — in an earlier same-day session.
