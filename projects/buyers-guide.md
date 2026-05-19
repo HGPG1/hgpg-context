@@ -62,10 +62,11 @@ Two internal routes gated by a query-string access key (`ADMIN_ACCESS_KEY` env v
 **`/admin`** — internal admin landing
 - Auth: `GET /api/admin/verify?key=<ADMIN_ACCESS_KEY>` returns 200 ok / 401 unauthorized
 - 3 UI states: verifying, error ("Verification failed. Try again or contact Brian."), verified
-- When verified: shows links to "Supabase Editor" (direct link to https://supabase.com/dashboard/project/ioypqogunwsoucgsnmla/editor) and to `/agent-dashboard`
+- When verified: `<h1>Admin</h1>` title, "Internal landing for HGPG team members." description, two link cards:
+  - "Agent Dashboard" → `/agent-dashboard?key=<same key>` (passes key through), sub-copy: "Per-agent lead counts, quiz completions, bonus unlocks, hot/warm splits."
+  - "Supabase Editor" → direct link to https://supabase.com/dashboard/project/ioypqogunwsoucgsnmla/editor, sub-copy: "Raw bg_contacts / bg_quiz_results / bg_activities for ad-hoc queries."
 - UX hint when no key: "Append ?key=... to the URL with the current admin access key."
 - `noIndex: true` (not crawled by Google)
-- ⚠️ Copy bug: the page title rendered on `/admin` says "Agent Dashboard" but the page description says "HGPG internal admin." The title was likely copy-pasted from the actual `/agent-dashboard` page. Worth a one-line fix.
 
 **`/agent-dashboard`** — internal stats dashboard
 - Same `/api/admin/verify` gate
@@ -226,7 +227,6 @@ All paired events use a shared `event_id` (UUID from `newClientEventId()`) so Me
 - 🟡 **Session 2 post-deploy verification** — 7-step smoke (full funnel, Supabase rows, FUB person+tags, both PDFs, Meta Test Events dedup)
 - 🟡 **`META_CAPI_TEST_EVENT_CODE` cleanup** — remove once QA confirms dedup
 - 🟡 **Session 3 mobile smoke test** — verify AdvisorMode banner displays correctly on iPad and iPhone (Safari + landscape rotation); verify agent slug + advisor mode stack cleanly (e.g. `/advisor/brian/calculator` or `/brian/advisor/calculator`); verify "Exit advisor mode" button correctly drops to clean path.
-- 🟡 **Session 3 admin page title bug** — `/admin` route renders "Agent Dashboard" as its title but the body copy describes it as the admin landing. Likely a copy-paste from `AgentDashboard.tsx` during build. One-line fix in `Admin.tsx`.
 - 🟡 **AdvisorNote content reviewed 2026-05-19** — full inventory pulled from `AdvisorNote-C4olMM97.js` and documented in `projects/buyers-guide-advisor-notes.md` (40 talking points across 12 sections spanning /quiz, /neighborhoods, /strategy, /checklist). Reviewed for accuracy before any agent uses in a live consult — flag any line that needs rework in that file.
 - 🟢 **Session 3 commit SHAs** — not yet captured in build history below. Pull via `gh repo log HGPG1/charlotte-buyers-guide` next time at the Mac.
 - 🟢 **Session 4 (optional)** — Interactive map, Market Pulse, bonus PDFs (~1.5 hrs, queued)
