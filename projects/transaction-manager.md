@@ -119,12 +119,16 @@
 ### Meta Ads Dashboard (2026-05-19)
 
 - `/meta-ads` route + `/api/meta-insights` API. Brian-only, gated server-side via `getSession()` + email check.
-- Server-side Pipeboard JSON-RPC proxy. Token (`PIPEBOARD_API_TOKEN`) lives in Vercel env, never in browser.
+- Server-side Pipeboard JSON-RPC proxy. Token (`PIPEBOARD_API_TOKEN`) lives in Vercel env, never in browser. **Gotcha:** Vercel "Sensitive" env vars return as empty strings to runtime — re-add without the Sensitive toggle if `present:true, length:0` shows in `/api/debug-env`.
 - Pipeboard endpoint `https://meta-ads.mcp.pipeboard.co/`, account `act_31445287`, 200/hour rate limit.
-- 4 tabs (7/14/30/90 day ranges), KPI strip (Spend/Impressions/Clicks/Leads/Avg CPL), sortable campaign table, CSV export, 5s refresh throttle.
-- Tool name discovery (`tools/list`) cached per process (1hr TTL). Fail-soft on campaigns call so status pills degrade to "unknown" but insights still render.
+- 4 date tabs (7/14/30/90), KPI strip (Spend/Impressions/Clicks/Leads/Avg CPL), sortable table, CSV export, 5s refresh throttle.
+- **Drill-down (2026-05-19 PM):** click any row to drill — campaigns → ad sets → ads. Breadcrumb at top for nav back up. Ad level is terminal. Unknown-status rows are dimmed and non-clickable (no current Pipeboard metadata to query against).
+- **Hide unknown toggle** in tab row. Defaults ON. Count chip surfaces unknown count (e.g. "Hide unknown (12)").
+- API query params: `level` (campaign|adset|ad), `parent_id`, `parent_kind` (campaign|adset). Backwards-compatible: no params = campaign-level.
+- **60s response cache** per-lambda keyed by `${level}:${parentKind}:${parentId}:${days}` to absorb rapid drill-down clicks below Pipeboard's 200/hour limit.
+- Tool name discovery (`tools/list`) cached per process (1hr TTL). Fail-soft on campaigns/adsets/ads metadata calls so status pills degrade to "unknown" but insights still render.
 - Files: `app/meta-ads/page.tsx`, `app/meta-ads/MetaAdsDashboard.tsx`, `app/api/meta-insights/route.ts`, plus nav links in `app/layout.tsx` and `components/MobileNav.tsx`.
-- **Setup gate: `PIPEBOARD_API_TOKEN` must be set on Vercel TM project Production env.** Until then, the page renders an error box with that exact message.
+
 
 ### deals -> transactions migration (DONE 2026-05-01)
 
