@@ -129,6 +129,12 @@
 - Tool name discovery (`tools/list`) cached per process (1hr TTL). Fail-soft on campaigns/adsets/ads metadata calls so status pills degrade to "unknown" but insights still render.
 - Files: `app/meta-ads/page.tsx`, `app/meta-ads/MetaAdsDashboard.tsx`, `app/api/meta-insights/route.ts`, plus nav links in `app/layout.tsx` and `components/MobileNav.tsx`.
 
+#### Pipeboard MCP gotchas (learned the hard way 2026-05-19)
+- **`get_campaigns` / `get_adsets` / `get_ads` ignore scoping args** like `campaign_id` and `adset_id`. They always return unscoped account-wide lists. Workaround: fetch wide, cache 5 min, look up by ID locally.
+- **`get_insights` ignores the `filtering` array param.** Scope drill-downs via `object_id=<parent_id>` (mirrors Meta's native `/<id>/insights` URL-path scoping). The `filtering` array is sent as backup belt-and-suspenders.
+- **Exact tool names matter.** Fuzzy `name.includes("ads")` matching can land on `get_ad_details` / `bulk_*` / `delete_*` etc. Pin to exact strings (`get_campaigns`, `get_adsets`, `get_ads`).
+- Diagnostic endpoint `/api/debug-meta-ads` (in repo as of `36cdabb`, slated for removal) tests tool-call variants; useful template for other MCP integrations.
+
 
 ### deals -> transactions migration (DONE 2026-05-01)
 
