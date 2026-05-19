@@ -1,4 +1,4 @@
-<!-- Last Updated: 2026-05-07 -->
+<!-- Last Updated: 2026-05-19 -->
 
 # Operations
 
@@ -77,26 +77,33 @@ When Brian asks Claude to text/iMessage him, use bash + curl to the internal end
 
 When Brian asks to update, add to, or change anything in the brain repo (`hgpg-context`), commit it directly via the Brain App's external endpoint. Do not draft files for him to paste, do not send him to the Brain App UI, do not ask permission - just commit.
 
-- **Endpoint:** `POST https://brain.homegrownpropertygroup.com/api/external/commit`
-- **Auth:** `Authorization: Bearer <BRAIN_WRITE_TOKEN>` (token in the section below in this file - just use it, don't ask Brian for it)
-- **Payload:** `{"repo":"hgpg-context","path":"<filepath>","content":"<full file content>","message":"<commit message>"}`
-- **Reads:** `GET https://brain.homegrownpropertygroup.com/api/files/<filepath>` with the same Bearer token returns `{content: "..."}` — fetch this before editing so the merge is against the live file, not a stale copy.
-- **Returns:** `{ok: true, commitSha: "..."}` on success.
-- **Cannot delete files** — only stub them. Real deletes need `gh` from the Mac.
-- Backed by GitHub App "HGPG Brain Commit" (read+write across all HGPG1 repos, no PAT rotation).
+### Endpoints (all at `https://brain.homegrownpropertygroup.com`, all use the same Bearer token)
 
-Workflow for any brain edit:
-1. Fetch the current file via `/api/files/<path>`
-2. Modify the content
-3. POST to `/api/external/commit` with the full new content
-4. Confirm the returned commitSha to Brian
+- **Write to brain** — `POST /api/external/write` `{path, content, message}` — commits to `HGPG1/hgpg-context` only.
+- **Write to any HGPG1 repo** — `POST /api/external/commit` `{repo, path, content, message}` — commits to any HGPG1 repo the GitHub App has access to (currently all of them).
+- **Read any HGPG1 file or dir** — `GET /api/external/read?repo=<repo>&path=<path>&ref=<ref>` (or POST with JSON body). Returns file content (utf8-decoded, ≤1 MB) or directory listing. `ref` defaults to `main`.
+- **Read brain files** — `GET /api/files/<path>` returns `{content: "..."}`. Brain-only shortcut for the read endpoint.
+- **Git log for any HGPG1 repo** — `GET /api/external/log?repo=<repo>&since=<iso>&until=<iso>&path=<optional path>&per_page=<n>&page=<n>` (or POST with JSON body). Returns commits with sha, short_sha, message, full_message, author, date. `per_page` caps at 100.
+- **All five share** the same `Authorization: Bearer <BRAIN_WRITE_TOKEN>` and the same GitHub App auth backing.
+- **Cannot delete files** via any endpoint — write/commit creates or overwrites only. Real deletes need `gh` from the Mac.
 
-Do NOT default to: drafting files for paste, telling Brian to use the Brain App UI, asking for permission, or suggesting `gh` commands. The direct commit is the default and only path unless the operation requires a delete.
+### Workflow for any brain or repo edit
+
+1. Fetch the current file via `/api/external/read` (or `/api/files/<path>` for brain) so the splice is against the live file, not a stale copy.
+2. Modify the content.
+3. POST to `/api/external/write` (brain) or `/api/external/commit` (any HGPG1 repo) with the full new content.
+4. Confirm the returned `commitSha` to Brian.
+
+### Reading commit history
+
+When Brian wants commit SHAs, a commit body, or to know "what changed between X and Y," call `/api/external/log` instead of asking him to run `gh` locally. Filter by `path` to find history for a single file. The endpoint is cheap; use it liberally.
+
+Do NOT default to: drafting files for paste, telling Brian to use the Brain App UI, asking for permission, or suggesting `gh` commands. The direct API is the default and only path unless the operation requires a delete.
 
 
 ## BRAIN_WRITE_TOKEN
 
 `5153df26d2d7829e26d8fffce05067459541b7d374952bb6142092ab0788793e`
 
-This is a write-only token scoped to the `hgpg-context` repo through the Brain App's `/api/external/commit` endpoint. Low-risk to keep in chat history. Don't bother rotating after every session, don't bother asking Brian for it again. Use it directly from this file.
+This token covers `/api/external/{write,commit,read,log}` plus `/api/files/<path>` reads. Write scope: HGPG1/hgpg-context for `/api/external/write`, any HGPG1 repo for `/api/external/commit`. Read scope: any HGPG1 repo via `/api/external/read` and `/api/external/log`. Low-risk to keep in chat history. Don't bother rotating after every session, don't bother asking Brian for it again. Use it directly from this file.
 
