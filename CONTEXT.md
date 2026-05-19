@@ -20,7 +20,7 @@ See `team.md` for full roster.
 - **Transaction Manager** (closings.homegrownpropertygroup.com) - lifecycle tool, see `projects/transaction-manager.md`. Remaining: addendum block injection, per-party messaging capability tracking, calendar gate backfill. Agent onboarding (Ashley/Taylor/Brenda) gated on first full deal through system.
 - **TC Concierge** - embedded at `/intake` in TM, live with Don running real deals. Real-life classifications/extractions worth reviewing in next session. Standalone `concierge.homegrownpropertygroup.com` (503) is legacy and slated for decommission.
 - **Sellers Guide Meta ads** (sellersguide.homegrownpropertygroup.com) - campaign shipped 2026-05-15 (Friday). FUB Automation 2.0 build likely ready, validation gates on first real ad lead. See `projects/sellers-guide.md`
-- **Charlotte New Construction** (newconstruction.homegrownpropertygroup.com) - Variant D running, Variant E under consideration. See `projects/charlotte-new-construction.md`
+- **Charlotte New Construction** (newconstruction.homegrownpropertygroup.com) - Variant D + Variant E both live; Variant E launched 2026-05-18 with full scoped package, day 3-4 read window opens 2026-05-21. See `projects/charlotte-new-construction.md`
 - **IDXRE-2026-04 B2** - Viktor building Automations 2.0 (Sellers + Buyers) right now. KTS contamination shut down 2026-05-18. Templates 1166 + 1167 created. See `projects/idxre-2026-04.md`
 - **FUB AI Agent** - operational + monitored. Week 1 ramp at daily_send_cap=10 with manual approve. Humming. See `projects/fub-ai-agent.md`
 - **Listing Report Portal** (reports.homegrownpropertygroup.com) - GitHub auth resolved on Mac mini; ready to unblock. See `projects/listing-report-portal.md`
@@ -42,6 +42,7 @@ See `team.md` for full roster.
 - IDX Broker migration (Ylopo cancelled, Showcase IDX cancelled, FUB lead routing done)
 - Main site SEO push (mobile PageSpeed 96/100)
 - Buyers Guide Session 3 shipped (agent slug routes /brian /brenda /ashley /taylor + AdvisorMode + assignedAgentSlug plumbed end-to-end) — production 2026-05-19, real-traffic leads with named agents captured same day. See `projects/buyers-guide.md`
+- New Construction Variant E launched (2026-05-18) — full scoped package: brief PDF + three creatives (1080x1080, 1080x1350, 1080x1920) using IMG_5675, $10K+ closing-cost dollar anchor, "Learn More" CTA, `utm_content=variant-e-10k`. Day 3-4 read window 2026-05-21 → 2026-05-22 against Variant C's $4.63 CPL benchmark. See `marketing.md` + `projects/charlotte-new-construction.md`
 - Buyers guide migration from Manus to React + Vite (Sessions 1+2 live 2026-05-12; Session 3 live 2026-05-19; Session 4 optional, queued)
 - Sellers guide rebrand to brand colors
 
