@@ -2,6 +2,31 @@
 
 # Session Handoff
 
+## Last session: 2026-05-19 (PM) — Ads project blocked on Pipeboard token gating, bearer-auth spec handed to Tech & Builds 🟡
+
+### Context
+Brian (in Ads project) asked Claude to run a Meta Ads performance review across the new TM /meta-ads dashboard. The /api/meta-insights endpoint is session-gated (cookie auth, brian@homegrownpropertygroup.com check), so Claude in a separate project session cannot hit it directly. Currently requires copy-paste of JSON from browser, which is fine for one-offs but blocks streamlined ad reviews.
+
+### What is parked with Tech & Builds
+**Spec:** Add bearer-token auth path to /api/meta-insights as an additive second auth mechanism (session gate stays). Same pattern as Brain App /api/external/*.
+- **File to change:** app/api/meta-insights/route.ts (lines 461-464)
+- **New env var:** META_INSIGHTS_TOKEN in Vercel (Production + Preview + Development, Sensitive=OFF)
+- **Effort:** ~10 min, single file edit + env var
+- **Spec PDF:** META_INSIGHTS_BEARER_AUTH_SPEC.pdf (delivered to Brian 2026-05-19 PM)
+- **Risk:** Low. Bearer check is additive. Rollback = delete env var.
+
+### After ship, do these in order
+1. Verify with {"error":"Unauthorized"}
+2. Bump  Recent Ships with the bearer auth note
+3. Paste the token to Ads project so it goes into project instructions
+4. Run the Meta Ads performance review that triggered this work
+
+### Watch-outs
+- Vercel "Sensitive" env var gotcha (learned 2026-05-19 AM): Sensitive=ON causes the var to come into runtime as an empty string with no error. Use Sensitive=OFF.
+- Make sure the bearer check is short-circuited (no getSession() call when token matches) so API calls don't hit the auth DB on every request.
+
+---
+
 ## Last session: 2026-05-19 — Variant E launch reconciled, Buyers Guide cleanup pass, brain-app /log endpoint shipped, IDXRE B2 verified 🟢
 
 ### What shipped
