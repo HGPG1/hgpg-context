@@ -18,6 +18,18 @@
 - Built and shipped the initial /meta-ads dashboard (campaign-level only at that point). See `projects/transaction-manager.md` Recent Ships > Meta Ads Dashboard.
 - Hit the Vercel "Sensitive" env var gotcha: PIPEBOARD_API_TOKEN was marked Sensitive on creation, which causes the runtime to receive empty strings for the var. Fix: delete + re-add WITHOUT the Sensitive toggle. Diagnosed via a temporary `/api/debug-env` route (now removed). Memory updated with this gotcha for future env-var debugging.
 
+### Follow-ups during the same session
+
+**Unknown statuses at adset/ad drill-down (FIXED).** Initial deploy showed all rows as "UNKNOWN" status at ad set and ad levels. Root cause: Pipeboard's MCP tools (`get_adsets`, `get_ads`) silently ignore scoping args like `campaign_id` / `adset_id` — they return the first N unscoped objects. So lookups for the actual drilled-into IDs missed the cache and fell back to "unknown". Fix: switched to fetching account-wide metadata maps (one per level) cached for 5 min, look up by ID locally. Account is small enough that wide fetches are cheap.
+
+**Drill-down showing wrong ads (FIXED).** After the metadata fix, drilling into an ad set showed ALL ads in the account (with correct statuses now). Root cause: Pipeboard's MCP insights tool also ignores the `filtering` array param. It was returning every ad in the account with activity in the date range. Fix: switched to scoping via `object_id` (mirrors Meta's native `/<adset_id>/insights` URL-path scoping pattern). Kept `filtering` array as belt-and-suspenders. Verified working: drilling into a real campaign now shows only the 8 ads in that campaign, with correct statuses, leads, CPL.
+
+**Vercel "Sensitive" env var gotcha rediscovered.** During initial /meta-ads setup, PIPEBOARD_API_TOKEN was added with the Sensitive toggle ON (which is default in some Vercel UI flows). Sensitive vars come into the runtime as empty strings (length 0, no error). Diagnostic pattern: `/api/debug-env` route that reports `present`, `length`, `truthy` for the var. Fix: delete + re-add the var with Sensitive OFF. Added to memory.
+
+### Diagnostic patterns worth keeping
+- `/api/debug-env` (already removed): reports env var presence/length/truthy without leaking values. Re-add with same shape if any future env-var-related not-configured error.
+- `/api/debug-meta-ads` (still in repo as of commit `36cdabb`, needs removal): tests Pipeboard tool list + tool-call variants to diagnose which scoping params actually work. Useful template for other MCP integrations where you need to figure out what the wrapper actually honors.
+
 ### Pickup notes for next session
 - Drill-down assumes Pipeboard's `get_adsets` and `get_ads` tools accept Meta-style scoping args (`campaign_id`, `adset_id`). If those don't scope server-side, the function still works (we filter the metadata client-side via the map), but it'll pull more data than needed. If you see ad set views taking >10s, check Pipeboard tool docs and add explicit filtering arg.
 - Insights `filtering` param uses Meta Graph syntax: `[{"field":"campaign.id","operator":"EQUAL","value":"123"}]`. Pipeboard should pass this through. If drill-down returns empty data, the filtering shape might need adjusting per Pipeboard's preferences — fall back to client-side filter as a safety net.
