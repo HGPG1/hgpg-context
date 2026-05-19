@@ -55,7 +55,7 @@
 
 ## /strategy
 
-### Setting up the strategy conversation
+### Setting up the strategy conversation ✅ APPROVED 2026-05-19
 - Use this section to make the offer playbook concrete, not theoretical.
 - Start by asking the buyer which market they think we are in today.
 - Their answer tells you how much education the offer conversation needs.
