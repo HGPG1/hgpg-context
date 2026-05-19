@@ -1,4 +1,4 @@
-<!-- Last Updated: 2026-05-14 -->
+<!-- Last Updated: 2026-05-19 -->
 
 # Transaction Manager
 
@@ -115,6 +115,16 @@
 - Bucket flipped via Supabase MCP on 2026-05-09 (`schema_migrations` version `20260509173839`). Bucket `public = false` confirmed 2026-05-11.
 - 2026-05-11: idempotent re-apply via MCP (`schema_migrations` version `20260511210146`) — no-op since already private, recorded for clarity.
 - **Repo file pending:** `supabase/migrations/20260509_flip_transaction_pdfs_bucket_private.sql` staged in 2026-05-11 session; commit from Brian's Mac is the last loose thread.
+
+### Meta Ads Dashboard (2026-05-19)
+
+- `/meta-ads` route + `/api/meta-insights` API. Brian-only, gated server-side via `getSession()` + email check.
+- Server-side Pipeboard JSON-RPC proxy. Token (`PIPEBOARD_API_TOKEN`) lives in Vercel env, never in browser.
+- Pipeboard endpoint `https://meta-ads.mcp.pipeboard.co/`, account `act_31445287`, 200/hour rate limit.
+- 4 tabs (7/14/30/90 day ranges), KPI strip (Spend/Impressions/Clicks/Leads/Avg CPL), sortable campaign table, CSV export, 5s refresh throttle.
+- Tool name discovery (`tools/list`) cached per process (1hr TTL). Fail-soft on campaigns call so status pills degrade to "unknown" but insights still render.
+- Files: `app/meta-ads/page.tsx`, `app/meta-ads/MetaAdsDashboard.tsx`, `app/api/meta-insights/route.ts`, plus nav links in `app/layout.tsx` and `components/MobileNav.tsx`.
+- **Setup gate: `PIPEBOARD_API_TOKEN` must be set on Vercel TM project Production env.** Until then, the page renders an error box with that exact message.
 
 ### deals -> transactions migration (DONE 2026-05-01)
 
