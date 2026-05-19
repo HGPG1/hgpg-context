@@ -1,4 +1,4 @@
-<!-- Last Updated: 2026-05-14 -->
+<!-- Last Updated: 2026-05-19 -->
 
 # Brain App
 
@@ -103,7 +103,61 @@ GET returns a non-auth health check showing `authMode: "github-app"`, `allowedRe
 
 Set `ALLOWED_REPOS` env var to a comma-separated list to restrict commit targets at runtime. Currently unset → all HGPG1 repos the App can access are valid targets.
 
-## Auth model (both endpoints)
+## Read API: /api/external/read (shipped 2026-05-14)
+
+`POST or GET https://brain.homegrownpropertygroup.com/api/external/read`
+
+GET:
+
+    GET /api/external/read?repo=<repo>&path=<path>&ref=<ref>
+    Authorization: Bearer <BRAIN_WRITE_TOKEN>
+
+POST:
+
+    {
+      "repo": "charlotte-buyers-guide",
+      "path": "src/pages/Admin.tsx",
+      "ref": "main"
+    }
+
+Returns:
+- File: `{ok, repo, path, ref, type:"file", sha, size, content}` (content utf8-decoded, ≤1 MB cap)
+- Directory: `{ok, repo, path, ref, type:"dir", entries:[{name, path, type, size, sha}]}`
+- 413 if file > 1 MB (Claude can fetch via `git_url` directly if needed)
+
+Useful for Claude sessions to inspect any HGPG1 repo source without needing local clones. Same auth + validation as commit. Empty `path` returns repo root listing.
+
+## Log API: /api/external/log (NEW, shipped 2026-05-19)
+
+`POST or GET https://brain.homegrownpropertygroup.com/api/external/log`
+
+GET:
+
+    GET /api/external/log?repo=<repo>&since=<iso>&until=<iso>&path=<optional path>&ref=<ref>&per_page=<n>&page=<n>
+    Authorization: Bearer <BRAIN_WRITE_TOKEN>
+
+POST body uses the same keys. All filters optional except `repo`.
+
+Returns:
+
+    {
+      "ok": true,
+      "repo": "...",
+      "ref": "main",
+      "path": "src/pages/Admin.tsx" | null,
+      "since": "..." | null,
+      "until": "..." | null,
+      "per_page": 30,
+      "page": 1,
+      "count": 12,
+      "commits": [
+        {sha, short_sha, message, full_message, author_name, author_email, author_date}, ...
+      ]
+    }
+
+`per_page` defaults to 30, caps at 100. `since` / `until` accept ISO date or full ISO datetime. Backed by `octokit.repos.listCommits`. Used to surface commit history during session reconciliation without needing `gh` on Brian's Mac.
+
+## Auth model (all four endpoints)
 
 - Bearer token in `BRAIN_WRITE_TOKEN` Vercel env var. Constant-time compare (timing-attack safe). Token stored in Claude memory + 1Password ("HGPG Brain Write Token").
 - Same token for both `/api/external/write` and `/api/external/commit` — rotation is one operation.
