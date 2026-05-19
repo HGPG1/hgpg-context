@@ -4,7 +4,7 @@
 
 ## Buyers Guide
 
-**Status:** 🟢 Sessions 1 + 2 + 3 of Manus migration complete. Backend infrastructure live 2026-05-12; buyer-facing funnel (Calculator + Quiz + Exit Intent + Bonus Unlock) shipped 2026-05-12. Session 3 (Agent surfaces + Advisor Mode) shipped to production 2026-05-19 09:45 ET. Session 4 (optional) still queued.
+**Status:** 🟢 Sessions 1 + 2 + 3 of Manus migration complete. Backend infrastructure live 2026-05-12; buyer-facing funnel (Calculator + Quiz + Exit Intent + Bonus Unlock) shipped 2026-05-12. Session 3 (Agent surfaces + Advisor Mode + Admin/Agent Dashboard) shipped to production 2026-05-19 09:45 ET. Session 4 (optional) still queued.
 
 **🟢 Manus migration scope shrunk dramatically 2026-05-12.** Probed the live Manus tRPC endpoints directly. The production database has effectively **no data** (1 fake test row in `contacts`, 0 quiz results, 0 exit-intent submissions, 5 agent config rows). The Manus app shipped feature-rich but never got real usage. The Vercel rebuild is the real production system. The 8 "missing features" are forward-looking ports, NOT regressions from a thriving app.
 
@@ -54,6 +54,31 @@ Visiting any of these:
 **`AdvisorNote` components** — embedded throughout the buyer-facing pages, only render when `isAdvisorMode === true`. Used for internal coaching notes / talking points that the agent sees but the buyer never does.
 
 **Intent**: Brian (or any HGPG agent) can pre-load advisor mode on their phone/iPad during a buyer consultation, click around the guide with the buyer watching, and see internal-only prompts about what to highlight, what objections to anticipate, and which sections deserve emphasis.
+
+### Admin + Agent Dashboard (Session 3)
+
+Two internal routes gated by a query-string access key (`ADMIN_ACCESS_KEY` env var on the server).
+
+**`/admin`** — internal admin landing
+- Auth: `GET /api/admin/verify?key=<ADMIN_ACCESS_KEY>` returns 200 ok / 401 unauthorized
+- 3 UI states: verifying, error ("Verification failed. Try again or contact Brian."), verified
+- When verified: shows links to "Supabase Editor" (direct link to https://supabase.com/dashboard/project/ioypqogunwsoucgsnmla/editor) and to `/agent-dashboard`
+- UX hint when no key: "Append ?key=... to the URL with the current admin access key."
+- `noIndex: true` (not crawled by Google)
+- ⚠️ Copy bug: the page title rendered on `/admin` says "Agent Dashboard" but the page description says "HGPG internal admin." The title was likely copy-pasted from the actual `/agent-dashboard` page. Worth a one-line fix.
+
+**`/agent-dashboard`** — internal stats dashboard
+- Same `/api/admin/verify` gate
+- Once verified, fetches `GET /api/agent/performance-stats?key=<ADMIN_ACCESS_KEY>` and renders:
+  - Total contacts
+  - Quiz completions
+  - Activities logged
+- Refresh button to re-fetch stats on demand
+- `noIndex: true`
+
+Both routes are lazy-loaded chunks (`Admin-yDBH8GRR.js`, `AgentDashboard-DO4RiWXi.js`) so they don't bloat the main bundle for buyer-facing visitors.
+
+**Access key location:** `ADMIN_ACCESS_KEY` in Vercel project env vars for `charlotte-buyers-guide`. Required scope: Production runtime.
 
 ### Plumbing details
 
@@ -200,7 +225,10 @@ All paired events use a shared `event_id` (UUID from `newClientEventId()`) so Me
 
 - 🟡 **Session 2 post-deploy verification** — 7-step smoke (full funnel, Supabase rows, FUB person+tags, both PDFs, Meta Test Events dedup)
 - 🟡 **`META_CAPI_TEST_EVENT_CODE` cleanup** — remove once QA confirms dedup
-- 🟡 **Session 3 post-deploy verification** — confirm `/admin` and `/agent-dashboard` reserved routes render their intended UI (or were left as placeholders for a future session). Confirm advisor mode banner displays correctly on iPad and iPhone. Confirm `AdvisorNote` content is reviewed for accuracy before any agent uses it in a buyer consult.
+- 🟡 **Session 3 mobile smoke test** — verify AdvisorMode banner displays correctly on iPad and iPhone (Safari + landscape rotation); verify agent slug + advisor mode stack cleanly (e.g. `/advisor/brian/calculator` or `/brian/advisor/calculator`); verify "Exit advisor mode" button correctly drops to clean path.
+- 🟡 **Session 3 admin page title bug** — `/admin` route renders "Agent Dashboard" as its title but the body copy describes it as the admin landing. Likely a copy-paste from `AgentDashboard.tsx` during build. One-line fix in `Admin.tsx`.
+- 🟡 **AdvisorNote content reviewed 2026-05-19** — full inventory pulled from `AdvisorNote-C4olMM97.js` and documented in `projects/buyers-guide-advisor-notes.md` (40 talking points across 12 sections spanning /quiz, /neighborhoods, /strategy, /checklist). Reviewed for accuracy before any agent uses in a live consult — flag any line that needs rework in that file.
+- 🟢 **Session 3 commit SHAs** — not yet captured in build history below. Pull via `gh repo log HGPG1/charlotte-buyers-guide` next time at the Mac.
 - 🟢 **Session 4 (optional)** — Interactive map, Market Pulse, bonus PDFs (~1.5 hrs, queued)
 - 🟡 **Manus app takedown** — after Session 4
 
