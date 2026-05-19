@@ -1,4 +1,4 @@
-<!-- Last Updated: 2026-05-15 -->
+<!-- Last Updated: 2026-05-19 -->
 
 # Marketing
 
@@ -6,9 +6,29 @@
 
 ## Meta Ads
 
-- **Active campaigns (May 2026):** Sellers Guide launch + NYC-to-Charlotte relocation continuing
+- **Active campaigns (May 2026):** Sellers Guide launch + NYC-to-Charlotte relocation continuing + New Construction Incentives Variant E launched 2026-05-18
 - HGPG brand correction confirmed in account: NO green, NO Cormorant Garamond
 - All housing-related ads run under Special Ad Category: Housing
+
+### New Construction Incentives Variant E (launched 2026-05-18)
+
+- **Angle:** Dollar-anchor — "$10,000+ in closing-cost help" hook, mirrors Variant C's choice-architecture framing but with a single magnetic number
+- **Brief:** `variant-e_brief.pdf` (Drive ID `1U6Voq92rqVSFDIrTFiborWCBKFbiLqk3`), shipped 2026-05-18 19:44 UTC
+- **Creative package:** 3 sizes, all using IMG_5675 (black polo, kitchen island, warm closed-mouth smile — same photo as Variant D)
+  - 1080x1080 square
+  - 1080x1350 portrait (4:5)
+  - 1080x1920 vertical (9:16)
+- **Composition:** photo top with navy gradient, single hero number `$10,000+`, locality strip (Indian Land · Fort Mill · Waxhaw · Lake Wylie), HGPG + Real Broker lockup, CTA pill
+- **CTA:** "Learn More" (locked in brief — earlier drafts proposed "Get Offer", launched version uses Learn More)
+- **UTM:** `utm_content=variant-e-10k`
+- **Audience/placement:** mirrors Variant C
+- **Pixel:** 1880396459290092 (same as rest of New Construction funnel)
+- **Special Ad Category:** Housing
+- **Benchmark:** Variant C ($50K off OR low rate) at $4.63 CPL, 2.60% CTR, 33.3% LP-to-Lead
+- **Read schedule:**
+  - Day 3-4 first read: 2026-05-21 → 2026-05-22
+  - Day 5-7 decision point: 2026-05-23 → 2026-05-25
+  - Success bar: E within 1.5x C's CPL at day 3-4 (≤ ~$7 CPL)
 
 ### Sellers Guide campaign (launched 2026-05-15)
 
