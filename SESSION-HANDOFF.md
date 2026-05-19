@@ -2,7 +2,35 @@
 
 # Session Handoff
 
-## Last session: 2026-05-19 — Buyers Guide Session 3 verified shipped 🟢
+## Last session: 2026-05-19 — Meta Ads dashboard drill-down shipped 🟢
+
+### What shipped
+- TM /meta-ads now supports campaign → ad set → ad drill-down navigation. Click any non-unknown row to drill in. Breadcrumb at top for navigation back up. Ad level is terminal.
+- Hide unknown status toggle in the tab row. Defaults ON. Count chip shows when unknown rows exist (e.g. "Hide unknown (12)"). Unknown rows are deleted/archived objects with no current Pipeboard metadata — usually noise.
+- API extended: `/api/meta-insights` takes optional `level` (campaign|adset|ad) + `parent_id` + `parent_kind`. Backwards-compatible (no params = campaign-level as before).
+- Server-side 60s response cache keyed by `${level}:${parentKind}:${parentId}:${days}` to absorb rapid drill-down clicks without burning Pipeboard's 200/hour rate limit.
+- Fail-soft metadata: if Pipeboard rejects the get_adsets / get_ads tool calls, status pills fall back to "unknown" but the insights table still renders.
+- Two files edited, both deployed cleanly on `dpl_CyGSmEx4DLUC1FFNu3LaVjaeCoDv` (commit `334ba6c`):
+  - `app/api/meta-insights/route.ts`
+  - `app/meta-ads/MetaAdsDashboard.tsx`
+
+### Earlier in the same session (mid-day 2026-05-19)
+- Built and shipped the initial /meta-ads dashboard (campaign-level only at that point). See `projects/transaction-manager.md` Recent Ships > Meta Ads Dashboard.
+- Hit the Vercel "Sensitive" env var gotcha: PIPEBOARD_API_TOKEN was marked Sensitive on creation, which causes the runtime to receive empty strings for the var. Fix: delete + re-add WITHOUT the Sensitive toggle. Diagnosed via a temporary `/api/debug-env` route (now removed). Memory updated with this gotcha for future env-var debugging.
+
+### Pickup notes for next session
+- Drill-down assumes Pipeboard's `get_adsets` and `get_ads` tools accept Meta-style scoping args (`campaign_id`, `adset_id`). If those don't scope server-side, the function still works (we filter the metadata client-side via the map), but it'll pull more data than needed. If you see ad set views taking >10s, check Pipeboard tool docs and add explicit filtering arg.
+- Insights `filtering` param uses Meta Graph syntax: `[{"field":"campaign.id","operator":"EQUAL","value":"123"}]`. Pipeboard should pass this through. If drill-down returns empty data, the filtering shape might need adjusting per Pipeboard's preferences — fall back to client-side filter as a safety net.
+- The 60s response cache is per-lambda-instance. Cold starts get a fresh cache. For Brian's single-user pattern this is fine.
+
+### Open for future enhancements (parked)
+- Custom date range picker (currently only 7/14/30/90)
+- Scheduled performance digests (weekly email to Brian with top-line numbers)
+- Click-through to Meta Ads Manager from each row (open the actual campaign in Ads Manager UI for editing)
+- Trend sparklines on KPI cards
+- "Compare to previous period" toggle
+
+## Previous session: 2026-05-19 — Buyers Guide Session 3 verified shipped 🟢
 
 ### What happened
 - Brian flagged that Buyers Guide Session 3 was complete, but the brain still listed S3 as queued/parked.
@@ -36,7 +64,7 @@
 - If Brian wants the brain to track Session 3 commit SHAs (vs just the high-level "shipped"), need access to `HGPG1/charlotte-buyers-guide` git log — the project file lists the S2 commits but not S3. Worth fetching via gh CLI next time we're touching the repo.
 - The Pipeboard token blocker from the TM Meta Ads dashboard session is still outstanding — Brian needs to add `PIPEBOARD_API_TOKEN` to Vercel TM project env vars before that dashboard becomes useful.
 
-## Previous session: 2026-05-19 — Meta Ads dashboard added to TM 🟢
+## Earlier session: 2026-05-19 — Meta Ads dashboard added to TM 🟢
 
 ### What shipped
 - New TM route `/meta-ads` — internal Meta Ads performance dashboard, replacing manual CSV exports from Ads Manager (Pipeboard token now lives server-side, never in browser)
@@ -65,7 +93,7 @@
 - Future enhancements parked: ad set / ad creative drilldown, custom date range picker, scheduled performance digests (e.g. weekly email to Brian), multi-account support if Brian ever runs ads from a second account.
 - Token rotation procedure if Pipeboard token expires: refresh at pipeboard.co/api-tokens, replace `PIPEBOARD_API_TOKEN` in Vercel, trigger a redeploy (or wait for the next push; tool-name cache invalidates per cold start).
 
-## Earlier session: 2026-05-19 — Variant E scoping confirmed, creative render deferred 🟡
+## Earlier session (earlier): 2026-05-19 — Variant E scoping confirmed, creative render deferred 🟡
 
 ### What happened
 - Brian asked whether Variant E (New Construction Incentives campaign) had been scoped here. It had — in an earlier same-day session.
