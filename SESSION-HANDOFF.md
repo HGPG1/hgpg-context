@@ -2,7 +2,41 @@
 
 # Session Handoff
 
-## Last session: 2026-05-19 — Meta Ads dashboard added to TM 🟢
+## Last session: 2026-05-19 — Buyers Guide Session 3 verified shipped 🟢
+
+### What happened
+- Brian flagged that Buyers Guide Session 3 was complete, but the brain still listed S3 as queued/parked.
+- Pulled live state from production (`buyersguide.homegrownpropertygroup.com`) to verify what actually shipped. Confirmed: production was last deployed today 2026-05-19 13:45 UTC (09:45 ET). Session 3 IS live and accepting real traffic.
+- Inspected the deployed JS bundle (`index-DHp9PF4a.js` and `agentDetection-R8ThZYk3.js`) to enumerate what was actually built.
+
+### What's live (verified by bundle inspection + API probe + DB query)
+- **Agent slug routes**: `/brian`, `/brenda`, `/ashley`, `/taylor` — each parses slug, persists to `localStorage` as `homegrown_assigned_agent_slug`, propagates via `AssignedAgentProvider` context
+- **Reserved-routes table** in `agentDetection.ts` keeps `quiz, calculator, rent-vs-buy, neighborhoods, strategy, checklist, bonuses, thank-you, advisor, admin, agent-dashboard, api` from being misclassified as agent slugs
+- **`AgentProfile` component** renders assigned agent's info in-page
+- **Advisor Mode**: `/advisor/<path>` entry, `homegrown_advisor_mode` localStorage flag, persistent banner "Advisor Mode · Talking points visible to you only" with "Exit advisor mode" button
+- **`AdvisorNote` components** embedded throughout buyer-facing pages, only render when `isAdvisorMode === true`
+- **`assignedAgentSlug` propagation** to `/api/fub-lead`, `/api/exit-intent/submit`, `/api/bonus/unlock`
+- **Server-side resolution**: each handler looks up `bg_agents WHERE slug = ?`, writes `bg_contacts.assigned_agent_id`, calls FUB `assignLeadToAgent`, returns `{success: true, contact: {...}, assignedAgent: {id, slug}}`
+- **No new server endpoints** — agent list is statically baked into the bundle (hardcoded `[brian, brenda, ashley, taylor]`). No `/api/agents` collection endpoint. Tradeoff documented as lesson 19 in `projects/buyers-guide.md`.
+
+### Verified real-traffic activity
+4 leads with named `assigned_agent_id` captured today between 10:10 and 12:36 UTC, hitting agent IDs 30001 (Brian), 30003 (Ashley) via slug resolution. Full table in `projects/buyers-guide.md` "Verified live activity" section.
+
+### Brain updates pushed this session
+- `projects/buyers-guide.md` — status flipped to `🟢 Sessions 1+2+3 complete`, full Session 3 plumbing section added, Sessions 3 listing moved from Pending → Recent build history, 3 new lessons appended (#19 baked-in agent list, #20 reserved routes table, #21 localStorage attribution model). Commit `470432e3`.
+- `CONTEXT.md` — "Last updated" bumped to 2026-05-19; "Recently completed" gained Buyers Guide S3 line; "Parked" entry rewritten to reflect only S4 outstanding. Commit `bf7dac68`.
+
+### What's still pending on Buyers Guide
+- **S3 post-deploy verification** (now in `projects/buyers-guide.md` Pending): confirm `/admin` and `/agent-dashboard` reserved routes render their intended UI (or were left as placeholders for a future session). Confirm advisor mode banner displays correctly on iPad and iPhone. Confirm `AdvisorNote` copy is reviewed before any agent uses it in a buyer consult.
+- **Session 4 (optional)**: Interactive map, Market Pulse, bonus PDFs (~1.5 hrs)
+- **Manus app takedown**: after S4
+
+### Pickup notes for next session
+- One test row was written to `bg_contacts` during this verification session (`probe-discardme@example.invalid`, id 13) and cleaned up via direct Supabase DELETE. No residue.
+- If Brian wants the brain to track Session 3 commit SHAs (vs just the high-level "shipped"), need access to `HGPG1/charlotte-buyers-guide` git log — the project file lists the S2 commits but not S3. Worth fetching via gh CLI next time we're touching the repo.
+- The Pipeboard token blocker from the TM Meta Ads dashboard session is still outstanding — Brian needs to add `PIPEBOARD_API_TOKEN` to Vercel TM project env vars before that dashboard becomes useful.
+
+## Previous session: 2026-05-19 — Meta Ads dashboard added to TM 🟢
 
 ### What shipped
 - New TM route `/meta-ads` — internal Meta Ads performance dashboard, replacing manual CSV exports from Ads Manager (Pipeboard token now lives server-side, never in browser)
@@ -31,7 +65,7 @@
 - Future enhancements parked: ad set / ad creative drilldown, custom date range picker, scheduled performance digests (e.g. weekly email to Brian), multi-account support if Brian ever runs ads from a second account.
 - Token rotation procedure if Pipeboard token expires: refresh at pipeboard.co/api-tokens, replace `PIPEBOARD_API_TOKEN` in Vercel, trigger a redeploy (or wait for the next push; tool-name cache invalidates per cold start).
 
-## Previous session: 2026-05-19 — Variant E scoping confirmed, creative render deferred 🟡
+## Earlier session: 2026-05-19 — Variant E scoping confirmed, creative render deferred 🟡
 
 ### What happened
 - Brian asked whether Variant E (New Construction Incentives campaign) had been scoped here. It had — in an earlier same-day session.
