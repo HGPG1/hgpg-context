@@ -1,10 +1,10 @@
 # Buyers Guide - Full Document Content
 
-<!-- Last Updated: 2026-05-12 -->
+<!-- Last Updated: 2026-05-19 -->
 
 ## Buyers Guide
 
-**Status:** 🟢 Sessions 1 + 2 of Manus migration complete. Backend infrastructure live since the morning of 2026-05-12; buyer-facing funnel (Calculator + Quiz + Exit Intent + Bonus Unlock) shipped to `main` the same day. Sessions 3-4 queued.
+**Status:** 🟢 Sessions 1 + 2 + 3 of Manus migration complete. Backend infrastructure live 2026-05-12; buyer-facing funnel (Calculator + Quiz + Exit Intent + Bonus Unlock) shipped 2026-05-12. Session 3 (Agent surfaces + Advisor Mode) shipped to production 2026-05-19 09:45 ET. Session 4 (optional) still queued.
 
 **🟢 Manus migration scope shrunk dramatically 2026-05-12.** Probed the live Manus tRPC endpoints directly. The production database has effectively **no data** (1 fake test row in `contacts`, 0 quiz results, 0 exit-intent submissions, 5 agent config rows). The Manus app shipped feature-rich but never got real usage. The Vercel rebuild is the real production system. The 8 "missing features" are forward-looking ports, NOT regressions from a thriving app.
 
@@ -20,6 +20,74 @@
 - Stack (Manus): React 19 + Vite 7 + Tailwind v4 + wouter + tRPC v11 + Drizzle ORM + MySQL + Express + Manus Forge storage proxy
 - Vercel team: `team_FietQPKCmnyioG2n0FdteQCV`
 - Vercel project: `prj_AQ0xkwT0IgQFssJeBbcPOmTFdmOJ` (`charlotte-buyers-guide`)
+
+### Agent surfaces (Session 3)
+
+**Agent slug URLs** — all four agents have a personal entry path:
+
+- https://buyersguide.homegrownpropertygroup.com/brian
+- https://buyersguide.homegrownpropertygroup.com/brenda
+- https://buyersguide.homegrownpropertygroup.com/ashley
+- https://buyersguide.homegrownpropertygroup.com/taylor
+
+Visiting any of these:
+1. The slug is parsed by `agentDetection.ts` (hardcoded valid list: `[brian, brenda, ashley, taylor]`)
+2. The slug is persisted to `localStorage` as `homegrown_assigned_agent_slug` so it survives route changes within the session
+3. The slug is read by `AssignedAgentProvider` context and propagated into every lead-capture payload as `assignedAgentSlug`
+4. Server-side, each lead-capture handler resolves the slug → `bg_agents.id` and writes it to `bg_contacts.assigned_agent_id` (and assigns the FUB person to that agent's `fub_user_id`)
+
+**Reserved routes** (NOT treated as agent slugs):
+`quiz, calculator, rent-vs-buy, neighborhoods, strategy, checklist, bonuses, thank-you, advisor, admin, agent-dashboard, api`
+
+**Agent profile rendering** — `AgentProfile` component renders the assigned agent's name, photo, and contact info in-page when a slug is detected.
+
+### Advisor Mode (Session 3)
+
+**Entry**: visit `/advisor/<anything>` (e.g. `/advisor/calculator`) or programmatic toggle via `setAdvisorMode(true)`.
+
+**Persistence**: `localStorage` flag `homegrown_advisor_mode`. Persists across sessions on that device until manually exited.
+
+**UI surface**: When active, a persistent banner reads:
+- "Advisor Mode · Talking points visible to you only"
+- Exit button labelled "Exit advisor mode" — clears the flag, strips `/advisor` from the URL, navigates to clean path
+
+**`AdvisorNote` components** — embedded throughout the buyer-facing pages, only render when `isAdvisorMode === true`. Used for internal coaching notes / talking points that the agent sees but the buyer never does.
+
+**Intent**: Brian (or any HGPG agent) can pre-load advisor mode on their phone/iPad during a buyer consultation, click around the guide with the buyer watching, and see internal-only prompts about what to highlight, what objections to anticipate, and which sections deserve emphasis.
+
+### Plumbing details
+
+**`assignedAgentSlug` is sent in payloads to:**
+- `POST /api/fub-lead` (unlock modal, contact dialog)
+- `POST /api/exit-intent/submit`
+- `POST /api/bonus/unlock`
+
+**Server-side resolution flow:**
+1. Handler receives `assignedAgentSlug` (string, optional)
+2. Looks up `bg_agents WHERE slug = ?` → gets `id` + `fub_user_id`
+3. Writes `bg_contacts.assigned_agent_id` (FK to `bg_agents.id`)
+4. Calls FUB `assignLeadToAgent(personId, fub_user_id)` to route the FUB person to that agent
+5. Returns `{success: true, contact: {...}, assignedAgent: {id, slug}}` so the client can confirm
+
+**Default behaviour when no slug present:**
+- Contact still created
+- `assigned_agent_id` stays NULL (or defaults to the `is_default=true` row — agent ID 1, the owner placeholder)
+- FUB person stays unassigned at the user level (still flows through normal FUB lead routing rules)
+
+**No new server endpoints** — Session 3 reused existing lead-capture routes and added the slug column-through. No `/api/agents` collection endpoint exists; the agent list is statically baked into the bundle.
+
+### Verified live activity (2026-05-19)
+
+Real Session 3 traffic confirmed in `bg_contacts`:
+
+| id | source | lead_score | assigned_agent_id | created_at |
+|---|---|---|---|---|
+| 11 | buyers-guide-unlock | 50 | 30001 (Brian) | 2026-05-19 12:36 UTC |
+| 9 | buyers-guide-quiz | 50 | 30003 (Ashley) | 2026-05-19 12:33 UTC |
+| 7 | buyers-guide-unlock | 50 | 30003 (Ashley) | 2026-05-19 12:21 UTC |
+| 5 | buyers-guide-unlock | 50 | 30003 (Ashley) | 2026-05-19 10:10 UTC |
+
+All four have a named `assigned_agent_id` populated. Agent slug → agent ID resolution confirmed working end-to-end.
 
 ### Supabase (HGPG Core `ioypqogunwsoucgsnmla`) - tables added Session 1
 
@@ -57,17 +125,18 @@
 
 - `GET /api/health/db`, `/api/health/fub`, `/api/health/fred`, `/api/health/storage`
 
-### Lead-capture endpoints (Session 2)
+### Lead-capture endpoints (Session 2, extended in Session 3)
 
-| Route | Writes | Score | FUB | CAPI |
-|---|---|---|---|---|
-| POST `/api/fub-lead` | (pre-S2; no Supabase) | — | event | Lead (inline) |
-| POST `/api/calculator/track-completion` | — | +25 basic / +40 equity | search-then-PUT custom fields + behavioral tag | — |
-| POST `/api/calculator/generate-pdf` | upload → bg-pdfs/calculator/ | +20 | — | — |
-| POST `/api/quiz/submit` | bg_quiz_results | +50 | sendQuizCompletion + buyer-type tag | — |
-| POST `/api/exit-intent/submit` | bg_contacts upsert + bg-pdfs/exit-intent/ | +20 | sendLeadCapture | Lead (mirror) |
-| POST `/api/bonus/unlock` | bg_activities + bg_contacts.bonus_unlocked=true | +30 | — | SubmitApplication (mirror) |
-| POST `/api/capi-event` | — | — | — | Generic proxy (Search, Contact) |
+| Route | Writes | Score | FUB | CAPI | Session 3 |
+|---|---|---|---|---|---|
+| POST `/api/fub-lead` | (pre-S2; no Supabase) | — | event | Lead (inline) | accepts `assignedAgentSlug` |
+| POST `/api/calculator/track-completion` | — | +25 basic / +40 equity | search-then-PUT custom fields + behavioral tag | — | — |
+| POST `/api/calculator/generate-pdf` | upload → bg-pdfs/calculator/ | +20 | — | — | — |
+| POST `/api/quiz/submit` | bg_quiz_results | +50 | sendQuizCompletion + buyer-type tag | — | — |
+| POST `/api/exit-intent/submit` | bg_contacts upsert + bg-pdfs/exit-intent/ | +20 | sendLeadCapture | Lead (mirror) | accepts `assignedAgentSlug` |
+| POST `/api/bonus/unlock` | bg_activities + bg_contacts.bonus_unlocked=true | +30 | — | SubmitApplication (mirror) | accepts `assignedAgentSlug` |
+| POST `/api/capi-event` | — | — | — | Generic proxy (Search, Contact) | — |
+| POST `/api/validate-email` | — | — | — | — | (S2; unchanged) |
 
 **Behavioral tags pushed to FUB from calculator track-completion** (Manus rules verbatim):
 - `move_up_ready` — whenever the equity module was on (overrides everything else)
@@ -131,12 +200,13 @@ All paired events use a shared `event_id` (UUID from `newClientEventId()`) so Me
 
 - 🟡 **Session 2 post-deploy verification** — 7-step smoke (full funnel, Supabase rows, FUB person+tags, both PDFs, Meta Test Events dedup)
 - 🟡 **`META_CAPI_TEST_EVENT_CODE` cleanup** — remove once QA confirms dedup
-- 🟢 **Session 3** — Agent surfaces + Advisor Mode (~2 hrs, queued)
+- 🟡 **Session 3 post-deploy verification** — confirm `/admin` and `/agent-dashboard` reserved routes render their intended UI (or were left as placeholders for a future session). Confirm advisor mode banner displays correctly on iPad and iPhone. Confirm `AdvisorNote` content is reviewed for accuracy before any agent uses it in a buyer consult.
 - 🟢 **Session 4 (optional)** — Interactive map, Market Pulse, bonus PDFs (~1.5 hrs, queued)
 - 🟡 **Manus app takedown** — after Session 4
 
 ## Recent build history
 
+- **2026-05-19** — Session 3 shipped: agent slug router, AssignedAgentProvider context, AdvisorMode + AdvisorNote system, `assignedAgentSlug` plumbed through fub-lead/exit-intent/bonus-unlock. Production deploy 13:45 UTC. First 4 real-traffic leads with named agents captured same day.
 - **2026-05-12** — Session 2 complete: Calculator + Quiz + Exit Intent + Bonus Unlock ported. Eight new files, six modified. Build + tsc clean.
 - **2026-05-12** — Session 1 (backend) complete. Commits `6548d53`, `a134f9a`, `04e4a21`.
 - **2026-05-12** — Manus migration scope shrunk after live tRPC probe revealed empty production DB.
@@ -163,3 +233,6 @@ All paired events use a shared `event_id` (UUID from `newClientEventId()`) so Me
 16. **Session 2** — Manus's "fire on unlock transition" calculator trigger doesn't map to apps where the calc isn't behind an unlock gate. Replacement gate: fire once when (a) email is captured AND (b) user has actually interacted. Avoids passive-page-load false positives.
 17. **Session 2** — Auto-trigger PDF after unlock cleanly handled with a `useRef<boolean>` flag + `useEffect` on `contact?.email` transition. No callback threading through GuideContext.
 18. **Session 2** — Generic `/api/capi-event` proxy lets us mirror server-side CAPI for browser-fired events (Search, Contact) without a bespoke endpoint per event. Lead/SubmitApplication mirror inline because they already POST to a lead-capture route.
+19. **Session 3** — Agent slug list baked into the bundle (no `/api/agents` collection endpoint). Tradeoff: fast, no fetch, no auth surface, but every agent roster change requires a redeploy. Acceptable for a 4-agent team; reconsider at 10+.
+20. **Session 3** — Reserved-routes table (`quiz, calculator, ...`) prevents legitimate feature paths from being misclassified as agent slugs. Centralized in `agentDetection.ts` so any new top-level route has to be added in one place.
+21. **Session 3** — `localStorage` for `homegrown_assigned_agent_slug` survives the buyer closing the tab and coming back later. If the buyer follows a different agent's link the second time, the new slug overwrites. Last-touch attribution at the device level, which matches FUB's last-touch routing model.
