@@ -2,7 +2,75 @@
 
 # Session Handoff
 
-## Last session: 2026-05-19 — Meta Ads dashboard drill-down shipped 🟢
+## Last session: 2026-05-19 — Variant E launch reconciled, Buyers Guide cleanup pass, brain-app /log endpoint shipped, IDXRE B2 verified 🟢
+
+### What shipped
+
+**Brain reconciliation (Variant E):**
+- Variant E launched 2026-05-18 with full scoped package (1:1 + 4:5 + 9:16 creatives, IMG_5675, $10K+ closing-cost hook, "Learn More" CTA, `utm_content=variant-e-10k`).
+- Brain entries fixed: `projects/charlotte-new-construction.md` (status 🟡→🟢, read schedule logged, Variant E in Done/shipped), `marketing.md` (new dedicated Variant E section with brief/creative/UTM/benchmark), `CONTEXT.md` (active campaigns line + Recently completed).
+
+**Buyers Guide code cleanup (4 commits to charlotte-buyers-guide):**
+- `11a0a4a4` — bump Last Updated header on `api/fub-lead.ts` 2026-05-12 → 2026-05-13
+- `2b405da3` — bump Last Updated header on `api/exit-intent/submit.ts`
+- `2e722609` — bump Last Updated header on `api/bonus/unlock.ts`
+- `9c3168c7` — strip orphan `ADVISOR_MODE_GUIDE.md` reference from `api/_lib/agents.ts` (file never existed in repo)
+- Retracted earlier false copy-bug claim on `/admin` page (it correctly renders `<h1>Admin</h1>` — I misread the minified bundle on first pass)
+
+**Brain-app feature shipped:**
+- `/api/external/log` endpoint live at `brain.homegrownpropertygroup.com` (commit `2b73da1a` in HGPG1/brain-app). Read-only git-log proxy for any HGPG1 repo, same auth/validation pattern as `/api/external/read`. Optional filters: `path`, `since`, `until`, `ref`, `per_page` (cap 100), `page`. POST or GET. Returns sha, short_sha, message, full_message, author_name, author_email, author_date. Closed the gap where Claude sessions needed `gh` from Brian's Mac for commit history.
+- `operations.md` updated with full 5-endpoint surface documentation
+- `projects/brain-app.md` updated with `/api/external/read` + `/api/external/log` sections, auth-model heading bumped to "all four endpoints"
+
+**Buyers Guide brain reconciliation:**
+- Full Session 3 commit-by-commit history captured via the new /log endpoint (8 commits since 2026-05-13)
+- Surfaced **2 commits that hadn't been documented anywhere** before today:
+  - `2af5340` (2026-05-19 06:20 ET) — Post-Session-3 polish: phone format, FUB tags, `/owner` route dropped from public allowlist
+  - `58687cc` (2026-05-19 08:29 ET) — Fix FUB quiz tag keys to match canonical Quiz values. **Silent bug: 4 of 5 buyer-type tags + 1 of 4 lifestyle tags weren't being applied for ~7 days (Session 2 ship → 2026-05-19).** Any Quiz lead captured 2026-05-12 to 2026-05-19 missing buyer-type/lifestyle FUB tag.
+- New brain file `projects/buyers-guide-advisor-notes.md` (commit `f380f02a`) — full 40-talking-point inventory pulled live from `AdvisorNote-C4olMM97.js`, organized by buyer-facing page (/quiz, /neighborhoods, /strategy, /checklist). 1 of 12 blocks approved this session ("Setting up the strategy conversation"). Review pass paused.
+- `projects/buyers-guide.md` corrections: fixed Lesson #19 (agent allowlist baked in, but agent DATA fetched from Supabase via `/api/agent/by-slug` and `/api/agent/default` — earlier claim of "no /api/agents endpoint" was wrong). Added Lessons #22 (silent enum-map drift post-mortem) + #23 (intentional two-tier allowlist divergence between client and server).
+
+**IDXRE B2 verification (no code shipped, all live API probes):**
+- Brain `projects/idxre-2026-04.md` and `CONTEXT.md` updated with verification results (commits `3ea8114b`, `2dd51167`).
+- KTS pause held — all 27 Hot leads frozen at 2026-05-17T17:28-31 UTC, no activity since. Strong indirect signal that the bulk-pause Automation 2.0 worked.
+- All B1 tier counts match brain exactly: Hot=27, Warm=105, Cool=239, Cold=778, Pond 17 Dead=135.
+- **B2 build verified live:** Templates 1166 + 1167 exist (created 2026-05-18 18:23 UTC). Automations 336 (Sellers) + 337 (Buyers) exist (created 2026-05-18 20:15-20:29 UTC).
+- **Narrative drift found:** brain said Viktor was building B2 automations. Live data shows `createdById: 1 (Brian McCarron)` on both. Either Brian built them himself or Viktor was working under Brian's login.
+
+### What's parked
+
+**Buyers Guide:**
+- AdvisorNote review pass: 1 of 12 blocks approved, 11 remaining. Pickup at "Seller's market notes" next. Source-of-truth file in repo is `src/data/advisor-content.ts`. Approval marker format: `✅ APPROVED YYYY-MM-DD` next to block heading. Rework marker: `🔴 REVIEW:` prefix on a line.
+- Mobile smoke test of AdvisorMode (iPhone/iPad) — test plan in advisor-notes file. Entry URL pattern: `buyersguide.homegrownpropertygroup.com/advisor/<page>`. Persistent device-level localStorage flag. Tap "Exit advisor mode" to clear.
+- Session 4 (optional): Interactive Map + Market Pulse + bonus PDFs. ~1.5 hrs.
+- Manus app takedown after S4.
+- ⚠️ **FUB quiz tag backfill potential** — leads captured 2026-05-12 → 2026-05-19 may be missing buyer-type / lifestyle tags. Bg_quiz_results.buyer_type and lifestyle_priority are intact in Supabase; FUB tags are what's missing. Worth a one-off backfill script if you want clean historical data.
+
+**IDXRE B2 launch gates (UI-only, can't be done via API):**
+1. Verify audience filters on Automations 336 + 337: `IDXRE-Cool OR IDXRE-Cold + IDXRE-Seller` (336); same + `IDXRE-Buyer` (337). Hot/Warm exclusion on both.
+2. Date-stamp tag baked in (`IDXRE-2026-05-XX-B2`).
+3. Final copy eyeball on subjects + bodies (templates 1166/1167 read live this session, body content captured in `projects/idxre-2026-04.md` verification section).
+4. Flip automations from draft → live.
+5. Pick launch day: Tue-Thu this week = today/tomorrow/Thursday.
+
+**Variant E observation window:**
+- Day 3-4 first read: 2026-05-21 → 2026-05-22 (Thu-Fri)
+- Day 5-7 decision point: 2026-05-23 → 2026-05-25 against Variant C's $4.63 CPL benchmark
+- Success bar: E within 1.5x C's CPL at day 3-4 (≤ ~$7 CPL)
+
+**Open from earlier sessions today (preserved):**
+- Pipeboard token blocker — `PIPEBOARD_API_TOKEN` env var still needs to be added to Vercel TM project before the Meta Ads dashboard becomes useful. The Meta Ads drill-down session today shipped UI; the data source is still blocked on the token.
+
+### Pickup notes for next session
+
+- **`/api/external/log` endpoint is live and bearer-protected.** Use it to fetch commit history for any HGPG1 repo when reconciling brain entries. Same token, same pattern as `/read`. Operations.md documents the full surface.
+- **AdvisorNote review file** lives at `projects/buyers-guide-advisor-notes.md`. The 11 unreviewed blocks are listed in source order; "Seller's market notes" is next.
+- **IDXRE B2 is unblocked from a build standpoint.** Only UI-side gates remain. Brian can flip the automations live whenever he's done with the audience-filter verification.
+- **The Viktor narrative on IDXRE B2 needs reconciliation** — was Viktor actually involved in the B2 build, or was that a brain memory artifact from an earlier plan? Worth a one-line note in idxre-2026-04.md once clarified.
+- **Phone Capture Rate Review** — run window opened 2026-05-19 (today), still untouched. Query plan in `projects/new-construction-phone-capture-rate-review.md`.
+- **TC Concierge real-life extraction review** — Don's been running real deals; classifications/extractions need a quality check.
+
+## Previous session: 2026-05-19 — Meta Ads dashboard drill-down shipped 🟢
 
 ### What shipped
 - TM /meta-ads now supports campaign → ad set → ad drill-down navigation. Click any non-unknown row to drill in. Breadcrumb at top for navigation back up. Ad level is terminal.
@@ -42,7 +110,7 @@
 - Trend sparklines on KPI cards
 - "Compare to previous period" toggle
 
-## Previous session: 2026-05-19 — Buyers Guide Session 3 verified shipped 🟢
+## Earlier session: 2026-05-19 — Buyers Guide Session 3 verified shipped 🟢
 
 ### What happened
 - Brian flagged that Buyers Guide Session 3 was complete, but the brain still listed S3 as queued/parked.
@@ -76,7 +144,7 @@
 - If Brian wants the brain to track Session 3 commit SHAs (vs just the high-level "shipped"), need access to `HGPG1/charlotte-buyers-guide` git log — the project file lists the S2 commits but not S3. Worth fetching via gh CLI next time we're touching the repo.
 - The Pipeboard token blocker from the TM Meta Ads dashboard session is still outstanding — Brian needs to add `PIPEBOARD_API_TOKEN` to Vercel TM project env vars before that dashboard becomes useful.
 
-## Earlier session: 2026-05-19 — Meta Ads dashboard added to TM 🟢
+## Earlier session (2): 2026-05-19 — Meta Ads dashboard added to TM 🟢
 
 ### What shipped
 - New TM route `/meta-ads` — internal Meta Ads performance dashboard, replacing manual CSV exports from Ads Manager (Pipeboard token now lives server-side, never in browser)
@@ -105,7 +173,7 @@
 - Future enhancements parked: ad set / ad creative drilldown, custom date range picker, scheduled performance digests (e.g. weekly email to Brian), multi-account support if Brian ever runs ads from a second account.
 - Token rotation procedure if Pipeboard token expires: refresh at pipeboard.co/api-tokens, replace `PIPEBOARD_API_TOKEN` in Vercel, trigger a redeploy (or wait for the next push; tool-name cache invalidates per cold start).
 
-## Earlier session (earlier): 2026-05-19 — Variant E scoping confirmed, creative render deferred 🟡
+## Earlier session (3): 2026-05-19 — Variant E scoping confirmed, creative render deferred 🟡
 
 ### What happened
 - Brian asked whether Variant E (New Construction Incentives campaign) had been scoped here. It had — in an earlier same-day session.
