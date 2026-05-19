@@ -39,7 +39,22 @@ Visiting any of these:
 **Reserved routes** (NOT treated as agent slugs):
 `quiz, calculator, rent-vs-buy, neighborhoods, strategy, checklist, bonuses, thank-you, advisor, admin, agent-dashboard, api`
 
-**Agent profile rendering** — `AgentProfile` component renders the assigned agent's name, photo, and contact info in-page when a slug is detected.
+**Agent profile page (`/:agent`)** — rendered by `AgentProfile.tsx` when the URL slug passes `isAllowedAgentSlug`. Unknown slugs fall through to `<NotFound />`. Flow:
+1. On mount, calls `GET /api/agent/by-slug?slug=<slug>` to fetch the `bg_agents` row (id, slug, name, email, phone, fub_user_id)
+2. Renders a **personalized hero section** (steel-blue `#F0F0F0` background):
+   - Circular initials avatar (navy `#2A384C` bg, white text, computed from name)
+   - Eyebrow text: "Your Charlotte buying co-pilot"
+   - `<h1>` with the agent's full name
+   - Subtitle: "Home Grown Property Group · Charlotte, Fort Mill, Indian Land, Waxhaw"
+   - Two CTAs:
+     - `tel:` button (navy) — formats phone for display, raw digits in href
+     - `mailto:` button (white outline) — "Email <firstname>"
+3. Below the hero, a **4-card feature grid**:
+   - Buyer Best-Fit Quiz → `/quiz` (Calculator icon)
+   - Rent vs Buy Calculator → `/calculator` (DollarSign icon)
+   - Neighborhood Guides → `/neighborhoods` (Map icon)
+   - Offer Strategy Playbooks → `/strategy` (BookOpen icon)
+4. SEO: `<title>` is `${name} | 2026 Charlotte Buyer's Guide`, custom description mentions working with that specific agent
 
 ### Advisor Mode (Session 3)
 
@@ -71,10 +86,10 @@ Two internal routes gated by a query-string access key (`ADMIN_ACCESS_KEY` env v
 **`/agent-dashboard`** — internal stats dashboard
 - Same `/api/admin/verify` gate
 - Once verified, fetches `GET /api/agent/performance-stats?key=<ADMIN_ACCESS_KEY>` and renders:
-  - Total contacts
-  - Quiz completions
-  - Activities logged
-- Refresh button to re-fetch stats on demand
+  - **Four stat cards across the top:** Total contacts, Quiz completions, Activities logged, Unassigned
+  - **Per-agent table** with columns: Agent (name + /slug), Contacts, Hot (lead_score ≥80), Warm (40-79), Quiz, Bonus, Exit-intent, FUB user ID
+  - One row per agent in `bg_agents` (active)
+- Refresh button (re-fires `/api/agent/performance-stats`)
 - `noIndex: true`
 
 Both routes are lazy-loaded chunks (`Admin-yDBH8GRR.js`, `AgentDashboard-DO4RiWXi.js`) so they don't bloat the main bundle for buyer-facing visitors.
@@ -100,7 +115,7 @@ Both routes are lazy-loaded chunks (`Admin-yDBH8GRR.js`, `AgentDashboard-DO4RiWX
 - `assigned_agent_id` stays NULL (or defaults to the `is_default=true` row — agent ID 1, the owner placeholder)
 - FUB person stays unassigned at the user level (still flows through normal FUB lead routing rules)
 
-**No new server endpoints** — Session 3 reused existing lead-capture routes and added the slug column-through. No `/api/agents` collection endpoint exists; the agent list is statically baked into the bundle.
+**Session 3 added 3 new server endpoints (`/api/agent/by-slug`, `/api/agent/default`, `/api/admin/verify`) plus a stats endpoint (`/api/agent/performance-stats`)**, and extended the 3 existing lead-capture routes (`fub-lead`, `exit-intent/submit`, `bonus/unlock`) to accept and resolve `assignedAgentSlug`. The agent slug allowlist (`AGENT_SLUGS`) is statically declared in both client (`src/lib/agentDetection.ts`) and server (`api/_lib/agents.ts`); agent records themselves live in Supabase `bg_agents` and are fetched at runtime.
 
 ### Verified live activity (2026-05-19)
 
@@ -261,6 +276,6 @@ All paired events use a shared `event_id` (UUID from `newClientEventId()`) so Me
 16. **Session 2** — Manus's "fire on unlock transition" calculator trigger doesn't map to apps where the calc isn't behind an unlock gate. Replacement gate: fire once when (a) email is captured AND (b) user has actually interacted. Avoids passive-page-load false positives.
 17. **Session 2** — Auto-trigger PDF after unlock cleanly handled with a `useRef<boolean>` flag + `useEffect` on `contact?.email` transition. No callback threading through GuideContext.
 18. **Session 2** — Generic `/api/capi-event` proxy lets us mirror server-side CAPI for browser-fired events (Search, Contact) without a bespoke endpoint per event. Lead/SubmitApplication mirror inline because they already POST to a lead-capture route.
-19. **Session 3** — Agent slug list baked into the bundle (no `/api/agents` collection endpoint). Tradeoff: fast, no fetch, no auth surface, but every agent roster change requires a redeploy. Acceptable for a 4-agent team; reconsider at 10+.
+19. **Session 3** — Agent slug allowlist is baked into both client (`src/lib/agentDetection.ts`) and server (`api/_lib/agents.ts`) as a static `AGENT_SLUGS` tuple. Agent DATA (name, phone, email, fub_user_id) lives in `bg_agents` and is fetched at runtime via `GET /api/agent/by-slug?slug=...` (used by `AgentProfile`) and `GET /api/agent/default` (fallback when no slug present). Roster changes that require a redeploy: add a slug to the allowlist. Roster changes that don't: edit `bg_agents` row (name, phone, fub_user_id, is_active, is_default).
 20. **Session 3** — Reserved-routes table (`quiz, calculator, ...`) prevents legitimate feature paths from being misclassified as agent slugs. Centralized in `agentDetection.ts` so any new top-level route has to be added in one place.
 21. **Session 3** — `localStorage` for `homegrown_assigned_agent_slug` survives the buyer closing the tab and coming back later. If the buyer follows a different agent's link the second time, the new slug overwrites. Last-touch attribution at the device level, which matches FUB's last-touch routing model.
