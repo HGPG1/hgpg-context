@@ -1,8 +1,8 @@
-<!-- Last Updated: 2026-05-14 -->
+<!-- Last Updated: 2026-05-19 -->
 
 # Charlotte New Construction
 
-- **Status:** 🟡 Live. Ads were PAUSED 2026-05-11 for lead-quality fix; Variants A and B killed, Variant D built 2026-05-13 with corrected tagging fixed 2026-05-13. NeverBounce email validation also live. Ad spend resumption pending one open item: Automation 2.0 enrollment verification for Lead Flow 54. Pixel/CAPI plumbing is load-bearing for ad spend.
+- **Status:** 🟢 Live and running. Variant D in market plus Variant E launched 2026-05-18 with full scoped package (1:1 + 4:5 + 9:16 creatives using IMG_5675, $10K+ closing-cost dollar anchor, "Learn More" CTA, `utm_content=variant-e-10k`). Day 3-4 first read window opens 2026-05-21; day 5-7 decision point against Variant C's CPL.
 - **URL:** newconstruction.homegrownpropertygroup.com
 - **Repo:** HGPG1/charlotte-new-construction-nextjs
 - **Default branch:** `main`
@@ -125,6 +125,7 @@ Card_modal submissions self-identify a builder. Useful for future routing / foll
 - ✅ **Killed Variants A and B** (single-offer creatives that didn't qualify intent)
 - ✅ **Built Variant D** (2026-05-13) with corrected tagging fix (2026-05-13)
 - ✅ **NeverBounce email validation** live on `/incentives` form (see `projects/neverbounce-validation.md`)
+- ✅ **Variant E launched** (2026-05-18) — full scoped package: brief PDF (Drive ID `1U6Voq92rqVSFDIrTFiborWCBKFbiLqk3`) + three creatives (1080x1080, 1080x1350, 1080x1920) using IMG_5675, $10K+ closing-cost dollar anchor angle, "Learn More" CTA, locality strip (Indian Land · Fort Mill · Waxhaw · Lake Wylie), UTM `utm_content=variant-e-10k`, Special Ad Category: Housing applied. Running against Variant C as benchmark.
 
 ### Backlog (not ad-restart-blocking)
 - **Builder data** for the incentive comparison page is hardcoded. When the third or fourth builder gets added, move to CMS or JSON config with rotation logic.
@@ -144,7 +145,8 @@ Card_modal submissions self-identify a builder. Useful for future routing / foll
 
 ## Pickup notes
 
-- This is one of the actively-marketed funnels, Meta ad budget runs through here weekly. PAUSED 2026-05-11 → 2026-05-14: A/B killed, D built, tagging fixed, NeverBounce live. Pending one verification (Automation 2.0 enrollment, see Open / pending) before re-enabling spend.
+- This is one of the actively-marketed funnels, Meta ad budget runs through here weekly. PAUSED 2026-05-11 → resumed; Variant D in market since 2026-05-13, Variant E launched 2026-05-18.
+- **Variant E performance read schedule:** Day 3-4 first read window 2026-05-21 → 2026-05-22. Day 5-7 decision point 2026-05-23 → 2026-05-25 against Variant C's $4.63 CPL. Success bar: E within 1.5x C's CPL at day 3-4 (i.e. ≤ ~$7 CPL).
 - Repo has a `META-PIXEL-CAPI-PLAYBOOK.md` at root that should be referenced (not duplicated) by future sites adopting the pattern
 - ✅ NeverBounce validation shipped and live on `/incentives` form (per spec in `projects/neverbounce-validation.md`)
 - Ad targeting + creative work continues in HGPG - Ads project as of 2026-05-11
