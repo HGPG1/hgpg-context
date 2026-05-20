@@ -8,6 +8,25 @@
 
 The "Meta reports 4 leads vs FUB 1" attribution gap **does not exist in the underlying data**. Pulled Meta Insights API directly for CONV ad set 52506271965563 at 7d, 14d, and 30d windows — all return exactly **1 lead** (`offsite_conversion.fb_pixel_lead: 1`, `lead: 1`, `onsite_web_lead: 1`). Matches Daniela Portillo (FUB id 32123) exactly. Pixel wiring is correct. The "4 leads" figure originated somewhere upstream of the API and needs to be re-sourced before any pixel/webhook work happens.
 
+### ⚠️ Lead count discrepancy — closings endpoint suspected unreliable (added 2026-05-20 evening)
+
+Tech-side audited the SG-2026 attribution gap and found Meta Insights API direct pull returns lead=1, fb_pixel_lead=1, onsite_web_lead=1 for CONV ad set 52506271965563 across 7d/14d/30d — matching Daniela Portillo exactly and matching FUB and Supabase. **No gap exists between Meta and FUB.**
+
+The closings.homegrownpropertygroup.com `/api/meta-insights` endpoint returns `leads: 4` at every level (campaign/adset/ad) for the same window. The endpoint disagrees with the underlying Meta API by ~4x.
+
+**Likely cause:** the endpoint is summing or unioning multiple Meta action types (`lead` + `fb_pixel_lead` + `onsite_web_lead` and possibly `submit_application_total`) under one "leads" field instead of deduping to the canonical `lead` action. Tech-side owns the endpoint source and can confirm in 30 seconds.
+
+**Implication for ALL numbers in this session:** every CPL and lead count below came from the same endpoint and is suspect. Relative variant ordering (C > D, E vertical > C) probably still holds because the inflation likely applies uniformly. But absolute CPL figures are not trustworthy.
+
+**Held until tech-side confirms endpoint fix:**
+- Variant E day 5-7 decision tree (the $3/$5 CPL thresholds were set against inflated numbers)
+- Sellers Guide activation gating (the "Meta says 4, FUB says 1" framing was wrong)
+- Any further variant pause/scale decisions
+
+Pixel firing point and webhook delivery are NOT the problem. Tech-side verified pixel fires form-submit only inside `if(result.ok)`, hostname gate live, all quiz/score events are trackCustom and don't count as Meta Leads. The IDXRE-B2 nurture sequence stays blocked on the FUB UI rebuild only (tech-side has the build spec, FUB API blocks /v1/automations with 403).
+
+---
+
 ### What got verified (tech side, read-only)
 
 **Pixel firing point (2a):** Pulled the live served HTML at `https://sellersguide.homegrownpropertygroup.com/home-selling-score/`. Meta standard `Lead` event fires exactly once — inside the `btn-submit-lead` async handler, inside the `if (result.ok)` branch, after `submitAssessmentAndLead(v.values)` succeeds (which requires BOTH Supabase write AND FUB forward to succeed). All other events on the page (`AssessmentStarted`, `ScoreCompleted`, `QuizStarted`, `QuizCompleted`) fire as `trackCustom` and do NOT count as Meta Leads. Hostname gate `HGPG_PIXEL_ENABLED = (location.hostname === 'sellersguide.homegrownpropertygroup.com')` confirmed live. Audited all 7 pages — Lead event exists only on `/home-selling-score/`.
@@ -95,6 +114,25 @@ Sequence (also delivered to Brian inline this session):
 ## Earlier session: 2026-05-20 — Meta insights endpoint fixed, Variant E breakout, FUB attribution gap surfaced 🟢🟡
 
 
+
+### ⚠️ Lead count discrepancy — closings endpoint suspected unreliable (added 2026-05-20 evening)
+
+Tech-side audited the SG-2026 attribution gap and found Meta Insights API direct pull returns lead=1, fb_pixel_lead=1, onsite_web_lead=1 for CONV ad set 52506271965563 across 7d/14d/30d — matching Daniela Portillo exactly and matching FUB and Supabase. **No gap exists between Meta and FUB.**
+
+The closings.homegrownpropertygroup.com `/api/meta-insights` endpoint returns `leads: 4` at every level (campaign/adset/ad) for the same window. The endpoint disagrees with the underlying Meta API by ~4x.
+
+**Likely cause:** the endpoint is summing or unioning multiple Meta action types (`lead` + `fb_pixel_lead` + `onsite_web_lead` and possibly `submit_application_total`) under one "leads" field instead of deduping to the canonical `lead` action. Tech-side owns the endpoint source and can confirm in 30 seconds.
+
+**Implication for ALL numbers in this session:** every CPL and lead count below came from the same endpoint and is suspect. Relative variant ordering (C > D, E vertical > C) probably still holds because the inflation likely applies uniformly. But absolute CPL figures are not trustworthy.
+
+**Held until tech-side confirms endpoint fix:**
+- Variant E day 5-7 decision tree (the $3/$5 CPL thresholds were set against inflated numbers)
+- Sellers Guide activation gating (the "Meta says 4, FUB says 1" framing was wrong)
+- Any further variant pause/scale decisions
+
+Pixel firing point and webhook delivery are NOT the problem. Tech-side verified pixel fires form-submit only inside `if(result.ok)`, hostname gate live, all quiz/score events are trackCustom and don't count as Meta Leads. The IDXRE-B2 nurture sequence stays blocked on the FUB UI rebuild only (tech-side has the build spec, FUB API blocks /v1/automations with 403).
+
+---
 
 ### What got verified
 - `/api/meta-insights` on closings.homegrownpropertygroup.com is returning correctly-windowed data. 7d/14d/30d all distinct, no lifetime-cache pollution. Bug fixed, 60s TTL holding.
