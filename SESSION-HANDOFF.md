@@ -2,41 +2,58 @@
 
 # Session Handoff
 
-## Last session: 2026-05-19 (PM-2) — South Charlotte Report audit, brain reconciliation 🟡
+## Last session: 2026-05-19 (PM-2) — South Charlotte Report audit, brain corrected from repo ground truth 🟢
 
 ### Context
-Brian asked for an audit of the South Charlotte Report pipeline + simplification suggestions. Audit was completed from the brain alone (repo is private + no auth available from this session). Brain refresh and audit findings logged before any further work, per Brian's "memories and brain first and foremost" direction.
+Brian asked for an audit of the South Charlotte Report pipeline + simplification suggestions. First pass was done without repo access (didn't realize `/api/external/read` existed on brain-app). Brian flagged the gap, second pass pulled repo ground truth via `/api/external/read?repo=south-charlotte-report` and corrected significant brain errors.
 
-### What got logged
-- **`projects/south-charlotte-report.md` rewritten** to include (a) full audit findings, (b) discrepancy log between brain files + prior session memory, (c) proposed simpler 3-job pipeline shape, (d) "needs repo-truth pass" flag for next session near the code.
-- **Discrepancies captured** for future verification:
-  - Timing: 7 AM digest (this file + `marketing.md`) vs. "5 AM scrape, 6 AM post" (prior memory). Possibly a v5.0 change.
-  - Newsletter platform: "via Resend" (this file) vs. "Beehiiv" (`marketing.md`). Could be both (ops digest vs. subscriber newsletter) but unverified.
-  - Manus removal / v5.0 referenced in prior memory, not in brain.
-  - S3 image migration referenced in prior memory, not in brain.
-  - Recent IG token refresh referenced in prior memory, GitHub Actions secret name not captured.
+### What was wrong in the brain (now fixed)
+- **Data source.** Brain said "MLS data fetch from Canopy MLS Grid (same source as CMA Engine)." Actually **RSS feeds + S3-scraped government/social sites** (from `south-charlotte-scraper`). Zero MLS involvement in the daily pipeline.
+- **Email platform.** Brain project file said "via Resend"; `marketing.md` said "Beehiiv". Actually **Gmail SMTP** (`GMAIL_SENDER_EMAIL` + `GMAIL_APP_PASSWORD`).
+- **Cron timing.** Documented as "7 AM ET digest send"; actually `0 10 * * *` UTC = **5 AM EST / 6 AM EDT**. Workflow comment in the repo itself is also wrong (says "6:00 AM EST" — should be "5:00 AM EST / 6:00 AM EDT"). Minor doc bug worth fixing next time touching repo.
+- **Distribution.** `marketing.md` said "Instagram + YouTube" for the daily pipeline. Actually **WordPress + Instagram only** for daily. YouTube is a SEPARATE monthly pipeline.
+- **Pipeline count.** Brain documented one pipeline; there are **two**:
+  - **Track 1 (daily news):** `morning_fetch.yml` → `run_morning_fetch_enhanced.py` (182KB orchestrator) → RSS+S3 → AI filter → HeyGen → IG+WP+Gmail digest
+  - **Track 2 (monthly HGPG market video):** `hgpg_market_video.yml` → `generate_hgpg_video.py`, triggered by `south-charlotte-market-report` repo via `repository_dispatch: market-report-ready`, posts to HGPG YouTube only
+- **Repo count.** Brain documented 2 repos (`south-charlotte-report` + `south-charlotte-scraper`). Actually **3**: add `south-charlotte-market-report` (generates monthly market PDF, triggers Track 2). Added to `infrastructure.md`.
 
-### Audit findings (recap, full version in project file)
-1. Monolithic script — failure handling is workaround for absence of checkpoints. Splitting into discrete Actions jobs with artifacts would let any step re-run independently.
-2. Two repos for one product. `south-charlotte-scraper` was decoupled for reuse — verify it's actually reused before keeping the split.
-3. HeyGen is most fragile/slowest/most expensive AND gates social distribution. Decouple text-publish (blog + email, can ship daily without video) from video-publish (HeyGen + IG + YT, can fail without killing the day).
-4. Direct API to IG + YouTube + WordPress + email from one script. Worth considering scheduler (Buffer/Later/Metricool) for social to stop owning IG/YT auth lifecycles.
-5. Digest serves three audiences (ops, subscribers, inbox). Red-banner-on-failure means subscribers occasionally see "BROKEN" emails. Split: ops → dm-brian relay, subscriber digest only when content ready.
-6. No feedback loop. Every other content surface has analytics. Add UTMs to blog/YT links minimum.
+### Brain writes this session
+- `projects/south-charlotte-report.md` — full rewrite from repo ground truth (commit `7fafaca`)
+- `marketing.md` — SCR section corrected (commit `c5891ee`)
+- `infrastructure.md` — added `south-charlotte-market-report` to active repos line (commit `b506f18`)
+- `SESSION-HANDOFF.md` — this entry (replaces an earlier uninformed entry from same session)
 
-### Proposed shape (for Brian to decide on)
-One workflow, three jobs:
-- `fetch_and_analyze` (5 AM ET, always runs) → uploads market_data + blog_post + script as artifacts
-- `publish_text` (5:30 AM ET, needs fetch) → WordPress + digest, independent of video
-- `produce_and_publish_video` (5:30 AM ET, needs fetch) → HeyGen + IG + YT, allowed to fail without blocking text
+### Audit findings (revised given ground truth, full version in project file)
+
+The original audit critique was directionally right but specifics were wrong because I was working from stale brain. Corrected findings:
+
+1. **Monolithic script is 182KB.** Real surgery to refactor, not a YAML reshuffle. Failure handling (digest-anyway, red banner, HeyGen short-circuit) is a workaround for absent checkpoints, but it works.
+2. **Two-repo split for daily IS justified** — scraper writes to S3, report consumes from S3. Right boundary. Don't consolidate. (Earlier audit suggested consolidating — wrong.)
+3. **HeyGen short-circuit already exists.** Worst-case failure is "no Reel today, blog still ships" — partial decoupling is already done. Better than I initially claimed.
+4. **SCR YouTube is dormant.** `YOUTUBE_REFRESH_TOKEN` env var present but unused per HANDOFF. Decide: remove or document dormancy.
+5. **Digest critique partially wrong.** Daily digest is to Brian only — no subscribers. The "red banner reaches subscribers" risk I claimed doesn't exist. If Beehiiv newsletter exists, it's a separate thing outside the workflow.
+6. **No traffic feedback loop is real.** No UTMs on blog/YT links.
+
+### Proposed 3-job split (still the right shape, but lower urgency)
+- `fetch_and_filter` (10:00 UTC, always runs) → RSS + S3 scraper data + brand-safety filter → artifacts
+- `publish_text` (10:30 UTC, needs fetch) → WordPress + Gmail digest, independent of video
+- `produce_and_publish_video` (10:30 UTC, needs fetch) → HeyGen + IG Reel, allowed to fail without blocking text
+
+Honest assessment: pipeline works, Brian called it ops-mode. The refactor is code health, not a fix. Wait for the next breakage to be the trigger.
 
 ### Open / parked
-- **Repo-truth pass on SCR** — next time Brian is at his Mac, pull the workflow + script and resolve the discrepancies. Without that, refactor design is built on unverified assumptions.
-- **Refactor go/no-go** — Brian to decide whether to invest in the 3-job split or leave the pipeline as ops-mode-until-it-breaks. No commits made this session.
+- **Refactor go/no-go on the 3-job split** — Brian to decide. Not urgent.
+- **Workflow comment bug fix** — 1-liner, next time touching repo.
+- **YouTube SCR dormancy** — decide remove vs. document.
+- **Beehiiv claim verification** — is there a separate Beehiiv newsletter, or was the brain entry aspirational? Flagged in project file and marketing.md.
+- **UTMs on blog/YT links** — if traffic feedback is wanted.
 
 ### Pickup notes
-- Memory was NOT updated this session — at 30/30 cap, and SCR specifics belong in the brain (per memory rule #11). Existing memory entry #19 already names HeyGen for SCR; that's enough.
-- No code touched, no commits to `south-charlotte-report` or `south-charlotte-scraper`.
+- Memory NOT updated this session — at 30/30 cap, SCR specifics belong in brain per rule #11.
+- **`/api/external/read` exists** on brain-app and can read any HGPG1 repo via `?repo=<repo>&path=<path>`. Worth remembering for future audits — this session almost shipped a wrong audit because I didn't try it.
+- No code touched, no commits to `south-charlotte-report` repo. Brain-only writes.
+- Last 5 commits on brain (this session): `7fafaca` SCR project rewrite, `c5891ee` marketing.md SCR section, `b506f18` infra market-report repo add, `05c320e` SESSION-HANDOFF earlier (now stale entry replaced), `4f9593f` SCR project earlier (now superseded).
+
 
 ---
 
