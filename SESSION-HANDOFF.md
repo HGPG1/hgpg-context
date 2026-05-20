@@ -2,7 +2,85 @@
 
 # Session Handoff
 
-## Last session: 2026-05-20 (latest) — /api/meta-insights leads inflation fixed (4x bug) 🟢
+## Last session: 2026-05-20 (evening) — NC phone-capture review + 3 fixes shipped 🟢
+
+### TL;DR
+
+Ran the parked New Construction Phone Capture Rate Review. Headline: phone
+capture rate was 0/19 (0%) over 5/12-5/20 — but it was a STRUCTURAL zero, not
+a UX problem. The /incentives page (sole destination for all Meta ad traffic)
+routed to /api/incentives-lead, which used postLightLeadToFub — a helper that
+by design cannot save a phone. The four forms that DO support phone capture
+(builder/guide/quiz/calculator) got zero submissions in the window. Three
+separate bugs found, all three fixed and shipped to charlotte-new-construction-nextjs main.
+
+### What the review found
+
+19 NC leads since 5/12, every one through /incentives, every one tagged
+Email-Only Lead. Three bugs:
+
+1. Incentives form had NO phone field at all. IncomingBody in the route had no
+   phone key; postLightLeadToFub has no phone param. Email-only by construction.
+2. UTM custom fields never written. fubLight stuffed UTMs into the FUB note body
+   but never set customUTMSource/Medium/Campaign/Content/Term — all 19 leads have
+   those fields null. Attribution dashboards keyed on them were blind.
+3. Variant E traffic mis-bucketed. variantTagFromUtmContent switch had no case for
+   variant-e-10k (Variant E's utm_content). 6 leads from 5/19-5/20 fell through to
+   Variant-Unknown. Variant E day 3-4 read window opened 5/21 with mis-bucketed data.
+
+### What shipped (3 commits, charlotte-new-construction-nextjs, main)
+
+- 18bb2b16 — src/lib/fubLight.ts: added Variant-E-10K mapping (accepts both
+  underscore and hyphen utm_content styles), writes UTM custom fields +
+  customFacebookClickID to FUB, and accepts an OPTIONAL phone + smsConsent.
+  Phone present -> writes phones[] + customSmsConsent + 'Phone Lead' tag.
+  Phone absent -> byte-identical to old email-only behavior. Exports
+  normalizeLightPhone(). NOTE: this single commit supersedes two earlier
+  commits this session (c3285b68, f84e95b6) — same fixes, plus phone.
+- 853505c7 — src/app/api/incentives-lead/route.ts: accepts + normalizes
+  optional phone, rejects typed-but-invalid phone (blank sails through),
+  extracts fbclid from the fbc cookie, passes phone into CAPI user_data
+  (better Meta match quality), adds lead_type to Pixel/CAPI custom_data.
+- 5b56316d — src/app/incentives/IncentivesClient.tsx: optional phone capture
+  on all 3 incentives forms (hero/secondary/card_modal). Option C — field
+  labeled just "Phone" with no "(optional)" suffix (the word suppresses
+  capture); per-form benefit nudge; SMS consent checkbox revealed only once a
+  digit is typed; phone never blocks submit. Consent copy matched VERBATIM to
+  the string already live in src/components/LeadCaptureModal.tsx (the other
+  4 forms) so A2P language is identical site-wide.
+
+### Open / parked
+
+- Live test on /incentives after Vercel deploy: one email-only submission
+  (should look unchanged) + one with a phone (consent box appears, lead lands
+  in FUB with phones[] + customSmsConsent: YES + 'Phone Lead' tag).
+- 6 existing Variant-Unknown leads (5/19-5/20) are actually Variant E and stay
+  mis-bucketed. Optional cleanup: re-tag via FUB API (~6 PATCH calls). Not done.
+- Variant E day 3-4 read (window opened 5/21): any lead AFTER the deploy is
+  cleanly bucketed; leads before are not.
+- Phone capture rate should now be re-measured ~7 days post-deploy to see if
+  the Option C nudge pulls weight (the original brief's actual question).
+
+### Brain / project-prompt hygiene fix (same session)
+
+- Root-caused the recurring "stale brain" false alarm: it was web_fetch's
+  internal cache serving weeks-old content, NOT raw.githubusercontent.com's
+  CDN (which is only ~5 min). operations.md updated (commit 6bde9667) with an
+  explicit "read brain/repo files via bash+curl, never web_fetch" rule. The
+  HGPG Tech & Builds project prompt was also rewritten to match — Brian pasted
+  the new version into project settings.
+
+### Pickup notes for next session
+
+- JWT rotation (projects/legacy-jwt-rotation.md) is the priority — planned to
+  attack 5/21. Nothing executed yet. Still the only thing genuinely "on fire."
+- For the phone-capture re-measure, the query is the same as
+  projects/new-construction-phone-capture-rate-review.md but now there should
+  be non-zero phone counts and Variant-E-10K should appear as a real bucket.
+
+---
+
+## Previous session: 2026-05-20 (latest) — /api/meta-insights leads inflation fixed (4x bug) 🟢
 
 ### TL;DR
 
@@ -392,5 +470,6 @@ Outcomes:
 - Brain-app local dev: `cd ~/brain-app && npm run dev` on Mac mini (work machine)
 - Brain-app local on iMac: same setup, repo at `~/Developer/brain-app` if rebuilt, otherwise needs fresh `gh repo clone HGPG1/brain-app` + `npm install` + `cp env.example .env.local`
 - The `package-lock.json` may differ between iMac and Mac mini — push from whichever machine you most recently ran `npm install` on
+
 
 
