@@ -1,4 +1,4 @@
-<!-- Last Updated: 2026-05-19 -->
+<!-- Last Updated: 2026-05-20 -->
 
 # Transaction Manager
 
@@ -128,6 +128,7 @@
 - **60s response cache** per-lambda keyed by `${level}:${parentKind}:${parentId}:${days}` to absorb rapid drill-down clicks below Pipeboard's 200/hour limit.
 - Tool name discovery (`tools/list`) cached per process (1hr TTL). Fail-soft on campaigns/adsets/ads metadata calls so status pills degrade to "unknown" but insights still render.
 - Files: `app/meta-ads/page.tsx`, `app/meta-ads/MetaAdsDashboard.tsx`, `app/api/meta-insights/route.ts`, plus nav links in `app/layout.tsx` and `components/MobileNav.tsx`.
+- **Bearer-token auth path (2026-05-20):** `/api/meta-insights` now also accepts `Authorization: Bearer $META_INSIGHTS_TOKEN`, short-circuiting the session+email gate. Lets the Ads project query insights directly without copy-paste. Session check preserved as fallback. Route added to middleware `PUBLIC_PATHS` so the route-level auth runs (middleware was returning 401 before the handler). Env var stored Sensitive=OFF.
 
 #### Pipeboard MCP gotchas (learned the hard way 2026-05-19)
 - **`get_campaigns` / `get_adsets` / `get_ads` ignore scoping args** like `campaign_id` and `adset_id`. They always return unscoped account-wide lists. Workaround: fetch wide, cache 5 min, look up by ID locally.
