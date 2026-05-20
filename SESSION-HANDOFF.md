@@ -36,7 +36,7 @@ While in the advisor, also worked through the ~38 WARN/INFO-level findings.
 
 **Cluster E — `pg_trgm` extension in public schema (1 WARN).** Cosmetic. Moving an extension is a real migration with rebuild implications. Skip.
 
-**Cluster F — Leaked password protection disabled in Auth (1 WARN).** Dashboard toggle. Brian needs to do this manually: Supabase Dashboard > Project (ioypqogunwsoucgsnmla) > Authentication > Settings > toggle on "Leaked password protection". Hits HaveIBeenPwned API on signup/change. No-risk to enable; just blocks compromised passwords.
+**Cluster F — Leaked password protection** ✅ Enabled by Brian 2026-05-20. HaveIBeenPwned check now active on signup/password-change in HGPG Core auth.
 
 ### Lessons / patterns
 - **Don't drop scratch-looking tables without grepping the repo first.** Lock them down instead. The `_cma_packet_debug` incident wasted ~15 minutes and broke CMA generation. Underscore-prefix + zero rows + anon-writable looked like dead scaffolding but was live diagnostic logging from 4 days prior. Future heuristic: if uncertain, prefer "REVOKE + enable RLS + service-role grants" over "DROP".
@@ -48,7 +48,7 @@ While in the advisor, also worked through the ~38 WARN/INFO-level findings.
 - None blocking. All within-scope items resolved.
 
 ### Pickup for next session
-- If a Supabase advisor email arrives again, only Cluster C-F remain. Cluster F is the only easy win (dashboard toggle). Cluster C is a project, not a session.
+- If a Supabase advisor email arrives again, only Cluster C-E remain. Cluster C (allow-all RLS policies on transaction_* tables) is a project, not a session. D and E are intentional/cosmetic.
 - Don't expect any user-visible regressions from this session's revokes. If TM, CMA, or any FUB-Agent surface fails with permission errors, it means a route is mistakenly hitting Supabase with the anon key instead of service role — that's the actual bug, not the revoke.
 
 ---
