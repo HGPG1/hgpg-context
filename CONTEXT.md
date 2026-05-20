@@ -1,6 +1,6 @@
 # HGPG Context (Brain)
 
-Last updated: 2026-05-19
+Last updated: 2026-05-20
 
 ## Who
 
@@ -88,3 +88,4 @@ See `SESSION-HANDOFF.md` for current scratchpad.
 | Meta Ads, lead re-engagement | `marketing.md` |
 | Session protocol, formatting, iMessage | `operations.md` |
 | Specific project state | `projects/<name>.md` |
+| Cluster C TM RLS hardening (Claude Code brief) | `projects/cluster-c-path-3-brief.md` |
