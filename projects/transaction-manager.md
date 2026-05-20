@@ -1,4 +1,4 @@
-<!-- Last Updated: 2026-05-20 -->
+<!-- Last Updated: 2026-05-21 -->
 
 # Transaction Manager
 
@@ -133,6 +133,7 @@
 #### Pipeboard MCP gotchas (learned the hard way 2026-05-19)
 - **`get_campaigns` / `get_adsets` / `get_ads` ignore scoping args** like `campaign_id` and `adset_id`. They always return unscoped account-wide lists. Workaround: fetch wide, cache 5 min, look up by ID locally.
 - **`get_insights` ignores the `filtering` array param.** Scope drill-downs via `object_id=<parent_id>` (mirrors Meta's native `/<id>/insights` URL-path scoping). The `filtering` array is sent as backup belt-and-suspenders.
+- **`get_insights` ignores `date_preset` too** (confirmed 2026-05-21). Returns lifetime data for `last_7d`, `last_30d`, `last_90d` — all identical. Workaround: pass Meta's explicit `time_range: { since, until }` object instead. Pipeboard forwards this through to the Graph API correctly. Shipped in commit `96b256a` on `app/api/meta-insights/route.ts`.
 - **Exact tool names matter.** Fuzzy `name.includes("ads")` matching can land on `get_ad_details` / `bulk_*` / `delete_*` etc. Pin to exact strings (`get_campaigns`, `get_adsets`, `get_ads`).
 - Diagnostic endpoint `/api/debug-meta-ads` (in repo as of `36cdabb`, slated for removal) tests tool-call variants; useful template for other MCP integrations.
 
@@ -189,3 +190,4 @@
 - Auth: Bearer token (in memory)
 - Hardcoded recipient `+17046779191`
 - 10/hour limit
+
