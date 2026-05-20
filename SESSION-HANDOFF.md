@@ -67,7 +67,7 @@ While in the advisor, also worked through the ~38 WARN/INFO-level findings.
 
 **Cluster D — `get_tracker_by_token` SECURITY DEFINER callable by anon (2 WARNs).** Intentional and correct. This is the public client tracker endpoint that lets buyers/sellers check transaction status via a token URL. SECURITY DEFINER bypasses RLS on `transactions`/`transaction_milestones`/`transaction_parties` to return token-scoped data. Leave as-is.
 
-**Cluster E — `pg_trgm` extension in public schema (1 WARN).** Cosmetic. Moving an extension is a real migration with rebuild implications. Skip.
+**Cluster E — `pg_trgm` extension in public schema (1 WARN).** Investigated 2026-05-20: pg_trgm has 3 active GIN trigram indexes on `transaction_emails` (property_address, snippet, subject — TM email matching) plus 10+ functions (`similarity()`, `word_similarity()`, `%>` operator, etc.). Moving extension out of public requires: (1) audit every repo for bare `similarity(` / `word_similarity(` / `%>` calls; (2) create `extensions` schema; (3) `DROP EXTENSION pg_trgm CASCADE` (kills the 3 indexes); (4) recreate extension with `WITH SCHEMA extensions`; (5) recreate the 3 indexes with `extensions.gin_trgm_ops`; (6) update Supabase connection search_path to `public, extensions`. Actual security risk is near-zero — only `postgres` and `service_role` have CREATE on public in Supabase. **Decision: deferred indefinitely as known-noise low-value lint.** Cosmetic Postgres hygiene flagged by Supabase's stricter project template; pg_trgm ships in public by default on every new Supabase project.
 
 **Cluster F — Leaked password protection** ✅ Enabled by Brian 2026-05-20. HaveIBeenPwned check now active on signup/password-change in HGPG Core auth.
 
@@ -81,7 +81,7 @@ While in the advisor, also worked through the ~38 WARN/INFO-level findings.
 - None blocking. All within-scope items resolved.
 
 ### Pickup for next session
-- If a Supabase advisor email arrives again, only Cluster C-E remain. Cluster C (allow-all RLS policies on transaction_* tables) is a project, not a session. D and E are intentional/cosmetic.
+- If a Supabase advisor email arrives again, only Cluster C remains as actionable. Cluster C (allow-all RLS policies on transaction_* tables) is a project, not a session. D (get_tracker_by_token) and E (pg_trgm) are intentional/cosmetic — leave as permanent advisor noise.
 - Don't expect any user-visible regressions from this session's revokes. If TM, CMA, or any FUB-Agent surface fails with permission errors, it means a route is mistakenly hitting Supabase with the anon key instead of service role — that's the actual bug, not the revoke.
 
 ---
