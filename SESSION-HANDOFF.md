@@ -54,8 +54,11 @@ Email-Only Lead. Three bugs:
 - Live test on /incentives after Vercel deploy: one email-only submission
   (should look unchanged) + one with a phone (consent box appears, lead lands
   in FUB with phones[] + customSmsConsent: YES + 'Phone Lead' tag).
-- 6 existing Variant-Unknown leads (5/19-5/20) are actually Variant E and stay
-  mis-bucketed. Optional cleanup: re-tag via FUB API (~6 PATCH calls). Not done.
+- DONE: 6 Variant-Unknown leads (5/19-5/20) re-tagged to Variant-E-10K. All 6
+  verified via note body as genuine variant-e-10k traffic (no organic/direct
+  contamination). UTM custom fields backfilled on all 6 too
+  (source/medium/campaign/content/term). FUB IDs: 32106, 32121, 32122, 32124,
+  32129, 32130. Tomorrow's Variant E day 3-4 read is now fully clean.
 - Variant E day 3-4 read (window opened 5/21): any lead AFTER the deploy is
   cleanly bucketed; leads before are not.
 - Phone capture rate should now be re-measured ~7 days post-deploy to see if
@@ -470,6 +473,7 @@ Outcomes:
 - Brain-app local dev: `cd ~/brain-app && npm run dev` on Mac mini (work machine)
 - Brain-app local on iMac: same setup, repo at `~/Developer/brain-app` if rebuilt, otherwise needs fresh `gh repo clone HGPG1/brain-app` + `npm install` + `cp env.example .env.local`
 - The `package-lock.json` may differ between iMac and Mac mini — push from whichever machine you most recently ran `npm install` on
+
 
 
 
