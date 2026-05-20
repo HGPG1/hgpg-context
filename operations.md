@@ -1,4 +1,4 @@
-<!-- Last Updated: 2026-05-19 -->
+<!-- Last Updated: 2026-05-20 -->
 
 # Operations
 
@@ -77,6 +77,22 @@ When Brian asks Claude to text/iMessage him, use bash + curl to the internal end
 
 When Brian asks to update, add to, or change anything in the brain repo (`hgpg-context`), commit it directly via the Brain App's external endpoint. Do not draft files for him to paste, do not send him to the Brain App UI, do not ask permission - just commit.
 
+### ⚠️ Reading brain or repo files — DO NOT use web_fetch
+
+**Always use `bash` + `curl` to read brain or HGPG1 repo files. Never use the `web_fetch` tool for these.**
+
+Why: `web_fetch` has an internal response cache that can serve content **weeks** out of date, even when raw.githubusercontent.com itself is current. This has burned multiple sessions where Claude thought the brain was stale (e.g. served 2026-05-06 content when the live file was from today), then either parroted false "the brain is out of date" warnings or, worse, started overwriting files based on hallucinated gaps.
+
+The raw.githubusercontent.com CDN itself is only on a ~5 min cache (cache-control: max-age=300). The decade-old warning in older versions of the project prompt about "raw caches for minutes to hours" overstates raw's caching and ignores the real culprit, which is `web_fetch`.
+
+**Correct read paths (all via bash + curl):**
+
+- Brain files: `curl -s -H 'Authorization: Bearer <BRAIN_WRITE_TOKEN>' 'https://brain.homegrownpropertygroup.com/api/files/<path>'`
+- Any HGPG1 repo file: `curl -s -H 'Authorization: Bearer <BRAIN_WRITE_TOKEN>' 'https://brain.homegrownpropertygroup.com/api/external/read?repo=<repo>&path=<path>'`
+- Public raw fallback (if API is down): `curl -s 'https://raw.githubusercontent.com/HGPG1/hgpg-context/main/<path>'` — fine for brain reads if you also need a public path, max ~5 min stale.
+
+**Do NOT use `web_fetch` for any URL on brain.homegrownpropertygroup.com or raw.githubusercontent.com/HGPG1/**.** Use `web_fetch` only for genuinely external URLs (docs, articles, third-party APIs).
+
 ### Endpoints (all at `https://brain.homegrownpropertygroup.com`, all use the same Bearer token)
 
 - **Write to brain** — `POST /api/external/write` `{path, content, message}` — commits to `HGPG1/hgpg-context` only.
@@ -89,7 +105,7 @@ When Brian asks to update, add to, or change anything in the brain repo (`hgpg-c
 
 ### Workflow for any brain or repo edit
 
-1. Fetch the current file via `/api/external/read` (or `/api/files/<path>` for brain) so the splice is against the live file, not a stale copy.
+1. Fetch the current file via `curl` to `/api/external/read` (or `/api/files/<path>` for brain) so the splice is against the live file, not a stale copy. **Use bash + curl, not web_fetch.**
 2. Modify the content.
 3. POST to `/api/external/write` (brain) or `/api/external/commit` (any HGPG1 repo) with the full new content.
 4. Confirm the returned `commitSha` to Brian.
@@ -106,4 +122,5 @@ Do NOT default to: drafting files for paste, telling Brian to use the Brain App 
 `5153df26d2d7829e26d8fffce05067459541b7d374952bb6142092ab0788793e`
 
 This token covers `/api/external/{write,commit,read,log}` plus `/api/files/<path>` reads. Write scope: HGPG1/hgpg-context for `/api/external/write`, any HGPG1 repo for `/api/external/commit`. Read scope: any HGPG1 repo via `/api/external/read` and `/api/external/log`. Low-risk to keep in chat history. Don't bother rotating after every session, don't bother asking Brian for it again. Use it directly from this file.
+
 
