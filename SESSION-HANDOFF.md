@@ -2,7 +2,45 @@
 
 # Session Handoff
 
-## Last session: 2026-05-19 (PM) — Ads project blocked on Pipeboard token gating, bearer-auth spec handed to Tech & Builds 🟡
+## Last session: 2026-05-19 (PM-2) — South Charlotte Report audit, brain reconciliation 🟡
+
+### Context
+Brian asked for an audit of the South Charlotte Report pipeline + simplification suggestions. Audit was completed from the brain alone (repo is private + no auth available from this session). Brain refresh and audit findings logged before any further work, per Brian's "memories and brain first and foremost" direction.
+
+### What got logged
+- **`projects/south-charlotte-report.md` rewritten** to include (a) full audit findings, (b) discrepancy log between brain files + prior session memory, (c) proposed simpler 3-job pipeline shape, (d) "needs repo-truth pass" flag for next session near the code.
+- **Discrepancies captured** for future verification:
+  - Timing: 7 AM digest (this file + `marketing.md`) vs. "5 AM scrape, 6 AM post" (prior memory). Possibly a v5.0 change.
+  - Newsletter platform: "via Resend" (this file) vs. "Beehiiv" (`marketing.md`). Could be both (ops digest vs. subscriber newsletter) but unverified.
+  - Manus removal / v5.0 referenced in prior memory, not in brain.
+  - S3 image migration referenced in prior memory, not in brain.
+  - Recent IG token refresh referenced in prior memory, GitHub Actions secret name not captured.
+
+### Audit findings (recap, full version in project file)
+1. Monolithic script — failure handling is workaround for absence of checkpoints. Splitting into discrete Actions jobs with artifacts would let any step re-run independently.
+2. Two repos for one product. `south-charlotte-scraper` was decoupled for reuse — verify it's actually reused before keeping the split.
+3. HeyGen is most fragile/slowest/most expensive AND gates social distribution. Decouple text-publish (blog + email, can ship daily without video) from video-publish (HeyGen + IG + YT, can fail without killing the day).
+4. Direct API to IG + YouTube + WordPress + email from one script. Worth considering scheduler (Buffer/Later/Metricool) for social to stop owning IG/YT auth lifecycles.
+5. Digest serves three audiences (ops, subscribers, inbox). Red-banner-on-failure means subscribers occasionally see "BROKEN" emails. Split: ops → dm-brian relay, subscriber digest only when content ready.
+6. No feedback loop. Every other content surface has analytics. Add UTMs to blog/YT links minimum.
+
+### Proposed shape (for Brian to decide on)
+One workflow, three jobs:
+- `fetch_and_analyze` (5 AM ET, always runs) → uploads market_data + blog_post + script as artifacts
+- `publish_text` (5:30 AM ET, needs fetch) → WordPress + digest, independent of video
+- `produce_and_publish_video` (5:30 AM ET, needs fetch) → HeyGen + IG + YT, allowed to fail without blocking text
+
+### Open / parked
+- **Repo-truth pass on SCR** — next time Brian is at his Mac, pull the workflow + script and resolve the discrepancies. Without that, refactor design is built on unverified assumptions.
+- **Refactor go/no-go** — Brian to decide whether to invest in the 3-job split or leave the pipeline as ops-mode-until-it-breaks. No commits made this session.
+
+### Pickup notes
+- Memory was NOT updated this session — at 30/30 cap, and SCR specifics belong in the brain (per memory rule #11). Existing memory entry #19 already names HeyGen for SCR; that's enough.
+- No code touched, no commits to `south-charlotte-report` or `south-charlotte-scraper`.
+
+---
+
+## Previous session (today PM): 2026-05-19 (PM) — Ads project blocked on Pipeboard token gating, bearer-auth spec handed to Tech & Builds 🟡
 
 ### Context
 Brian (in Ads project) asked Claude to run a Meta Ads performance review across the new TM /meta-ads dashboard. The /api/meta-insights endpoint is session-gated (cookie auth, brian@homegrownpropertygroup.com check), so Claude in a separate project session cannot hit it directly. Currently requires copy-paste of JSON from browser, which is fine for one-offs but blocks streamlined ad reviews.
