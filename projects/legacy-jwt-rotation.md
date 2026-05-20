@@ -1,113 +1,117 @@
 <!-- Last Updated: 2026-05-20 -->
 
-# Legacy HS256 JWT Rotation Brief (HGPG Core)
+# HGPG Core API Key Migration Brief (leaked service_role key)
+
+## STATUS: NOT STARTED — planned for 2026-05-21
 
 ## Why this exists
 
-On 2026-05-20 the HGPG Core `service_role` JWT was accidentally pasted in full into a Claude conversation. The conversation is private to Brian's Anthropic account and not publicly accessible, so the realistic threat surface is narrow — but the key is technically valid and must be rotated.
+On 2026-05-20 the HGPG Core `service_role` JWT was accidentally pasted in full into a Claude conversation. The conversation is private to Brian's Anthropic account and not publicly accessible, so the realistic threat surface is narrow — but the key is technically valid and must be killed.
 
-Initial attempt to revoke the legacy HS256 signing key via the Supabase JWT Keys page returned: *"It's not possible to revoke the legacy JWT secret unless you have already disabled JWT-based legacy API keys."* That message is the whole reason this brief exists — the production apps are still authenticated by JWTs signed with HS256, so revoking the secret directly would 401 every production app simultaneously.
+The original plan for this was a legacy HS256 JWT-secret rotation. That plan is abandoned. Reason: rotating the legacy JWT secret is a heavy, all-or-nothing operation (it invalidates the anon key and every user session at once), and Supabase no longer supports rotating the legacy secret cleanly anyway. The legacy `anon`/`service_role` keys are permanently coupled to the project's JWT secret.
 
-The fix is to issue new-style API keys (`sb_secret_*`), update every Vercel project to use them, redeploy, verify everything works, then revoke the legacy secret. That sequence is in Section 4.
+The better fix — and the one that makes any FUTURE leak a two-click problem — is to migrate HGPG Core onto Supabase's new API key system (`sb_secret_*` / `sb_publishable_*`). Once on the new system, a leaked secret key is rotated by: create new key, swap env vars, delete old key. No JWT-secret rotation, no anon-key collateral, no dropped user sessions. That is the "flip one thing and you're safe" outcome Brian asked for.
+
+This brief migrates HGPG Core only — the project with the leaked key. The other four Supabase projects roll over in a separate follow-up (see "Follow-up" at the end).
+
+## The key insight (why this is a small lift)
+
+- New `sb_secret_*` keys substitute for `service_role` almost everywhere with no code change — `supabase-js` initializes with the new value the same way. It's an env-var swap, not a refactor.
+- Rotating a new-style secret key does NOT invalidate user sessions and does NOT touch the anon/publishable side. The coupling that made the old rotation painful is gone.
+- HGPG Core's anon side is ALREADY migrated — TM and CMA use `sb_publishable_*` for anon. Only the service_role → secret-key swap remains.
+
+## The one real gotcha — Bearer header audit
+
+New-style keys are NOT JWTs. Supabase rejects a publishable/secret key sent in an `Authorization: Bearer ...` header UNLESS that header value exactly equals the `apikey` header value. `supabase-js` handles this correctly on its own. The risk is any HGPG code that hand-builds an `Authorization: Bearer <service_role>` header manually instead of letting the client library do it. Section 2.4 audits for this. It is expected to be a small or empty set (TM and brain-app use the client library), but it must be checked before cutover, not after.
 
 ## Current state as of 2026-05-20
 
 **Supabase HGPG Core (`ioypqogunwsoucgsnmla`):**
 - Legacy HS256 signing secret: still active, signs both anon and service_role legacy JWTs
-- Legacy anon JWT (`eyJhbGc...`): not in active use — production has migrated to `sb_publishable_*` keys
-- **Legacy service_role JWT: still in active use everywhere, this is the leaked credential**
+- Legacy anon JWT: not in active use — production has migrated to `sb_publishable_*`
+- **Legacy service_role JWT: still in active use everywhere — this is the leaked credential**
 - New-style keys already issued on the API Keys page:
     - Publishable keys: `default`, `new_p_key`
-    - Secret keys: `newkey` (one key already exists, may be in use by something, must audit before assuming it's free to repurpose)
+    - Secret keys: `newkey` (one secret key already exists — must audit in 2.3 before assuming it is free to use or safe to delete)
 
-**Apps in scope:**
-- `hgpg-transaction-manager` — TM, deployed at closings.homegrownpropertygroup.com. Local `.env.local` confirmed: anon already on `sb_publishable_*`, service_role still legacy.
-- `hgpg-cma-tool` — CMA Engine, deployed at cma.homegrownpropertygroup.com. Local `.env.local` confirmed: service_role still legacy. ALSO — local `SUPABASE_URL` points at `wdheejgmrqzqxvgjvfee` (HGPG Listing Reports + MLS) which is wrong; production Vercel env has the correct HGPG Core URL. Fix the local drift as part of this session.
-- `brain-app` — brain.homegrownpropertygroup.com. Reads service_role from `internal_secrets`-backed flow.
-- `charlotte-sellers-guide-vercel` — uses HGPG Signature + Relocation (`fkxgdqfnowskflgbuxhm`), not HGPG Core. **Out of scope** for this rotation but verify before assuming.
-- `south-charlotte-report` — may use HGPG Core via service_role for the daily report pipeline. **Audit before assuming.**
-- `hgpg-team-dash` — uses HGPG Listing Reports + MLS auth; verify it does not also touch HGPG Core.
-- Anywhere else with `SUPABASE_SERVICE_ROLE_KEY` env var pointing at HGPG Core. The audit step in Section 2 covers this.
+**Apps in scope (use HGPG Core service_role):**
+- `hgpg-transaction-manager` — TM, closings.homegrownpropertygroup.com. Local `.env.local`: anon already on `sb_publishable_*`, service_role still legacy.
+- `hgpg-cma-tool` — CMA Engine, cma.homegrownpropertygroup.com. Local `.env.local`: service_role still legacy. ALSO local `SUPABASE_URL` wrongly points at `wdheejgmrqzqxvgjvfee` (Listing Reports) — production Vercel env is correct; fix the local drift in Section 6.
+- `brain-app` — brain.homegrownpropertygroup.com. Reads service_role from an `internal_secrets`-backed flow.
+
+**Audit before assuming in/out of scope:**
+- `south-charlotte-report` — may use HGPG Core service_role for the daily pipeline. Audit in Section 2.
+- `hgpg-team-dash` — uses HGPG Listing Reports + MLS auth; confirm it does not also touch HGPG Core.
+- `charlotte-sellers-guide-vercel` — uses HGPG Signature + Relocation, not HGPG Core. Expected out of scope; confirm in Section 2.
 
 ## Approach
 
-The rotation is small but the verification surface is wide. Order matters:
+Migration is small; verification surface is wide. Order matters:
 
-1. **Audit phase** — find every place the legacy service_role JWT is used. Don't trust the brain; verify against Vercel and local repos.
-2. **Provision phase** — create or identify a clean new `sb_secret_*` key with a clear name and description.
-3. **Cutover phase** — update Vercel env vars project by project, redeploy, verify with curl before moving to the next project.
-4. **Revocation phase** — once every project is verified on the new key, revoke the legacy HS256 secret on the Supabase JWT Keys page.
-5. **Cleanup phase** — update local `.env.local` files (do NOT commit), update the brain.
+1. **Audit** — find every consumer of the legacy service_role JWT for HGPG Core, including any manual Bearer-header usage.
+2. **Provision** — create or identify a clean `sb_secret_*` key with a clear name.
+3. **Cutover** — update Vercel env vars project by project, redeploy, verify with curl before moving on.
+4. **Disable + revoke** — once every project is verified on the new key, disable legacy JWT-based API keys (this kills the leaked key), then revoke the legacy HS256 secret.
+5. **Cleanup** — update local `.env.local` files (do NOT commit), update the brain.
 
-Each phase has a stop-and-verify before moving to the next. This is interactive Brian-and-Claude work in a chat session; not a Claude Code task. Claude Code is the wrong tool because the work is mostly Vercel dashboard navigation + Supabase dashboard clicks + curl verifications, not repo refactoring.
+Each phase has a stop-and-verify before the next. This is interactive Brian-and-Claude chat work — Vercel dashboard navigation, Supabase dashboard clicks, curl verification. Not a Claude Code task.
 
 ## Section 1 — Pre-flight (5 min)
 
-Before touching anything, confirm the current state still matches this brief.
-
-**1.1 — Confirm legacy key is still valid (from any terminal, not the leaked one):**
+**1.1 — Confirm the leaked legacy key is still valid** (from any terminal, not the leaked session):
 
     curl -s -o /dev/null -w '%{http_code}\n' \
       -H 'apikey: LEGACY_KEY' \
       -H 'Authorization: Bearer LEGACY_KEY' \
       'https://ioypqogunwsoucgsnmla.supabase.co/rest/v1/transactions?select=id&limit=1'
 
-Where `LEGACY_KEY` is the leaked key. **Get it from Vercel TM project env vars, NOT from chat history.** Expected: `200` (still valid). If `401`, the legacy was already revoked somehow and the rotation is complete — skip to Section 5 brain update.
+`LEGACY_KEY` = the leaked key. Get it from the Vercel TM project env vars, NOT from chat history. Expected `200`. If `401`, the legacy keys were already disabled — skip to Section 6 brain update.
 
 **1.2 — List Vercel projects in the HGPG team:**
 
     vercel projects ls --scope team_FietQPKCmnyioG2n0FdteQCV
 
-Expected: at least `hgpg-transaction-manager`, `hgpg-cma-tool`, `brain-app`, plus others. Note any project name that looks like it could touch HGPG Core.
+Note any project name that could plausibly touch HGPG Core.
 
-**1.3 — Confirm the current production keys at the Supabase API Keys page** (https://supabase.com/dashboard/project/ioypqogunwsoucgsnmla/settings/api):
-
-- "Publishable and secret API keys" tab: confirm `default`, `new_p_key`, and `newkey` are still listed
+**1.3 — Confirm key state at the Supabase API Keys page** (https://supabase.com/dashboard/project/ioypqogunwsoucgsnmla/settings/api):
+- "Publishable and secret API keys" tab: confirm `default`, `new_p_key`, `newkey` are listed
 - "Legacy anon, service_role API keys" tab: confirm the legacy keys are still there (don't reveal them)
 
-## Section 2 — Audit (15-25 min)
+## Section 2 — Audit (15-30 min)
 
-Find every consumer of the legacy service_role JWT for HGPG Core.
-
-**2.1 — Vercel env vars per project.** For each project from Section 1.2:
+**2.1 — Vercel env vars per project.** For each project from 1.2:
 
     vercel env pull /tmp/audit-PROJECTNAME.env --environment=production --scope team_FietQPKCmnyioG2n0FdteQCV --yes
     grep -E 'SUPABASE' /tmp/audit-PROJECTNAME.env | awk -F'=' '{print $1"="substr($2,1,15)"..."}'
 
-Look for any `SUPABASE_SERVICE_ROLE_KEY` starting with `eyJ` (legacy JWT) paired with `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL` pointing at `ioypqogunwsoucgsnmla.supabase.co`. Those are the projects that need rotation.
+Look for any `SUPABASE_SERVICE_ROLE_KEY` starting with `eyJ` (legacy JWT) paired with a Supabase URL pointing at `ioypqogunwsoucgsnmla.supabase.co`. Those projects need migration.
 
-**Delete the temp files when done:**
+**2.2 — Build the migration list.** For each in-scope project document: project name + Vercel slug, the exact env var name holding the service role (most use `SUPABASE_SERVICE_ROLE_KEY`, some may differ), production URL for smoke testing, and any cron/scheduled tasks that depend on the service role (these need a deploy AND a cron tick to fully verify).
+
+**2.3 — Resolve the existing `newkey` secret.** Reveal `newkey` in the Supabase dashboard, take its first ~20 chars, and grep the 2.1 audit files for that prefix. If a project's service-role env var starts with that prefix, `newkey` is in active use — leave it alone. If nothing matches, `newkey` is orphaned (a leftover from a partial migration) and can be deleted or repurposed.
+
+**2.4 — Bearer-header audit (the gotcha check).** For each in-scope repo, search for any place that builds an Authorization header by hand rather than letting `supabase-js` do it:
+
+    cd ~/Documents/PROJECT_DIR
+    grep -rnE "Authorization.{0,4}Bearer" src app lib api 2>/dev/null | grep -iE 'service|supabase|SERVICE_ROLE'
+
+Expected: few or no hits — TM and brain-app use the client library. Any hit that sends the service_role/secret key as a raw `Authorization: Bearer` value (and is NOT also setting an identical `apikey` header) MUST be fixed before cutover, because the new key will be rejected there. The fix is either (a) route the call through the `supabase-js` client, or (b) add an `apikey` header with the same value. Note each hit and its fix in the migration list. If a fix needs a code commit, do that commit first (via `/api/external/commit`) and let it deploy before Section 4 for that project.
+
+**Clean up audit temp files:**
 
     rm /tmp/audit-*.env
 
-**2.2 — Build the rotation list.** Document each project's:
-- Project name and Vercel slug
-- Current env var names (some use `SUPABASE_SERVICE_ROLE_KEY`, others may use a different name)
-- Production deployment URL (for smoke-test verification)
-- Any cron jobs or scheduled tasks that depend on the service role (these may take a deploy + a cron-tick to fully verify)
-
-**2.3 — Confirm the existing `newkey` is or isn't already in use.** This is critical. If `newkey` is already deployed somewhere, we shouldn't recycle it; if it's a leftover from a partial migration that never finished, we can use it. Check by:
-
-- Reveal the `newkey` value in Supabase dashboard
-- Grep audit files from 2.1 for the prefix (first 20 chars of `newkey` value)
-- If any project's `SUPABASE_SERVICE_ROLE_KEY` starts with that prefix, `newkey` is in active use
-- If not, `newkey` is orphaned and can either be revoked or repurposed
-
 ## Section 3 — Provision (5 min)
 
-**3.1 — Decide on the `newkey` question from 2.3:**
-
-- If `newkey` is already in active use in some project, leave it alone; create a NEW secret key for this rotation.
-- If `newkey` is orphaned, the cleaner move is still to create a new key with a clear name (e.g., `tm-cma-brain-2026-05`) and revoke `newkey`.
+**3.1 — Decide on `newkey`** from 2.3: if in use, leave it and create a fresh key; if orphaned, still create a fresh well-named key for this migration and delete `newkey` during cleanup.
 
 **3.2 — Create the new secret key** at the Supabase API Keys page:
+- "+ New secret key"
+- Name it descriptively, e.g. `hgpg-core-service-2026-05`
+- Description: migration date + which apps use it
+- Copy the value immediately — shown only once
 
-- Click "+ New secret key"
-- Name it descriptively (e.g., `hgpg-core-service-2026-05`)
-- Add a description noting the rotation date and which apps use it
-- Copy the value immediately and store securely — it's only shown once
-
-**3.3 — Quick functional test of the new key** from a clean terminal:
+**3.3 — Functional test the new key** from a clean terminal:
 
     NEW_KEY='paste-here'
     curl -s -o /dev/null -w '%{http_code}\n' \
@@ -116,134 +120,116 @@ Look for any `SUPABASE_SERVICE_ROLE_KEY` starting with `eyJ` (legacy JWT) paired
       'https://ioypqogunwsoucgsnmla.supabase.co/rest/v1/transactions?select=id&limit=1'
     unset NEW_KEY
 
-Expected: `200`. If `401`, the new key is broken — go back to Supabase dashboard.
+Expected `200`. Note: this curl sends the key as BOTH `apikey` and `Authorization: Bearer` with identical values, which is the one Bearer usage Supabase allows for non-JWT keys. If `401`, the new key is broken — back to the dashboard.
 
 ## Section 4 — Cutover (30-45 min)
 
-Update one project at a time, redeploy, verify, move on. Order matters: do the lowest-traffic projects first so any breakage is caught with minimum user impact.
+One project at a time: update env var, redeploy, verify, move on. Lowest-traffic first so breakage has minimum impact.
 
-**Suggested order:**
+**Suggested order:** 1) `brain-app` (low traffic, single-user), 2) `hgpg-cma-tool` (verifiable end-to-end via UI), 3) `hgpg-transaction-manager` (highest stakes — do last), 4) anything else from Section 2.
 
-1. `brain-app` (low traffic, single-user, easy to verify)
-2. `hgpg-cma-tool` (CMA generation is verifiable end-to-end via UI)
-3. `hgpg-transaction-manager` (highest stakes; do last so we know everything else works first)
-4. Anything else surfaced in Section 2
+**For each project:**
 
-**For each project, repeat this sequence:**
+**4.x.1 — Update the Vercel env var.** Dashboard: Project → Settings → Environment Variables → `SUPABASE_SERVICE_ROLE_KEY` → Edit → paste new value → Save. Apply to the same environments the old value covered.
 
-**4.x.1 — Update Vercel env var:**
-
-Via Vercel dashboard: Project → Settings → Environment Variables → find `SUPABASE_SERVICE_ROLE_KEY` → Edit → paste new value → Save. Make sure it's applied to all three environments (Production, Preview, Development) or just Production depending on what was there before.
-
-Via CLI alternative (if the dashboard is slow):
+CLI alternative:
 
     cd ~/Documents/PROJECT_DIR
     vercel env rm SUPABASE_SERVICE_ROLE_KEY production --yes
     echo 'NEW_KEY_VALUE' | vercel env add SUPABASE_SERVICE_ROLE_KEY production
 
-**4.x.2 — Redeploy:**
-
-Vercel only injects env vars at build time. The easiest redeploy:
+**4.x.2 — Redeploy** (Vercel injects env vars at build time):
 
     cd ~/Documents/PROJECT_DIR
     vercel --prod
 
-Wait for the build to complete (1-3 min depending on project).
+**4.x.3 — Verify the service-role path, not just that the site loads:**
+- `brain-app`: load brain.homegrownpropertygroup.com, confirm magic-link login works
+- CMA: generate a full CMA at cma.homegrownpropertygroup.com (exercises service role on packet persist)
+- TM: load closings.homegrownpropertygroup.com, open a deal, edit a milestone (writes go through the service-role helper in `lib/createTransaction.ts`)
 
-**4.x.3 — Verify via app endpoint.** Don't just check that the site loads — exercise the path that uses the service role:
+**4.x.4 — On any 401/error:** roll this project back only — re-set the env var to the legacy JWT, redeploy, stop, tell Brian. Do not proceed until understood. (Legacy key is still valid at this stage, so rollback is safe.)
 
-- **brain-app:** load https://brain.homegrownpropertygroup.com, confirm magic link login works (uses service role for auth-related queries)
-- **CMA:** generate a CMA at https://cma.homegrownpropertygroup.com (full end-to-end exercises service role on packet persist)
-- **TM:** load https://closings.homegrownpropertygroup.com, open any deal, edit any milestone (writes go through service role helper in `lib/createTransaction.ts`)
+## Section 5 — Disable + revoke (5-10 min)
 
-**4.x.4 — If anything 401s or errors:** roll back this project only by re-setting the env var to the legacy JWT, redeploy, and stop. Tell Brian. Don't proceed to the next project until the failed one is understood.
+**Only after every in-scope project is verified on the new key.**
 
-## Section 5 — Revocation (5 min)
-
-**Only after every project in Section 2 is verified on the new key:**
-
-**5.1 — Final confirmation curl with the legacy key:**
+**5.1 — Final confirmation the legacy key still works:**
 
     curl -s -o /dev/null -w '%{http_code}\n' \
       -H 'apikey: LEGACY_KEY' \
       -H 'Authorization: Bearer LEGACY_KEY' \
       'https://ioypqogunwsoucgsnmla.supabase.co/rest/v1/transactions?select=id&limit=1'
 
-(Get `LEGACY_KEY` from a saved copy or from the Supabase dashboard "Legacy anon, service_role API keys" tab → service_role row → Reveal.)
+Expected `200`. We are about to make this fail.
 
-Expected: still `200`. We're about to make this fail.
+**5.2 — Disable legacy JWT-based API keys.** On the "Legacy anon, service_role API keys" tab, use the "Disable JWT-based API keys" control at the bottom. Confirm. This is the step that actually kills the leaked key.
 
-**5.2 — Disable legacy API keys first.** This is the precondition Supabase enforced earlier. On the Legacy anon, service_role API keys tab, find the "Disable legacy API keys" button at the bottom → click "Disable JWT-based API keys". Confirm.
+**5.3 — Confirm the legacy key is dead.** Re-run 5.1. Expected `401`/`403`. If still `200`, refresh and retry — the disable did not apply.
 
-**5.3 — Confirm legacy is dead:**
+**5.4 — Revoke the legacy HS256 signing key.** https://supabase.com/dashboard/project/ioypqogunwsoucgsnmla/settings/jwt → "Previously used keys" → Legacy HS256 (Shared Secret) row → three-dot menu → Revoke. Confirm. (This is housekeeping — 5.2 already neutralized the leak. Revoking the signing key removes the ability to mint new legacy JWTs at all.)
 
-Re-run the curl from 5.1. Expected: `401` (or `403`). If still `200`, the disable didn't apply — refresh the page, check the API Keys page state, retry.
-
-**5.4 — Revoke the legacy HS256 signing key.** Now go to https://supabase.com/dashboard/project/ioypqogunwsoucgsnmla/settings/jwt → "Previously used keys" → find the Legacy HS256 (Shared Secret) row → three-dot menu → Revoke. Confirm.
-
-**5.5 — Sanity check production once more:**
-
-- Load TM, open a deal, edit a milestone — should work
-- Generate a CMA — should work
-- Load brain app — should work
-
-If any of these fail at this point, the legacy key was still being used somewhere the audit missed. Use Vercel env vars to swap that project to the new key urgently, redeploy. The legacy is now dead so there's no "rollback" — only "forward fix."
+**5.5 — Production smoke test once more:** TM milestone edit, CMA generation, brain-app load. If anything fails here, the audit missed a consumer — there is no rollback now, only forward fix: swap that project's env var to the new key and redeploy urgently.
 
 ## Section 6 — Cleanup (10 min)
 
-**6.1 — Update local `.env.local` files** on Brian's Mac. **Do NOT commit these — they're gitignored.**
+**6.1 — Update local `.env.local` files** on Brian's Mac (gitignored — do NOT commit):
 
     cd ~/Documents/hgpg-transaction-manager
-    # Edit .env.local: replace the SUPABASE_SERVICE_ROLE_KEY value with the new sb_secret_* value
+    (edit .env.local: replace SUPABASE_SERVICE_ROLE_KEY with the new sb_secret_ value)
 
     cd ~/Documents/hgpg-cma-tool
-    # Edit .env.local: replace SUPABASE_SERVICE_ROLE_KEY
-    # ALSO fix SUPABASE_URL — current value points at wdheejgmrqzqxvgjvfee (Listing Reports), should be ioypqogunwsoucgsnmla (HGPG Core).
+    (edit .env.local: replace SUPABASE_SERVICE_ROLE_KEY; ALSO fix SUPABASE_URL — it points at wdheejgmrqzqxvgjvfee, should be ioypqogunwsoucgsnmla)
 
-**6.2 — Close any open Terminal windows** that had `SUPABASE_SERVICE_ROLE_KEY` exported from the previous session. The export only lives in that shell's memory, but closing the window guarantees it's gone.
+**6.2 — Delete the orphaned `newkey`** if Section 2.3 found it unused.
 
-**6.3 — Update the brain.** Append a new entry to the top of `SESSION-HANDOFF.md` via `POST /api/external/write` covering:
+**6.3 — Close any Terminal windows** that had `SUPABASE_SERVICE_ROLE_KEY` or `LEGACY_KEY` exported during the session.
 
-- Rotation completed, legacy HS256 secret revoked
-- New `sb_secret_*` key in use across N projects
-- Audit list of projects rotated
-- Any surprises found during the audit (orphaned keys, misconfigured `.env.local` files, etc.)
-- Cluster C session can now resume (it was paused on this)
-
-Also archive this brief or leave it in place with a final "STATUS: COMPLETE" line at the top.
+**6.4 — Update the brain.** New entry at the top of `SESSION-HANDOFF.md` via `POST /api/external/write`: migration completed, legacy JWT keys disabled + HS256 secret revoked, new `sb_secret_*` key live across N projects, the audited project list, any surprises (orphaned keys, the CMA `.env.local` URL drift, any Bearer-header fixes), and that Cluster C can now resume. Set this brief's status line to `STATUS: COMPLETE` with the date.
 
 ## Estimated total
 
 - Section 1 pre-flight: 5 min
-- Section 2 audit: 15-25 min
+- Section 2 audit: 15-30 min (the Bearer-header audit is the variable — empty result is fast, a hit that needs a code fix adds 15-20 min)
 - Section 3 provision: 5 min
-- Section 4 cutover: 30-45 min (depends on how many projects)
-- Section 5 revocation: 5 min
+- Section 4 cutover: 30-45 min
+- Section 5 disable + revoke: 5-10 min
 - Section 6 cleanup: 10 min
 
-**Total: 70-95 min of focused work.** Less if no surprises in the audit; more if a missed project surfaces during revocation.
+**Total: 75-105 min of focused work, start to finish.** Realistically ~80 min if the audit is clean (no manual Bearer headers, no missed projects). The leaked key is dead at the end of Section 5.2 — roughly the 55-70 min mark — so the actual exposure closes before cleanup.
 
 ## Stop conditions
 
 Stop and ask Brian if:
-
-- Section 2 audit surfaces a project that uses the legacy key in a way that's hard to redeploy (e.g., a Lambda, a non-Vercel host, a cron in a different system)
-- The existing `newkey` secret in the Supabase dashboard turns out to be in production use by a project we didn't know about
-- Any verification curl in Section 4 returns `200` for a project we just updated (means the new key was rejected — possible mismatch between client expectation and key format)
-- Section 5.2 "Disable legacy API keys" returns an error or won't let us click confirm
-- After Section 5.4 revocation, any production smoke test fails
+- The audit surfaces a legacy-key consumer that is hard to redeploy (a non-Vercel host, a cron in another system)
+- The Bearer-header audit (2.4) finds manual `Authorization: Bearer <service_role>` usage that needs a non-trivial code change
+- The existing `newkey` turns out to be used by a project not in this brief
+- A Section 4 verification 401s after an env update (possible key-format mismatch)
+- Section 5.2 "Disable JWT-based API keys" errors or won't confirm
+- Any production smoke test fails after 5.2
 
 ## Rollback plan
 
-**Before Section 5.4** (revocation): trivial — re-set Vercel env var to legacy JWT on any failing project, redeploy, you're back. The legacy key is still valid until revoked.
+**Before Section 5.2:** trivial — re-set the failing project's Vercel env var to the legacy JWT, redeploy. The legacy key is valid until disabled.
 
-**After Section 5.4 revocation**: the legacy key is dead, there's no rollback. The only path is forward: find the missed project, update its env var to the new sb_secret_, redeploy. The revocation is fast but the recovery from a missed audit is slow — that's why Section 2 (audit) is critical and Section 4 (cutover) goes one project at a time with verification at each step.
+**After Section 5.2:** the legacy key is dead, no rollback. Forward fix only — find the missed consumer, set its env var to the new `sb_secret_` key, redeploy. This is why Section 2 audit and Section 4 one-at-a-time verification matter.
+
+## Why future leaks are now a two-click fix
+
+Once HGPG Core is on the new key system, a future leak of an `sb_secret_*` key is handled by: create a new secret key in the dashboard → swap the env var(s) → delete the compromised key. No JWT-secret rotation, no anon-key collateral, no dropped sessions. The remaining friction is purely env-var distribution — addressed by the follow-up below.
+
+## Follow-up (separate sessions, not this one)
+
+- **Other four Supabase projects.** HGPG Listing Reports + MLS, HGPG Signature + Relocation, HGPG FUB Integration, Suna/HGPG1's Project — migrate each to `sb_secret_*` on its own so a leak anywhere is a two-click fix. Not urgent (no known leak); schedule deliberately.
+- **Env-var distribution consolidation.** Today each Vercel project stores its own copy of the secret key. Move to a single Vercel team-level shared environment variable so a future rotation is "change one value, redeploy projects" instead of editing N projects. Small task, big payoff — do it right after this migration.
+- **Per-app secret keys.** New system allows multiple `sb_secret_*` keys. Eventually give each app its own named secret key so a leak is scoped to one app and the others need no action at all. This is the real end state.
+- **Cluster C TM RLS hardening** — was paused on this work; resume in a fresh session after migration. Brief: `projects/cluster-c-path-3-brief.md`.
 
 ## Things NOT in scope
 
-- Don't tackle Cluster C in the same session. Rotate first, then Cluster C in a fresh session.
-- Don't migrate the anon side of any project that's still on legacy. The current state has TM and CMA already on `sb_publishable_*` for anon; if any other project surfaces with legacy anon, document it but don't touch it during rotation.
-- Don't try to rotate the JWT signing key for HGPG Listing Reports + MLS, HGPG Signature + Relocation, HGPG FUB Integration, or Suna projects. The leak only affects HGPG Core.
+- Don't tackle Cluster C in the same session.
+- Don't migrate the anon side of any project — HGPG Core anon is already on `sb_publishable_*`; if another project surfaces with legacy anon, document it, don't touch it.
+- Don't migrate the other four Supabase projects in this session (see Follow-up).
 
 ## Key references
 
@@ -253,5 +239,5 @@ Stop and ask Brian if:
 - Supabase API Keys page: https://supabase.com/dashboard/project/ioypqogunwsoucgsnmla/settings/api
 - Supabase JWT Keys page: https://supabase.com/dashboard/project/ioypqogunwsoucgsnmla/settings/jwt
 - Vercel team: `team_FietQPKCmnyioG2n0FdteQCV`
-- Brain APIs: `https://brain.homegrownpropertygroup.com/api/external/{read,write,commit,log}` with bearer token in keychain
-- Cluster C Path 3 brief (next session after rotation): `projects/cluster-c-path-3-brief.md`
+- Brain APIs: `https://brain.homegrownpropertygroup.com/api/external/{read,write,commit,log}`
+- Cluster C Path 3 brief (next session after migration): `projects/cluster-c-path-3-brief.md`
