@@ -1,8 +1,52 @@
-<!-- Last Updated: 2026-05-20 -->
+<!-- Last Updated: 2026-05-21 -->
 
 # Session Handoff
 
-## Last session: 2026-05-20 (PM) — /api/meta-insights bearer-token auth shipped 🟢
+## Last session: 2026-05-21 — /api/meta-insights date window bug fixed (Option A) + loud-error guard 🟢
+
+### Context
+Ads project handed over a spec (`META_INSIGHTS_DATE_WINDOW_FIX_SPEC.pdf`) flagging that 7d/30d/90d all returned identical totals ($3,253.79 / 295 leads). Same class as the Pipeboard scoping bug from 2026-05-19: the MCP wrapper silently ignores `date_preset` and falls through to its default `time_range="maximum"` (lifetime). Spec proposed Option A (swap `date_preset` for explicit `time_range: {since, until}`, ~10 min) and Option B (90d daily pull + server-side aggregation, ~1 hour) as fallback.
+
+### What shipped
+1. **Option A landed in `app/api/meta-insights/route.ts`** (commit `96b256a`). `buildScopedInsightsArgs()` now sends `time_range: { since: fmt(today-days), until: fmt(today) }` instead of `date_preset: DATE_PRESETS[days]`. `DATE_PRESETS` map kept as-is — still serves as the validation allowlist for the `days` query param.
+
+2. **Verification (post Pipeboard Pro upgrade):**
+    - 7d: $603.74 / 106 leads
+    - 30d: $1,193.84 / 249 leads
+    - 90d: $2,589.71 / 295 leads
+    
+    Monotonic across windows, 7d well under the old broken $3,253.79 lifetime figure. CPLs $5.70 / $4.79 / $8.78 — within expected range.
+
+3. **Loud-error guard in `callTool()`** (commit `4bdf1b0`). Detects Pipeboard's `isError: true` envelope AND plain-text quota/plan-limit responses (matched via lowercase substring on "weekly limit", "trial commands", "upgrade to", "rate limit", "quota", or "error"-prefixed text that isn't JSON). Throws so the route's existing 502 path surfaces the actual error message. Prevents the silent-`$0`-spend regression that masked today's rate-limit hit for ~30 min.
+
+4. **`projects/transaction-manager.md`** — added `date_preset` ignored bullet to the Pipeboard MCP gotchas section, alongside the existing scoping-args and filtering-array gotchas. Commit `2c0b60f`.
+
+### The rate-limit detour (worth remembering)
+First Option A verification returned `$0.00 / 0 leads` across all three windows. Spent ~20 min chasing potential bugs in the date math, the JSON-RPC payload shape, and Meta's `today`-vs-`yesterday` exclusion quirk before Brian flagged that his Pipeboard Free-plan dashboard read **100/30 weekly executions** — the previous session's debugging had blown through the quota. Pipeboard's quota error came back as a plain-text content block (not the JSON-RPC `error` envelope `pipeboardCall()` already catches), so `extractRows()` swallowed it as zero rows. Upgraded to Pipeboard Pro ($29.90/mo, 500 weekly executions, 7-day trial), re-ran the curls, Option A confirmed working. Loud-error fix shipped immediately to prevent recurrence.
+
+### Brain writes this session
+- `app/api/meta-insights/route.ts` — Option A (date_preset → time_range) + loud-error guard in callTool
+- `projects/transaction-manager.md` — Pipeboard MCP gotchas updated
+- `SESSION-HANDOFF.md` — this entry
+
+### Lessons / patterns
+- **Pipeboard's MCP wrapper ignores params silently AND inconsistently.** Already documented: `filtering` array (ignored), scoping args on `get_campaigns/get_adsets/get_ads` (ignored). Now add: `date_preset` (ignored, falls through to `time_range="maximum"` default). The pattern: when Pipeboard ignores a param, it returns lifetime/unscoped data rather than erroring. Belt-and-suspenders all date/scoping params until proven honored.
+- **Pipeboard's `get_insights` tool schema accepts `time_range` as EITHER a preset string OR a `{since, until}` object** — both documented and both forwarded to the Graph API. The object shape is what works for arbitrary windows.
+- **Plain-text error responses bypassed JSON-RPC error handling.** `pipeboardCall()` already throws on `parsed.error`, but Pipeboard's plan-limit message arrives as a successful JSON-RPC result with the error text in `content[0].text`. Always check for `isError: true` on result envelopes AND apply a heuristic plain-text error sniff for cases where the upstream doesn't set the flag.
+- **Default-to-`maximum` is the silent failure mode of date_preset.** The 2026-05-19 dashboard build was running on lifetime data the whole time and nobody caught it because the numbers looked plausibly "high enough." Always verify time-filtered API responses by sanity-checking that different windows return different totals — the cheapest test is the one in the spec PDF.
+
+### Open / parked from this session
+- **Option B (90d daily pull + server-side aggregation)** is no longer urgent (Option A works on Pro) but still worth shipping as polish: drops Pipeboard calls per dashboard load from ~4 to ~1, unlocks the parked trend-sparkline enhancement from 2026-05-19. ~1 hour. Not blocking anything.
+- **`/api/debug-meta-ads` cleanup** still slated for removal per `projects/transaction-manager.md` line 137.
+
+### Pickup for next session
+- Ads project can now re-run the 7d/30d performance review against correct date windows — ping queued in this Tech & Builds session response.
+- If `/api/meta-insights` ever returns a 502 with `Pipeboard tool error (...)` in the message, the loud-error guard is doing its job — the upstream is the problem, not the route. Pipeboard's response copy is the diagnostic.
+- Pipeboard Pro trial is 7 days. Mark calendar around 2026-05-28 to decide on continuing.
+
+---
+
+## Earlier session: 2026-05-20 (PM) — /api/meta-insights bearer-token auth shipped 🟢
 
 ### Context
 Ads project handed over a spec (`META_INSIGHTS_BEARER_AUTH_SPEC.pdf`) to add bearer-token auth to TM's `/api/meta-insights` so Claude sessions in the Ads project can query the dashboard's enriched insights JSON directly, instead of Brian copy-pasting between sessions. Spec was tight: one-file edit at `app/api/meta-insights/route.ts` lines 461-465, plus a new `META_INSIGHTS_TOKEN` env var with Sensitive=OFF.
@@ -35,7 +79,7 @@ Ads project handed over a spec (`META_INSIGHTS_BEARER_AUTH_SPEC.pdf`) to add bea
 
 ---
 
-## Previous session: 2026-05-20 (AM) — Supabase security advisor cleanup (HGPG Core) 🟢
+## Earlier session: 2026-05-20 (AM) — Supabase security advisor cleanup (HGPG Core) 🟢
 
 ### Context
 Supabase emailed Brian with 2 ERROR-level security findings on HGPG Core (ioypqogunwsoucgsnmla):
@@ -418,3 +462,4 @@ Brian (in Ads project) asked Claude to run a Meta Ads performance review across 
 - Brain-app local dev: `cd ~/brain-app && npm run dev` on Mac mini (work machine)
 - Brain-app local on iMac: same setup, repo at `~/Developer/brain-app` if rebuilt, otherwise needs fresh `gh repo clone HGPG1/brain-app` + `npm install` + `cp env.example .env.local`
 - The `package-lock.json` may differ between iMac and Mac mini — push from whichever machine you most recently ran `npm install` on
+
