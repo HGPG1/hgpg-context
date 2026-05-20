@@ -2,7 +2,101 @@
 
 # Session Handoff
 
-## Last session: 2026-05-20 (later) — SG-2026 attribution gap investigated, no gap found 🟢
+## Last session: 2026-05-20 (latest) — /api/meta-insights leads inflation fixed (4x bug) 🟢
+
+### TL;DR
+
+Ads-side correctly identified the closings.homegrownpropertygroup.com `/api/meta-insights` endpoint as the source of the SG-2026 "4 leads" inflation. Their direct Meta Graph API audit returned `lead=1, fb_pixel_lead=1, onsite_web_lead=1` for CONV ad set 52506271965563 — three aliases reporting the SAME single submission. Endpoint's `sumLeadActions()` was doing substring match `t.includes("lead")` which summed all aliases into one inflated leads count. Fixed in commit `79f89c7`, deployed to main, awaiting Vercel auto-deploy + 60s cache TTL bust.
+
+**Every CPL and lead count from earlier today (incl. headline findings on Variant E, Variant C, Sellers Guide CPL etc.) came from this endpoint and is corrupted by roughly 3-4x.** Relative ordering between variants probably survives (inflation is roughly uniform). Absolute thresholds in the Variant E day 5-7 decision tree DO NOT survive and need re-derivation from post-fix endpoint reads.
+
+### The bug
+
+File: `hgpg-transaction-manager/app/api/meta-insights/route.ts`
+
+Old `sumLeadActions()`:
+
+    if (t.includes("lead") || t === "complete_registration" || t === "submit_application") {
+      total += Number(a?.value) || 0;
+    }
+
+`t.includes("lead")` matches `lead`, `fb_pixel_lead`, `onsite_web_lead`, `offsite_conversion.fb_pixel_lead`, `leadgen.other`. Meta returns the same event under 3-4 aliases. They all get summed. Daniela = 1 real submission = 4 reported leads.
+
+New version (committed):
+
+    if (t === "lead") {
+      total += Number(a?.value) || 0;
+    }
+
+`complete_registration` and `submit_application` also removed from the fold — those are separate Meta standard events, not lead aliases.
+
+### What this fix touches and what it doesn't
+
+- AFFECTED: `leads` count, `cpl` (= spend / leads). Both were inflated 3-4x.
+- NOT AFFECTED: `spend`, `impressions`, `clicks`, `ctr`, `cpc`. Pulled as scalars directly from Meta row, never went through sumLeadActions.
+
+### Validation Ads needs to run post-deploy
+
+Wait 90s after commit `79f89c7` for Vercel deploy. Endpoint has 60s response cache so the first hit after deploy may still serve stale; either wait 60s more or change the `days=` value to bust the cache key.
+
+    curl -H "Authorization: Bearer $META_INSIGHTS_TOKEN" \
+      "https://closings.homegrownpropertygroup.com/api/meta-insights?days=7&level=adset&parent_id=52506270109163&parent_kind=campaign"
+
+Expected after fix: `totals.leads = 1`, `totals.cpl = ~83.42`, matching Meta Graph API direct read.
+
+### Corrected approximate CPLs (will re-baseline against endpoint post-deploy)
+
+Using rough 4x correction factor (will refine after re-pull):
+
+- Account 7d: $608.87 / ~28 / ~$22 CPL (was reported $5.54)
+- Variant E 9:16: $84.17 / ~9 / ~$9 CPL (was reported $2.27)
+- Variant C: $240.60 / ~14 / ~$17 CPL (was reported $4.22)
+- Variant D: $125.66 / ~3 / ~$42 CPL (was reported $10.47)
+- Sellers Guide CONV: $83.42 / 1 / $83.42 CPL (was reported $20.86)
+
+Note that absolute CPL values shift dramatically. Variant E still outperforms Variant C, Variant D still worst. Sellers Guide CONV no longer beats its $35 target — it's well above at $83/lead with 1 lead in 7d.
+
+### Other unrelated SG-2026 facts confirmed earlier today (still valid)
+
+- Pixel `Lead` event fires only inside `btn-submit-lead` handler's `if (result.ok)` branch. Audited live HTML across all 7 sellersguide.* pages. Form-submit only. Quiz events fire as trackCustom, do not count as Meta Lead.
+- Hostname gate live (`location.hostname === 'sellersguide.homegrownpropertygroup.com'`). Confirmed on `/api/meta/capi` server side and across all browser pixel emissions.
+- FUB `sellers-guide-2026` tag: exactly 1 person (Daniela Portillo, FUB id 32123). Confirmed matches Meta Graph API's actual single lead.
+- `seller_assessments` rows 2026-05-13 → 2026-05-20: 3 rows (Daniela + 2 Brian tests with `utm_campaign=test`/`test2` that don't attribute to the CONV campaign).
+- SG-2026 Nurture templates 1158-1163 exist and are shared. Wiring status via FUB API: 1158/1159/1160/1161/1163 have `automations: []`. 1162 and 1164 wired only to Automation 332 (Cold Nurture, complete). Confirms Send Email steps in the nurture shell are unwired — React Save bug per Ads handoff is real.
+- FUB API blocks `/v1/automations` with 403. The Send Email step rebuild cannot be done from API. Must be done in FUB UI by Brian or Viktor. Use one-step-save-refresh workaround for the React Save bug.
+
+### Open / parked
+
+- Ads-side re-pulls endpoint at 7d/14d/30d after deploy confirms, re-baselines CPL across all active campaigns
+- SG-2026 Nurture rebuild in FUB UI (Brian/Viktor) — unblocked, build spec below
+- IDXRE-B2 sellers + buyers automation activation — gated on (1) nurture rebuild + (2) endpoint re-baseline confirmation
+
+### SG-2026 Nurture build spec (for FUB UI rebuild)
+
+    Trigger: tag added > sellers-guide-2026
+      Day 0:  Email -> Template 1158 (Guide Delivery)
+      Day 2:  Condition: has tag home-selling-score?
+                Yes -> Email Template 1159 (Tier Means)
+                No  -> Email Template 1160 (Didn't Finish)
+      Day 5:  Email Template 1161 (One Thing Most Sellers Get Wrong)
+      Day 10: Email Template 1162 (Local Market Snapshot)
+      Day 17: Task (review + personal outreach) + Email Template 1163 (Live Walkthrough CTA)
+      Day 45: Condition: Agent = Brian?
+                Yes -> Email Template 1164 (Monthly Check-In)
+    Run every time: ON
+    Auto-pause on reply: ON
+
+React Save workaround: add ONE step at a time, save the automation, refresh the page, then add the next step. Saving multiple Send Email steps in a single edit pass has been failing per Ads handoff.
+
+### Pickup notes for next session
+
+- Post-deploy endpoint validation is the very first thing to run
+- Re-baseline all campaign CPLs before any further variant scale/pause decisions
+- Endpoint `sumLeadActions` change is permanent — if a future session widens the match again (e.g. "leads look low, let me add fb_pixel_lead"), they'll be reintroducing this bug. The new function has a header comment explaining why; respect it.
+
+---
+
+## Prior session: 2026-05-20 (later) — SG-2026 attribution gap investigated, no gap found 🟢
 
 ### TL;DR for Ads-side pickup
 
@@ -266,4 +360,5 @@ Outcomes:
 - Brain-app local dev: `cd ~/brain-app && npm run dev` on Mac mini (work machine)
 - Brain-app local on iMac: same setup, repo at `~/Developer/brain-app` if rebuilt, otherwise needs fresh `gh repo clone HGPG1/brain-app` + `npm install` + `cp env.example .env.local`
 - The `package-lock.json` may differ between iMac and Mac mini — push from whichever machine you most recently ran `npm install` on
+
 
