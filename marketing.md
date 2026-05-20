@@ -97,14 +97,17 @@ Each site has its own dedicated Pixel. Server-side CAPI mirror with event_id ded
 ## South Charlotte Report (content brand)
 
 - Handle: `@southcharlottereport`
-- Pipeline: AI avatar (RSS -> script -> HeyGen -> publish)
-- Distribution: Instagram + YouTube
-- Newsletter: Beehiiv
-- Daily pipeline via `morning_fetch.yml` / `run_morning_fetch_enhanced.py`
-- Video normalization for Instagram (H.264, `+faststart`, known-good Reels spec)
-- HTML digest email with red failure banner + subject prefix on downstream failures
-- HeyGen failure short-circuits IG/YouTube checks to prevent cascade false positives
-- Growth levers identified: TikTok expansion, "Comment REPORT" CTA
+- Pipeline (two tracks):
+  - **Daily news (Track 1):** RSS + S3-scraped government/social -> 2-stage brand-safety filter -> Claude script -> HeyGen avatar video -> Instagram Reel + WordPress blog post. Runs `morning_fetch.yml` / `run_morning_fetch_enhanced.py` at 10:00 UTC (5 AM EST / 6 AM EDT).
+  - **Monthly HGPG market video (Track 2):** triggered by `south-charlotte-market-report` repo via `repository_dispatch: market-report-ready`. Publishes to HGPG YouTube only. Runs `hgpg_market_video.yml` / `generate_hgpg_video.py`.
+- Daily distribution: **WordPress + Instagram Reels only** (SCR YouTube Shorts is NOT in use per repo HANDOFF).
+- Monthly distribution: HGPG YouTube only (higher editorial bar).
+- Daily digest email to Brian via **Gmail SMTP** (`GMAIL_SENDER_EMAIL` + `GMAIL_APP_PASSWORD`). Not Resend, not Beehiiv. If a Beehiiv subscriber newsletter exists, it's outside the workflow — needs Brian clarification.
+- Video normalization for Instagram (H.264, `+faststart`, known-good Reels spec).
+- HTML digest email with red failure banner + subject prefix on downstream failures.
+- HeyGen failure short-circuits IG checks to prevent cascade false positives.
+- Growth levers identified: TikTok expansion, "Comment REPORT" CTA.
+- Full project state in `projects/south-charlotte-report.md`.
 
 ## IDX Broker
 
