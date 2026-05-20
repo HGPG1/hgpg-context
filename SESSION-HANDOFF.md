@@ -102,22 +102,54 @@ React Save workaround: add ONE step at a time, save the automation, refresh the 
 
 The "Meta reports 4 leads vs FUB 1" attribution gap **does not exist in the underlying data**. Pulled Meta Insights API directly for CONV ad set 52506271965563 at 7d, 14d, and 30d windows — all return exactly **1 lead** (`offsite_conversion.fb_pixel_lead: 1`, `lead: 1`, `onsite_web_lead: 1`). Matches Daniela Portillo (FUB id 32123) exactly. Pixel wiring is correct. The "4 leads" figure originated somewhere upstream of the API and needs to be re-sourced before any pixel/webhook work happens.
 
-### ⚠️ Lead count discrepancy — closings endpoint suspected unreliable (added 2026-05-20 evening)
+### ✅ RESOLVED — Lead count discrepancy was an endpoint bug, now fixed (added 2026-05-20 late evening)
 
-Tech-side audited the SG-2026 attribution gap and found Meta Insights API direct pull returns lead=1, fb_pixel_lead=1, onsite_web_lead=1 for CONV ad set 52506271965563 across 7d/14d/30d — matching Daniela Portillo exactly and matching FUB and Supabase. **No gap exists between Meta and FUB.**
+Tech-side root-caused and shipped fix in commit 79f89c7 on hgpg-transaction-manager main, file `app/api/meta-insights/route.ts`. Function `sumLeadActions()` was doing substring match `t.includes("lead")` which summed every Meta action_type alias for the same single event (`lead`, `fb_pixel_lead`, `onsite_web_lead`, `offsite_conversion.fb_pixel_lead`). One real submission was being counted 3-4 times. Fix: hard match `action_type === "lead"` only. `complete_registration` and `submit_application` also removed (separate Meta standard events, not lead aliases).
 
-The closings.homegrownpropertygroup.com `/api/meta-insights` endpoint returns `leads: 4` at every level (campaign/adset/ad) for the same window. The endpoint disagrees with the underlying Meta API by ~4x.
+Affected: `leads` and `cpl` (~4x inflated and ~4x understated respectively).
+NOT affected: `spend`, `impressions`, `clicks`, `ctr`, `cpc` — pulled as scalars.
 
-**Likely cause:** the endpoint is summing or unioning multiple Meta action types (`lead` + `fb_pixel_lead` + `onsite_web_lead` and possibly `submit_application_total`) under one "leads" field instead of deduping to the canonical `lead` action. Tech-side owns the endpoint source and can confirm in 30 seconds.
+Validation pass at 7d adset level for SG CONV ad set 52506271965563:
+- Endpoint now returns leads=1, cpl=$83.48 — matches Meta Graph API direct exactly.
 
-**Implication for ALL numbers in this session:** every CPL and lead count below came from the same endpoint and is suspect. Relative variant ordering (C > D, E vertical > C) probably still holds because the inflation likely applies uniformly. But absolute CPL figures are not trustworthy.
+**POST-FIX BASELINE (re-pulled 2026-05-20 late evening):**
 
-**Held until tech-side confirms endpoint fix:**
-- Variant E day 5-7 decision tree (the $3/$5 CPL thresholds were set against inflated numbers)
-- Sellers Guide activation gating (the "Meta says 4, FUB says 1" framing was wrong)
-- Any further variant pause/scale decisions
+Account totals:
+- 7d:  $620.87 / 26 leads / **$23.88 CPL** (was reported $5.54, 4.3x understated)
+- 14d: $868.43 / 38 leads / **$22.85 CPL** (was reported $5.29)
+- 30d: $1210.83 / 57 leads / **$21.24 CPL** (was reported $4.74)
 
-Pixel firing point and webhook delivery are NOT the problem. Tech-side verified pixel fires form-submit only inside `if(result.ok)`, hostname gate live, all quiz/score events are trackCustom and don't count as Meta Leads. The IDXRE-B2 nurture sequence stays blocked on the FUB UI rebuild only (tech-side has the build spec, FUB API blocks /v1/automations with 403).
+New Construction 7d ad level (sample sizes are small now):
+- Variant C (LocalPride, ACTIVE): $240.63 / 13 leads / $18.51 CPL / 2.94% CTR
+- Variant D (Incentives, PAUSED): $125.73 / 3 leads / $41.91 CPL / 3.26% CTR — worst, stay paused
+- Variant E - 9:16 vertical (ACTIVE): $92.85 / 9 leads / **$10.32 CPL** / 3.11% CTR — still the best, but not the "$2.27 breakout" we celebrated
+- Variant E - 1:1 + 4:5 (PAUSED): $5.58 total, 0 delivery, no signal
+
+30d lifetime variant context (best CPL ranking):
+- E vertical: $10.32 CPL (newest, smallest sample, only ~3d in market)
+- C: $13.49 lifetime CPL — but degrading: 7d window is $18.51, lifetime is $13.49, fatigue starting
+- A (paused): $16.16
+- B (paused): $17.82
+- D (paused): $27.64
+
+Sellers Guide CONV: $83.48 spend, 1 lead, $83.48 CPL — **2.4x over the $35 target**, not under it. The "Daniela = Meta = FUB" alignment is now consistent across all three sources. No attribution gap exists. Pixel and webhook clean per tech-side audit.
+
+**Story holds, story changes:**
+- HOLDS: variant ordering (E vertical > C > everything paused). E vertical still the strongest variant, C still degrading.
+- HOLDS: pause D was right.
+- CHANGES: Sellers Guide CONV is NOT beating its target — it's at $83 CPL, ~2.4x over. Single lead in 7 days. Either the lander needs work or the ad creative does or the audience is wrong, but the previous "we're crushing it" framing was bug-driven.
+- CHANGES: Account CPL is ~$22, not ~$5. That's still respectable for lead-gen real estate but the bar is different.
+
+**Recomputed Variant E day 5-7 decision tree (against true CPLs):**
+
+E vertical needs to clear two bars at the day 5-7 read (~May 23-25) for "new control" status:
+1. Volume bar: must hold sub-$15 Meta CPL across ≥$250 cumulative spend AND ≥20 leads. (Was sub-$3 / 100 leads against bug numbers.) If CPL drifts past $15, E is still a B-variant but not the new control.
+2. Stability bar: CTR must stay ≥3.0% (currently 3.11%). Below 3.0% with rising CPL means creative fatigue is starting on a fresh ad.
+
+Outcomes:
+- Both bars cleared → E vertical is the new control, demote C to support, build E square/portrait variants that actually deliver (current ones got no impressions before pause)
+- Volume bar only → E is a strong B-variant, keep both at parity
+- Neither bar → E was a 2-day fluke at small sample, revert to C, retire E
 
 ---
 
