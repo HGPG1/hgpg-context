@@ -2,7 +2,40 @@
 
 # Session Handoff
 
-## Last session: 2026-05-20 — Supabase security advisor cleanup (HGPG Core) 🟢
+## Last session: 2026-05-20 (PM) — /api/meta-insights bearer-token auth shipped 🟢
+
+### Context
+Ads project handed over a spec (`META_INSIGHTS_BEARER_AUTH_SPEC.pdf`) to add bearer-token auth to TM's `/api/meta-insights` so Claude sessions in the Ads project can query the dashboard's enriched insights JSON directly, instead of Brian copy-pasting between sessions. Spec was tight: one-file edit at `app/api/meta-insights/route.ts` lines 461-465, plus a new `META_INSIGHTS_TOKEN` env var with Sensitive=OFF.
+
+### What shipped
+1. **`app/api/meta-insights/route.ts` patched** (commit `b7404392`). Bearer check runs first — `Authorization: Bearer <META_INSIGHTS_TOKEN>` short-circuits to OK. Falls through to existing `getSession()` + `BRIAN_EMAIL` check otherwise. Browser users still gated as before.
+
+2. **Middleware exemption added** (commit `1bd766c2`). First verify attempt returned `{"error":"Unauthorized"}` (capital U) — that's middleware-level 401, not the route handler's `{"error":"Not authorized"}`. Middleware's `PUBLIC_PATHS` only lets bearer auth pass through for `/api/internal/*` or via `CRON_SECRET`; without an exemption, our route-level bearer check never ran. Added `/api/meta-insights` to `PUBLIC_PATHS` with comment "Bearer-auth or session check handled in-route". Same pattern as the `/api/internal/` exemption.
+
+3. **`META_INSIGHTS_TOKEN` env var added** (Brian, Vercel dashboard, Sensitive=OFF, all three environments). Token: held in the Ads project's instructions, not pasted into the brain.
+
+4. **Verification passed.** `curl -H 'Authorization: Bearer ...' '/api/meta-insights?days=7&level=campaign'` returned full enriched JSON: `date_range`, KPI totals (spend $3,252.16, 295 leads, CPL $11.02 over the 7-day window), campaigns array with status enrichment.
+
+### Brain writes this session
+- `app/api/meta-insights/route.ts` — bearer auth path
+- `middleware.ts` — `PUBLIC_PATHS` exemption
+- `projects/transaction-manager.md` — Meta Ads Dashboard section, new bearer-auth bullet
+- `SESSION-HANDOFF.md` — this entry
+
+### Lessons / patterns
+- **Spec accuracy doesn't equal completeness.** The Ads-project spec correctly identified the route file and the line range, but the spec author was looking at the route in isolation and didn't account for the middleware layer in front of it. When patching auth on a route inside a Next.js app, always check the middleware too. The route-level `{"error":"Not authorized"}` vs middleware-level `{"error":"Unauthorized"}` casing difference is the diagnostic tell — if the error message doesn't match what the route handler returns, you're being intercepted upstream.
+- **Middleware `PUBLIC_PATHS` is the right exemption mechanism** for routes that handle their own bearer auth. Mirrors `/api/internal/` and `/api/imessage/inbound`. Don't try to make middleware bearer-aware of every new endpoint — let route handlers own their auth.
+
+### Open / parked from this session
+- None. All within-scope items resolved.
+
+### Pickup for next session
+- Ads project can now query TM's insights API directly. First Ads-session smoke test will confirm end-to-end.
+- If future endpoints need similar bearer-auth treatment, the pattern is: (a) bearer short-circuit before `getSession()` in the route, (b) add to middleware `PUBLIC_PATHS`, (c) env var with Sensitive=OFF.
+
+---
+
+## Previous session: 2026-05-20 (AM) — Supabase security advisor cleanup (HGPG Core) 🟢
 
 ### Context
 Supabase emailed Brian with 2 ERROR-level security findings on HGPG Core (ioypqogunwsoucgsnmla):
@@ -53,7 +86,7 @@ While in the advisor, also worked through the ~38 WARN/INFO-level findings.
 
 ---
 
-## Previous session: 2026-05-19 (PM-2) — South Charlotte Report audit, brain corrected from repo ground truth 🟢
+## Earlier session: 2026-05-19 (PM-2) — South Charlotte Report audit, brain corrected from repo ground truth 🟢
 
 
 ### Context
