@@ -157,7 +157,7 @@ Password: re_... (Resend API key)
 - `hgpg-imessage-bridge` - backs the closings.../api/internal/dm-brian relay
 - `hgpg-home-calculator` - home calculator tool
 - `closing-concierge` - smart home manufacturer link database (decommission pending)
-- `south-charlotte-report` + `south-charlotte-scraper` - @southcharlottereport content brand pipeline
+- `south-charlotte-report` + `south-charlotte-scraper` + `south-charlotte-market-report` - @southcharlottereport content brand pipeline (daily news via RSS+S3, monthly HGPG market video via repository_dispatch from market-report)
 
 ## Archived
 
