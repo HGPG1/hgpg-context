@@ -88,4 +88,5 @@ See `SESSION-HANDOFF.md` for current scratchpad.
 | Meta Ads, lead re-engagement | `marketing.md` |
 | Session protocol, formatting, iMessage | `operations.md` |
 | Specific project state | `projects/<name>.md` |
-| Cluster C TM RLS hardening (Claude Code brief) | `projects/cluster-c-path-3-brief.md` |
+| **🚨 URGENT: Legacy JWT rotation (HGPG Core service_role leaked 2026-05-20)** | `projects/legacy-jwt-rotation.md` |
+| Cluster C TM RLS hardening (Claude Code brief, paused until rotation done) | `projects/cluster-c-path-3-brief.md` |
