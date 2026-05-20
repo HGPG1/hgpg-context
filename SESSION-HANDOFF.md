@@ -1,8 +1,60 @@
-<!-- Last Updated: 2026-05-19 -->
+<!-- Last Updated: 2026-05-20 -->
 
 # Session Handoff
 
-## Last session: 2026-05-19 (PM-2) — South Charlotte Report audit, brain corrected from repo ground truth 🟢
+## Last session: 2026-05-20 — Supabase security advisor cleanup (HGPG Core) 🟢
+
+### Context
+Supabase emailed Brian with 2 ERROR-level security findings on HGPG Core (ioypqogunwsoucgsnmla):
+1. View `public.farm_campaign_roi` defined with SECURITY DEFINER (bypasses RLS on base tables)
+2. Table `public._cma_packet_debug` is in public schema with RLS disabled
+
+While in the advisor, also worked through the ~38 WARN/INFO-level findings.
+
+### What shipped
+1. **`farm_campaign_roi` view recreated with `security_invoker=true`** — same SELECT logic, now respects RLS on base tables (`farm_neighborhoods`, `farm_campaigns`, `farm_leads`). Service role still works (it bypasses RLS). End-user access would depend on per-table policies, but farm system isn't wired into any UI yet so this is theoretical.
+
+2. **`_cma_packet_debug` drop-and-restore incident** — Initial read of the table was wrong. The underscore prefix and zero rows suggested old GLA-debugging scaffolding, so dropped it. But commit `b1c435d` from 2026-05-16 (4 days prior) had added live diagnostic logging to this table inside the CMA packet persist route, to capture Supabase error fields when Vercel log UI was truncating them. Dropping it tanked CMA packet generation entirely — every error path threw on a missing table. **Restored within minutes** with same schema, RLS enabled, anon/authenticated grants revoked, only service_role can write. Original security issue resolved; debug logging functional again.
+
+3. **24 RLS-enabled-no-policy tables — anon/authenticated grants revoked.** These tables were "safe by RLS deny-all" but had full anon/authenticated SELECT/INSERT/UPDATE/DELETE grants. One bad migration adding a permissive policy or disabling RLS would have opened them up. Now they're properly locked down. Service role (used by all app code) unaffected.
+    
+    Tables locked: `amendment_applications`, `bg_activities`, `bg_agents`, `bg_contacts`, `bg_quiz_results`, `cma_feedback`, `concierge_notifications`, `farm_campaigns`, `farm_leads`, `farm_neighborhoods`, `fub_agent_config`, `fub_agent_lead_cooldowns`, `fub_agent_lead_exclusions`, `fub_agent_lead_optouts`, `fub_agent_lead_scores`, `fub_agent_leads`, `fub_agent_log`, `fub_agent_message_drafts`, `fub_agent_message_templates`, `internal_secrets`, `potentially_missed_emails`, `team_vendors`, `transaction_email_match_skipped`, `transaction_emails`.
+    
+    Highest-stakes one was `internal_secrets` which holds `DM_BRIAN_SECRET` (LoopMessage bearer for the dm-brian endpoint).
+
+4. **5 trigger functions pinned to `search_path = public, pg_temp`** — `fub_agent_paragraphs_valid`, `set_agent_profiles_updated_at`, `bg_set_updated_at`, `farm_set_updated_at`, `parties_directory_touch_updated_at`. All trivial `updated_at` triggers, search_path hardening is mechanical.
+
+### Advisor state after this session
+- 2 ERRORs (the emailed ones): **gone**
+- 5 function search_path WARNs: **gone**
+- ~25 `rls_enabled_no_policy` INFOs: still present, but advisor downgraded to INFO since anon/authenticated grants are gone. These are noise now, not security issues.
+
+### Remaining issues, intentionally deferred
+**Cluster C — allow-all RLS policies on transaction_* and template tables (17 WARNs).** Tables: `transactions`, `transaction_milestones`, `transaction_parties`, `transaction_tasks`, `transaction_terms`, `transaction_documents`, `transaction_activity`, `transaction_deadlines`, `milestone_templates`, `milestone_audit_log`, `cma_reports`, `cma_adjustment_defaults`, `document_templates`, `task_templates`, `text_templates`, `reminder_templates`, `rezen_review_candidates`. These have `USING (true)` / `WITH CHECK (true)` policies that effectively bypass RLS. Currently fine because the apps all use service role and don't expose these via anon/authenticated PostgREST, but the policies should be tightened in a dedicated TM hardening session. Multi-app blast radius (TM, CMA Engine, tc-concierge) — don't do this hastily.
+
+**Cluster D — `get_tracker_by_token` SECURITY DEFINER callable by anon (2 WARNs).** Intentional and correct. This is the public client tracker endpoint that lets buyers/sellers check transaction status via a token URL. SECURITY DEFINER bypasses RLS on `transactions`/`transaction_milestones`/`transaction_parties` to return token-scoped data. Leave as-is.
+
+**Cluster E — `pg_trgm` extension in public schema (1 WARN).** Cosmetic. Moving an extension is a real migration with rebuild implications. Skip.
+
+**Cluster F — Leaked password protection disabled in Auth (1 WARN).** Dashboard toggle. Brian needs to do this manually: Supabase Dashboard > Project (ioypqogunwsoucgsnmla) > Authentication > Settings > toggle on "Leaked password protection". Hits HaveIBeenPwned API on signup/change. No-risk to enable; just blocks compromised passwords.
+
+### Lessons / patterns
+- **Don't drop scratch-looking tables without grepping the repo first.** Lock them down instead. The `_cma_packet_debug` incident wasted ~15 minutes and broke CMA generation. Underscore-prefix + zero rows + anon-writable looked like dead scaffolding but was live diagnostic logging from 4 days prior. Future heuristic: if uncertain, prefer "REVOKE + enable RLS + service-role grants" over "DROP".
+- **`/api/external/log?repo=X` is your friend** for understanding why a DB object exists. Pulled the hgpg-cma-tool commit log and spotted `b1c435d` writing to the table.
+- **Advisor INFO vs WARN levels are weighted by whether anon/authenticated have grants.** Removing the grants doesn't add a policy but it does downgrade the lint, which is exactly what you want for service-role-only tables.
+- **`SECURITY DEFINER` functions are not all bad.** `get_tracker_by_token` is the canonical "intentional anon-callable SECURITY DEFINER" pattern: scoped by token, returns a precomputed JSON payload, no SQL injection surface. The advisor is paranoid; the pattern is correct.
+
+### Open / parked from this session
+- None blocking. All within-scope items resolved.
+
+### Pickup for next session
+- If a Supabase advisor email arrives again, only Cluster C-F remain. Cluster F is the only easy win (dashboard toggle). Cluster C is a project, not a session.
+- Don't expect any user-visible regressions from this session's revokes. If TM, CMA, or any FUB-Agent surface fails with permission errors, it means a route is mistakenly hitting Supabase with the anon key instead of service role — that's the actual bug, not the revoke.
+
+---
+
+## Previous session: 2026-05-19 (PM-2) — South Charlotte Report audit, brain corrected from repo ground truth 🟢
+
 
 ### Context
 Brian asked for an audit of the South Charlotte Report pipeline + simplification suggestions. First pass was done without repo access (didn't realize `/api/external/read` existed on brain-app). Brian flagged the gap, second pass pulled repo ground truth via `/api/external/read?repo=south-charlotte-report` and corrected significant brain errors.
