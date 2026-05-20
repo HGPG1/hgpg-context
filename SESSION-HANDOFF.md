@@ -61,7 +61,7 @@ Outcomes:
 
 ### Recommendations sent to Brian today
 1. ✅ Pause Variant D — DONE
-2. Pause E square (52509166115763) and E portrait (52509170611363) — not actioned yet, low priority since they're not burning budget
+2. ✅ Pause E square (52509166115763) and E portrait (52509170611363) — DONE 2026-05-20 PM. Ad set is now C + E vertical only.
 3. ⛔ Do NOT switch Sellers Guide destination URL — CONV is hitting Meta target; FUB gap is upstream attribution, not the lander
 4. ⛔ Do NOT activate FUB sellers automation yet — blocked on T&B rebuild + attribution diagnosis
 5. Day 5-7 re-read scheduled for ~May 23-25 against the decision tree above
@@ -83,6 +83,7 @@ Outcomes:
 - Pipeboard Pro renewal decision (~May 28)
 - Geo-farming postcards blocked on Canopy MLS data (May 22 upload deadline — separate workstream)
 - Brian to sweep FUB UI for `DELETE-ME-test-data` tagged records when time permits
+- Ad set state as of session close: C ACTIVE ($4.22 CPL), E vertical ACTIVE ($2.44 CPL), D + E square + E portrait all PAUSED
 
 ---
 
