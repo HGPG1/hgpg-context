@@ -2,7 +2,99 @@
 
 # Session Handoff
 
-## Last session: 2026-05-20 — Meta insights endpoint fixed, Variant E breakout, FUB attribution gap surfaced 🟢🟡
+## Last session: 2026-05-20 (later) — SG-2026 attribution gap investigated, no gap found 🟢
+
+### TL;DR for Ads-side pickup
+
+The "Meta reports 4 leads vs FUB 1" attribution gap **does not exist in the underlying data**. Pulled Meta Insights API directly for CONV ad set 52506271965563 at 7d, 14d, and 30d windows — all return exactly **1 lead** (`offsite_conversion.fb_pixel_lead: 1`, `lead: 1`, `onsite_web_lead: 1`). Matches Daniela Portillo (FUB id 32123) exactly. Pixel wiring is correct. The "4 leads" figure originated somewhere upstream of the API and needs to be re-sourced before any pixel/webhook work happens.
+
+### What got verified (tech side, read-only)
+
+**Pixel firing point (2a):** Pulled the live served HTML at `https://sellersguide.homegrownpropertygroup.com/home-selling-score/`. Meta standard `Lead` event fires exactly once — inside the `btn-submit-lead` async handler, inside the `if (result.ok)` branch, after `submitAssessmentAndLead(v.values)` succeeds (which requires BOTH Supabase write AND FUB forward to succeed). All other events on the page (`AssessmentStarted`, `ScoreCompleted`, `QuizStarted`, `QuizCompleted`) fire as `trackCustom` and do NOT count as Meta Leads. Hostname gate `HGPG_PIXEL_ENABLED = (location.hostname === 'sellersguide.homegrownpropertygroup.com')` confirmed live. Audited all 7 pages — Lead event exists only on `/home-selling-score/`.
+
+**Meta Insights API direct read (2b):** Campaign 52506270109163 (HGPG-SellersGuide-CONV-2026-Q2), ad set 52506271965563 (CONV-HSS-NCSC-Border):
+- 7d: 6 ads, total spend $81.54, impressions 2362, clicks 46, landing_page_view 20, **lead 1**, fb_pixel_lead 1, onsite_web_lead 1
+- 14d: identical to 7d (campaign launched 5/15)
+- 30d: identical to 7d
+- Top-spend ad: HGPG-SG-C-4x5 ($60.69, 1626 impr, 33 clicks)
+
+**FUB database read:**
+- `seller_assessments` rows 2026-05-13 → 2026-05-20: exactly 3 rows
+  - 2026-05-20 03:38 UTC — Daniela Portillo (FUB id 32123, real, `utm_content=C_5categories_4x5`, IP 174.111.145.68)
+  - 2026-05-15 19:36 UTC — "test mctest" (FUB id 32043, your test, `utm_campaign=test2`, IP 67.197.10.27)
+  - 2026-05-15 19:27 UTC — "Test user" (FUB id 31872, your test, `utm_campaign=test`, IP 67.197.10.27)
+- `seller_assessments_v2_summary` shows same 3 rows. No hidden submissions.
+- `sellers-guide-2026` tag query via FUB MCP: exactly 1 person (Daniela). The 2 tests used `utm_campaign=test`/`test2` not `sellersguide_2026q2`, so they wouldn't attribute to the CONV ad set in Meta's attribution windows.
+
+**Conclusion:** Meta API = 1, FUB = 1, Supabase = 1 (plus 2 tests excluded by campaign attribution). No gap.
+
+### Where the "4 leads" figure likely came from
+
+Best guesses, in order of likelihood:
+1. Ads Manager UI misread — wrong column (Results vs Leads vs Landing Page Views), wrong attribution window, or wrong ad set filter
+2. Conflating `landing_page_view: 20` with leads at a glance
+3. Stale Meta MCP cache from before the closings.* `/api/meta-insights` endpoint fix
+4. Reading from a different account or campaign by mistake
+
+Vercel runtime logs are gone for the 5/13-5/20 window (no Log Drain configured, retention <24h), but the Meta Insights API is canonical and it says 1. No webhook delivery investigation needed.
+
+### Status of templates and automations (read-only via FUB MCP)
+
+| Template | Name | Wired to |
+|---|---|---|
+| 1158 | SG-2026 - Guide Delivery | (none) |
+| 1159 | SG-2026 - What Your Tier Actually Means | (none) |
+| 1160 | SG-2026 - Didn't Finish Your Score? | (none) |
+| 1161 | SG-2026 - The One Thing Most Sellers Get Wrong | (none) |
+| 1162 | SG-2026 - Local Market Snapshot | Automation 332 (Cold Nurture) |
+| 1163 | SG-2026 - Want a Live Walkthrough? | (none) |
+| 1164 | SG-2026 - Monthly Check-In | Automation 332 (Cold Nurture) |
+
+Confirms the React Save bug: Nurture shell has zero Send Email steps pointed at any of the 7 templates. Cold Nurture (332) is intact. FUB API blocks `/v1/automations` with 403 so the Nurture rebuild MUST happen in the FUB UI — cannot be done programmatically.
+
+### Rebuild spec for FUB UI (one-step-save-refresh to dodge React bug)
+
+Sequence (also delivered to Brian inline this session):
+
+    Trigger: tag added > sellers-guide-2026
+    Day 0:  Email -> Template 1158
+    Day 2:  Condition: has tag home-selling-score?
+              YES -> Email Template 1159
+              NO  -> Email Template 1160
+    Day 5:  Email Template 1161
+    Day 10: Email Template 1162
+    Day 17: Task (review + personal outreach) + Email Template 1163
+    Day 45: Condition: Assigned Agent = Brian?
+              YES -> Email Template 1164
+    Run every time: ON
+    Auto-pause on reply: ON
+
+### Parked
+
+- SG-2026 Nurture UI rebuild (Brian/Viktor) — spec above, one-step-save-refresh
+- Validate rebuild with a fresh test contact (NOT Daniela) tagged `sellers-guide-2026`, watch Day 0 send
+- Ads-side: re-source the "4 leads" figure or accept Meta API count of 1
+- After (1) and re-source land: activate IDXRE-B2 sellers + buyers in parallel
+- Day 5-7 Variant C vs E CPL re-read (~May 23-25)
+- Pipeboard Pro renewal decision before ~May 28
+
+### Pickup notes for next session
+
+**For Ads-side Claude rechecking the gap:**
+- The Insights API truth is `act_31445287` / campaign `52506270109163` / ad set `52506271965563`
+- Pull via Pipeboard MCP: `bulk_get_insights(level="adset", account_ids=["act_31445287"], campaign_ids=["52506270109163"], time_range="last_7d", fields=["spend","impressions","clicks","actions"])`
+- Or hit `closings.homegrownpropertygroup.com/api/meta-insights?days=7&level=adset&parent_id=52506270109163&parent_kind=campaign` with `META_INSIGHTS_TOKEN`
+- Expected: `lead: 1`, `fb_pixel_lead: 1`. If you see 4, the source you're reading is wrong.
+
+**For Tech-side next session:**
+- If Brian comes back with confirmation of where "4 leads" came from and it points to a real ingestion issue (not a misread), revisit. Otherwise the pixel/webhook chain is verified clean.
+- Daniela Portillo (32123) enrollment status in rebuilt Nurture is the real validator. Watch her activity feed once Brian/Viktor rebuild.
+
+---
+
+## Earlier session: 2026-05-20 — Meta insights endpoint fixed, Variant E breakout, FUB attribution gap surfaced 🟢🟡
+
+
 
 ### What got verified
 - `/api/meta-insights` on closings.homegrownpropertygroup.com is returning correctly-windowed data. 7d/14d/30d all distinct, no lifetime-cache pollution. Bug fixed, 60s TTL holding.
@@ -87,7 +179,7 @@ Outcomes:
 
 ---
 
-## Prior session: 2026-05-06 — Brain App MVP shipped 🟢
+## Even earlier session: 2026-05-06 — Brain App MVP shipped 🟢
 
 ### What got built
 - New Vercel project: `brain-app` on team `team_FietQPKCmnyioG2n0FdteQCV`
@@ -136,3 +228,4 @@ Outcomes:
 - Brain-app local dev: `cd ~/brain-app && npm run dev` on Mac mini (work machine)
 - Brain-app local on iMac: same setup, repo at `~/Developer/brain-app` if rebuilt, otherwise needs fresh `gh repo clone HGPG1/brain-app` + `npm install` + `cp env.example .env.local`
 - The `package-lock.json` may differ between iMac and Mac mini — push from whichever machine you most recently ran `npm install` on
+
